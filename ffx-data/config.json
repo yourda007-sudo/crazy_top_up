@@ -7,7 +7,9 @@
     "banner-1794053286889-4192.jpg"
   ],
   "quick": null,
-  "images": null,
+  "images": {
+    "pop": "img-pop-1794280413396.png"
+  },
   "prod": null,
   "texts": null
 }
