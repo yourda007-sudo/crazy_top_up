@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "Crazy_top_up (24)",
+  "short_name": "CrazyTopUp24",
+  "description": "Gaming top-up store with Spin & Win discounts, Wallet cashback, VIP tiers, and instant support.",
+  "start_url": "/FFX.html",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#0c1118",
+  "background_color": "#0c1118",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

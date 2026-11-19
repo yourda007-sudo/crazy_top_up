@@ -74,11 +74,19 @@
       goldenSpins: 0,
       scratchers: 0,
       vipMultiplier: 1,
+      walletBalanceBdt: 0,
+      lifetimeSpendBdt: 0,
+      walletRequests: [],
       boxes: [],
       offers: [],
       activeOfferId: null,
       spinHistory: [],
-      soundEnabled: true
+      savedProfiles: [],
+      orders: [],
+      soundEnabled: true,
+      lastSpinDate: null,
+      lastDailyResetDate: null,
+      dailySpinByUser: {}
     };
   }
 
@@ -111,6 +119,444 @@
   var confettiInstance = null;
   var confettiTimers = [];
   var guardNeedMutation = false;
+  var showAuthRequiredModal = false;
+  var showDailyLimitModal = false;
+  var countdownIntervalId = null;
+  var forceLoggedIn = null;
+  var REF_STORAGE_KEY = 'sw_pending_ref_v1';
+  var apiAvailable = null; // null = untested, true = server.js active, false = static fallback
+  var serverHasSpunToday = false;
+  var lastSyncedUserKey = '';
+  var streakState = { streakCount: 0, streakLastDate: null, streakUnlockedToday: false };
+  var referralState = { referralCode: '', referredBy: null, referredCount: 0, referralBonusEarned: 0, firstOrderBonusPending: false };
+  var offerRules = { expiryHours: 24, bigPercentThreshold: 40, bigFlatThreshold: 200, minOrderBdt: 300, maxDiscountBdt: 150 };
+  var paymentNumbers = { bkash: '01700-000024', nagad: '01800-000024', rocket: '01900-000024' };
+  var supportConfig = { whatsapp: '8801700000024', telegram: 'https://t.me/crazy_top_up_24' };
+  var walletCashbackPercent = 3;
+  var flashSaleConfig = null;
+  var announcementConfig = { active: false, tagLabel: 'NOTICE', text: '' };
+  var promoBanners = [];
+  var activeBannerIdx = 0;
+  var bannerTimerStarted = false;
+
+  function compressProofImage(file, cb) {
+    if (!file) { cb(''); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var maxW = 900;
+          var w = img.width;
+          var h = img.height;
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          cb(canvas.toDataURL('image/jpeg', 0.78));
+        } catch (err) {
+          cb(String(reader.result || ''));
+        }
+      };
+      img.onerror = function () { cb(String(reader.result || '')); };
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = function () { cb(''); };
+    reader.readAsDataURL(file);
+  }
+  var leaderboardData = {
+    topBuyers: [
+      { name: 'Sakib', vipRank: 'Gold', metricValue: 6450 },
+      { name: 'Nabil', vipRank: 'Gold', metricValue: 3820 },
+      { name: 'Tanvir', vipRank: 'Silver', metricValue: 1940 },
+      { name: 'Rafi', vipRank: 'Silver', metricValue: 1250 }
+    ],
+    topReferrers: [
+      { name: 'Rafi', vipRank: 'Gold', metricValue: 9 },
+      { name: 'Arif', vipRank: 'Silver', metricValue: 6 },
+      { name: 'Fahim', vipRank: 'Silver', metricValue: 4 },
+      { name: 'Siam', vipRank: 'Bronze', metricValue: 3 }
+    ]
+  };
+  var deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (location.hash === '#spin-checkout') renderCheckoutView();
+    injectSiteTriggers();
+  });
+  function triggerPwaInstall() {
+    if (deferredInstallPrompt && typeof deferredInstallPrompt.prompt === 'function') {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then(function () {
+        deferredInstallPrompt = null;
+        if (location.hash === '#spin-checkout') renderCheckoutView();
+      }).catch(function () {});
+    } else {
+      alert('অ্যাপ ইনস্টল করতে ব্রাউজার মেনু (⋮ / Share) থেকে "Add to Home Screen" বা "Install App" চাপুন।');
+    }
+  }
+  function getVipSpendStatusLocal(spendRaw) {
+    var spend = Math.max(0, Number(spendRaw) || 0);
+    var ranks = [
+      { rank: 'Bronze', min: 0, pct: 0 },
+      { rank: 'Silver', min: 1000, pct: 2 },
+      { rank: 'Gold', min: 3000, pct: 4 },
+      { rank: 'Diamond', min: 8000, pct: 7 }
+    ];
+    var idx = 0;
+    for (var i = 0; i < ranks.length; i++) {
+      if (spend >= ranks[i].min) idx = i;
+    }
+    var cur = ranks[idx];
+    var nxt = idx < ranks.length - 1 ? ranks[idx + 1] : null;
+    if (!nxt) {
+      return { rank: cur.rank, lifetimeSpendBdt: spend, discountPercent: cur.pct, nextRank: null, nextThresholdBdt: cur.min, progressPercent: 100 };
+    }
+    var span = Math.max(1, nxt.min - cur.min);
+    var pct = Math.min(100, Math.round(((spend - cur.min) / span) * 100));
+    return { rank: cur.rank, lifetimeSpendBdt: spend, discountPercent: cur.pct, nextRank: nxt.rank, nextThresholdBdt: nxt.min, progressPercent: pct };
+  }
+  var recentWinners = [
+    { id: 'seed-1', userName: 'Sakib', rewardTitle: '৳50 ভাউচার', timeLabel: '2m ago' },
+    { id: 'seed-2', userName: 'Nabil', rewardTitle: '25% OFF', timeLabel: '5m ago' },
+    { id: 'seed-3', userName: 'Tanvir', rewardTitle: '+35% Bonus', timeLabel: '9m ago' },
+    { id: 'seed-4', userName: 'Rafi', rewardTitle: '৳100 Voucher', timeLabel: '14m ago' }
+  ];
+
+  // Capture ?ref=CODE on landing
+  try {
+    var urlParams = new URLSearchParams(window.location.search);
+    var refQ = (urlParams.get('ref') || '').trim().toUpperCase();
+    if (refQ) localStorage.setItem(REF_STORAGE_KEY, refQ);
+  } catch (e) {}
+
+  function getUserDisplayName() {
+    var accName = document.getElementById('accName');
+    var raw = accName && accName.textContent ? accName.textContent.replace(/^hi,\s*/i, '').trim() : '';
+    if (raw && !/^guest$/i.test(raw)) return raw;
+    var k = getUserKey();
+    if (k && k !== '__default__') return k.split('@')[0];
+    return 'Player';
+  }
+
+  function applyOfferRulesMeta(offer) {
+    if (!offer) return offer;
+    var r = offerRules || {};
+    var isBig = (offer.rewardType === 'percent_discount' && offer.value >= (r.bigPercentThreshold || 40)) ||
+                (offer.rewardType === 'flat_discount' && offer.value >= (r.bigFlatThreshold || 200));
+    if (offer.minOrderBdt == null) offer.minOrderBdt = isBig ? (r.minOrderBdt || 300) : 0;
+    if (offer.maxDiscountBdt == null) offer.maxDiscountBdt = (isBig && offer.rewardType !== 'bonus_percent') ? (r.maxDiscountBdt || 150) : 0;
+    if (!offer.expiresAt) offer.expiresAt = Date.now() + Math.max(1, r.expiryHours || 24) * 3600000;
+    return offer;
+  }
+
+  function isOfferExpired(o) {
+    return Boolean(o && o.expiresAt && Date.now() >= o.expiresAt);
+  }
+
+  function formatOfferExpiry(expiresAt) {
+    if (!expiresAt) return '24h';
+    var diff = expiresAt - Date.now();
+    if (diff <= 0) return 'Expired';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    if (h > 0) return h + 'h ' + m + 'm বাকি';
+    return m + 'm ' + s + 's বাকি';
+  }
+
+  function getActiveOffersList() {
+    return state.offers.filter(function (o) { return !o.used && !isOfferExpired(o); });
+  }
+
+  function getShareReferralUrl() {
+    var code = referralState.referralCode || ('CTU' + (getUserKey() !== '__default__' ? getUserKey().replace(/[^a-z0-9]/gi, '').slice(0, 5).toUpperCase() : 'GUEST'));
+    return window.location.origin + window.location.pathname + '?ref=' + encodeURIComponent(code);
+  }
+
+
+  function validateDropinUid(catId, rawUid) {
+    var uid = String(rawUid || '').trim();
+    if (!uid) return { ok: false, error: 'অনুগ্রহ করে Player UID দিন।' };
+    var gid = String(catId || '').toLowerCase();
+    if (gid === 'uid-bd' || gid === 'wm' || gid === 'wl' || gid === 'lu' || gid === 'likes' || gid === 'indo' || gid === 'freefire') {
+      if (!/^\d{6,15}$/.test(uid)) {
+        return { ok: false, error: 'সঠিক Free Fire UID দিন (৬-১৫ সংখ্যার নম্বর, কোনো স্পেস বা অক্ষর নয়)।' };
+      }
+      return { ok: true, uid: uid };
+    }
+    if (gid === 'pubg') {
+      if (!/^\d{8,14}$/.test(uid)) return { ok: false, error: 'PUBG Player ID ৮-১৪ সংখ্যার হতে হবে।' };
+      return { ok: true, uid: uid };
+    }
+    if (gid === 'mlbb') {
+      if (!/^\d{5,12}\s*[\(\s-]?\d{3,6}\)?$/.test(uid)) {
+        return { ok: false, error: 'MLBB ID ফরম্যাট: UserID (ZoneID), যেমন 123456789 (1234)।' };
+      }
+      return { ok: true, uid: uid };
+    }
+    if (uid.length < 4) return { ok: false, error: 'সঠিক Player UID দিন (ন্যূনতম ৪ অক্ষর)।' };
+    return { ok: true, uid: uid };
+  }
+
+  function applyCatalogData(catData) {
+    if (!catData || !Array.isArray(catData.games) || !Array.isArray(catData.packages)) return;
+    if (!catData.games.length) return;
+    CO_CATEGORIES = catData.games.map(function (g) {
+      var pkgs = catData.packages.filter(function (p) { return p.gameId === g.id; }).map(function (p) {
+        return {
+          id: p.id,
+          name: p.amountLabel || p.name || 'Package',
+          bonus: p.bonusLabel || p.bonus || '',
+          price: Number(p.priceBdt != null ? p.priceBdt : (p.price || 100)),
+          popular: Boolean(p.popular),
+          inStock: p.inStock !== false
+        };
+      });
+      return {
+        id: g.id,
+        name: g.name,
+        publisher: g.publisher || 'Official',
+        currency: g.currencyName || g.currency || 'Credits',
+        uidLabel: g.uidLabel || 'Player UID',
+        uidPlaceholder: g.uidPlaceholder || 'Enter UID',
+        active: g.active !== false,
+        packages: pkgs
+      };
+    });
+  }
+
+  function applyServerPayload(data, markAvailable) {
+    if (!data) return;
+    if (markAvailable) apiAvailable = true;
+    if (Array.isArray(data.recentWinners) && data.recentWinners.length) {
+      recentWinners = data.recentWinners;
+    }
+    if (data.rules) offerRules = Object.assign({}, offerRules, data.rules);
+    if (typeof data.hasSpunToday === 'boolean') serverHasSpunToday = data.hasSpunToday;
+    if (data.streak) streakState = Object.assign({}, streakState, data.streak);
+    if (data.referral) referralState = Object.assign({}, referralState, data.referral);
+    if (data.paymentNumbers) paymentNumbers = Object.assign({}, paymentNumbers, data.paymentNumbers);
+    if (data.support) supportConfig = Object.assign({}, supportConfig, data.support);
+    if (typeof data.walletCashbackPercent === 'number') walletCashbackPercent = data.walletCashbackPercent;
+    if (data.flashSale) flashSaleConfig = data.flashSale;
+    if (data.leaderboard) leaderboardData = data.leaderboard;
+    if (data.announcement) announcementConfig = data.announcement;
+    if (Array.isArray(data.banners)) promoBanners = data.banners.filter(function (b) { return b && b.active !== false; });
+    if (data.catalog) applyCatalogData(data.catalog);
+    if (data.state) {
+      state.spins = typeof data.state.spins === 'number' ? data.state.spins : state.spins;
+      state.goldenSpins = typeof data.state.goldenSpins === 'number' ? data.state.goldenSpins : state.goldenSpins;
+      state.scratchers = typeof data.state.scratchers === 'number' ? data.state.scratchers : state.scratchers;
+      if (typeof data.state.walletBalanceBdt === 'number') state.walletBalanceBdt = data.state.walletBalanceBdt;
+      if (typeof data.state.lifetimeSpendBdt === 'number') state.lifetimeSpendBdt = data.state.lifetimeSpendBdt;
+      if (Array.isArray(data.state.walletRequests)) state.walletRequests = data.state.walletRequests;
+      if (Array.isArray(data.state.boxes)) state.boxes = data.state.boxes;
+      if (Array.isArray(data.state.offers)) state.offers = data.state.offers;
+      if (Array.isArray(data.state.orders)) state.orders = data.state.orders;
+      if (Array.isArray(data.state.savedProfiles)) state.savedProfiles = data.state.savedProfiles;
+      if (Array.isArray(data.state.spinHistory)) state.spinHistory = data.state.spinHistory;
+      if (data.state.lastSpinDate) state.lastSpinDate = data.state.lastSpinDate;
+      if (Array.isArray(data.state.stockWatchlist)) state.stockWatchlist = data.state.stockWatchlist;
+      saveState();
+    }
+  }
+
+  async function apiPostJson(url, payload) {
+    if (apiAvailable === false) throw new Error('STATIC_MODE');
+    var res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    var ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.indexOf('application/json') === -1) {
+      apiAvailable = false;
+      throw new Error('STATIC_MODE');
+    }
+    var data = await res.json();
+    apiAvailable = true;
+    if (!res.ok) {
+      var err = new Error(data.error || ('HTTP_' + res.status));
+      err.data = data;
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  async function fetchPublicFeed() {
+    try {
+      var res = await fetch('/api/public/feed');
+      var ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok || ct.indexOf('application/json') === -1) { apiAvailable = false; return; }
+      var data = await res.json();
+      apiAvailable = true;
+      if (Array.isArray(data.recentWinners) && data.recentWinners.length) recentWinners = data.recentWinners;
+      if (data.paymentNumbers) paymentNumbers = Object.assign({}, paymentNumbers, data.paymentNumbers);
+      if (data.support) supportConfig = Object.assign({}, supportConfig, data.support);
+      if (typeof data.walletCashbackPercent === 'number') walletCashbackPercent = data.walletCashbackPercent;
+      if (data.flashSale) flashSaleConfig = data.flashSale;
+      if (data.leaderboard) leaderboardData = data.leaderboard;
+    if (data.catalog) applyCatalogData(data.catalog);
+      if (data.config) {
+        if (data.config.rules) offerRules = Object.assign({}, offerRules, data.config.rules);
+        if (data.config.regularWeights) {
+          REGULAR_WHEEL_WEDGES.forEach(function (w) {
+            var nw = Number(data.config.regularWeights[w.id]);
+            if (isFinite(nw) && nw >= 0) w.weight = nw;
+          });
+        }
+        if (data.config.goldenWeights) {
+          GOLDEN_WHEEL_WEDGES.forEach(function (w) {
+            var nw = Number(data.config.goldenWeights[w.id]);
+            if (isFinite(nw) && nw >= 0) w.weight = nw;
+          });
+        }
+      }
+      renderTickerDOM();
+      if (location.hash === '#spin-checkout') renderCheckoutView();
+      if (isModalOpen) renderModal();
+    } catch (e) {
+      apiAvailable = false;
+    }
+  }
+
+  async function syncSessionWithServer() {
+    if (!isUserSignedIn()) {
+      serverHasSpunToday = false;
+      lastSyncedUserKey = '';
+      return;
+    }
+    var uk = getUserKey();
+    if (!uk || uk === '__default__' || uk === lastSyncedUserKey) return;
+    lastSyncedUserKey = uk;
+    try {
+      var pendingRef = '';
+      try { pendingRef = (localStorage.getItem(REF_STORAGE_KEY) || '').trim(); } catch (e) {}
+      var data = await apiPostJson('/api/auth/session', {
+        identifier: uk,
+        name: getUserDisplayName(),
+        referredBy: pendingRef || undefined
+      });
+      try { if (pendingRef) localStorage.removeItem(REF_STORAGE_KEY); } catch (e) {}
+      applyServerPayload(data, true);
+      syncAllUI();
+      if (isModalOpen) renderModal();
+    } catch (e) {
+      if (!referralState.referralCode) {
+        referralState.referralCode = 'CTU' + uk.replace(/[^a-z0-9]/gi, '').slice(0, 5).toUpperCase();
+      }
+    }
+  }
+
+  function getTodayDateKey() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function getUserKey() {
+    var acMail = document.getElementById('acMail');
+    var accMail = document.getElementById('accMail');
+    var accName = document.getElementById('accName');
+    var raw = '';
+    if (acMail && acMail.textContent && acMail.textContent.indexOf('লগইন') === -1) raw = acMail.textContent;
+    else if (accMail && accMail.textContent && accMail.textContent.indexOf('লগইন') === -1) raw = accMail.textContent;
+    else if (accName && accName.textContent && !/^(hi,\s*)?guest$/i.test(accName.textContent.trim())) raw = accName.textContent;
+    raw = (raw || '').trim().toLowerCase();
+    return raw || '__default__';
+  }
+
+  function ensureDailyRefresh() {
+    var today = getTodayDateKey();
+    if (state.lastDailyResetDate !== today) {
+      state.lastDailyResetDate = today;
+      if (state.spins < 1) {
+        state.spins = 1;
+      }
+      saveState();
+    }
+  }
+
+  function hasSpunToday() {
+    ensureDailyRefresh();
+    if (isUserSignedIn() && serverHasSpunToday) return true;
+    var today = getTodayDateKey();
+    if (state.lastSpinDate === today) return true;
+    var key = getUserKey();
+    if (state.dailySpinByUser && state.dailySpinByUser[key] === today) return true;
+    return false;
+  }
+
+  function formatCountdownNextDay() {
+    var now = new Date();
+    var nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    var diff = Math.max(0, Math.floor((nextMidnight.getTime() - now.getTime()) / 1000));
+    var h = String(Math.floor(diff / 3600)).padStart(2, '0');
+    var m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+    var s = String(diff % 60).padStart(2, '0');
+    return h + 'h : ' + m + 'm : ' + s + 's';
+  }
+
+  ensureDailyRefresh();
+
+  function isUserSignedIn() {
+    if (typeof window.SPIN_USER_LOGGED_IN === 'boolean') return window.SPIN_USER_LOGGED_IN;
+    if (typeof forceLoggedIn === 'boolean') return forceLoggedIn;
+    var acLoTx = document.getElementById('acLoTx');
+    if (acLoTx && /logout|log\s*out|sign\s*out|লগআউট/i.test((acLoTx.textContent || '').trim())) return true;
+    var accLo = document.getElementById('accLo');
+    if (accLo && /logout|log\s*out|sign\s*out|লগআউট/i.test((accLo.textContent || '').trim())) return true;
+    var accName = document.getElementById('accName');
+    if (accName) {
+      var nm = (accName.textContent || '').trim();
+      if (nm && !/^(hi,\s*)?guest$/i.test(nm)) return true;
+    }
+    var buyIds = ['buyBtn', 'uidBuy', 'wmBuy', 'wlBuy', 'luBuy', 'inBuy'];
+    for (var i = 0; i < buyIds.length; i++) {
+      var b = document.getElementById(buyIds[i]);
+      if (b && /buy\s*now|অর্ডার/i.test((b.textContent || '').trim())) return true;
+    }
+    return false;
+  }
+
+  function triggerSiteLogin() {
+    if (typeof window.SPIN_LOGIN_URL === 'string' && window.SPIN_LOGIN_URL && window.SPIN_LOGIN_URL !== '#') {
+      window.location.href = window.SPIN_LOGIN_URL;
+      return;
+    }
+    if (typeof window.onSpinLoginClick === 'function') {
+      window.onSpinLoginClick();
+      return;
+    }
+    showAuthRequiredModal = false;
+    closeModal();
+    var accLo = document.getElementById('accLo');
+    if (accLo) {
+      accLo.click();
+    }
+    setTimeout(function () {
+      var panel = document.getElementById('accPanel');
+      if (panel && !panel.classList.contains('show')) {
+        var avBtn = document.getElementById('avBtn');
+        if (avBtn) avBtn.click();
+      }
+      var toastEl = document.getElementById('toast');
+      if (toastEl) {
+        toastEl.textContent = 'স্পিন করতে দয়া করে আগে Sign In / Login করুন';
+        toastEl.classList.add('show');
+        setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
+      }
+    }, 60);
+  }
 
   function saveState() {
     try {
@@ -267,6 +713,8 @@
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var fire = ensureConfetti();
     if (!fire) return;
+    clearInterval(countdownIntervalId);
+    countdownIntervalId = null;
     clearConfetti();
     var goldPalette = ['#facc15', '#fde047', '#f59e0b', '#ffffff', '#38bdf8'];
     var jackpotPalette = ['#facc15', '#ef4444', '#ec4899', '#38bdf8', '#a855f7', '#ffffff'];
@@ -352,7 +800,7 @@
     recordHistory(wedge.title, wedge.rewardType, sourceLabel);
 
     var celeb = isHighValueWedge(wedge, isGolden);
-    if (celeb.high) fireCelebration(celeb.jackpot);
+    fireCelebration(celeb.jackpot);
 
     if (wedge.rewardType === 'scratcher') {
       state.scratchers += wedge.value;
@@ -367,7 +815,7 @@
       showOfferToast(tier + ' Won!', '', 'mystery_box');
       winResult = { wedge: wedge, wonBox: box };
     } else {
-      var offer = {
+      var offer = applyOfferRulesMeta({
         id: 'off-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
         title: wedge.title,
         description: wedge.description,
@@ -376,7 +824,7 @@
         code: generateCode(isGolden ? 'GOLD' : 'SPIN'),
         source: sourceLabel,
         used: false
-      };
+      });
       state.offers.unshift(offer);
       state.activeOfferId = offer.id;
       markOfferRecent(offer.id);
@@ -389,6 +837,12 @@
   }
 
   function handleOpenBox(boxId) {
+    if (!isUserSignedIn()) {
+      playClick();
+      showAuthRequiredModal = true;
+      renderModal();
+      return;
+    }
     var target = null;
     for (var i = 0; i < state.boxes.length; i++) {
       if (state.boxes[i].id === boxId && !state.boxes[i].opened) {
@@ -401,11 +855,20 @@
 
     var offer;
     if (target.tier === 'Legendary Box') {
-      offer = { id: 'off-' + Date.now(), title: '70% Legendary Box Discount', description: 'Massive 70% off your next game top-up!', rewardType: 'percent_discount', value: 70, code: generateCode('LEGD'), source: 'Legendary Box', used: false };
+      offer = applyOfferRulesMeta({ id: 'off-' + Date.now(), title: '70% Legendary Box Discount', description: 'Massive 70% off your next game top-up!', rewardType: 'percent_discount', value: 70, code: generateCode('LEGD'), source: 'Legendary Box', used: false });
     } else if (target.tier === 'Epic Box') {
-      offer = { id: 'off-' + Date.now(), title: '৳250 Epic Cash Voucher', description: 'Flat ৳250 discount on any top-up order!', rewardType: 'flat_discount', value: 250, code: generateCode('EPIC'), source: 'Epic Box', used: false };
+      offer = applyOfferRulesMeta({ id: 'off-' + Date.now(), title: '৳250 Epic Cash Voucher', description: 'Flat ৳250 discount on any top-up order!', rewardType: 'flat_discount', value: 250, code: generateCode('EPIC'), source: 'Epic Box', used: false });
     } else {
-      offer = { id: 'off-' + Date.now(), title: '+35% Rare Box Bonus', description: 'Get 35% extra diamonds / coins on checkout!', rewardType: 'bonus_percent', value: 35, code: generateCode('RARE'), source: 'Rare Box', used: false };
+      offer = applyOfferRulesMeta({ id: 'off-' + Date.now(), title: '+35% Rare Box Bonus', description: 'Get 35% extra diamonds / coins on checkout!', rewardType: 'bonus_percent', value: 35, code: generateCode('RARE'), source: 'Rare Box', used: false });
+    }
+    if (apiAvailable !== false) {
+      apiPostJson('/api/box/open', { identifier: getUserKey(), boxId: boxId }).then(function (data) {
+        applyServerPayload(data, true);
+        if (data.offer) openedBoxReward = data.offer;
+        saveState();
+        syncAllUI();
+        if (isModalOpen) renderModal();
+      }).catch(function () {});
     }
 
     state.offers.unshift(offer);
@@ -421,9 +884,15 @@
   }
 
   function handleScratchWin(reward) {
+    if (!isUserSignedIn()) {
+      playClick();
+      showAuthRequiredModal = true;
+      renderModal();
+      return;
+    }
     if (state.scratchers <= 0) return;
     state.scratchers = Math.max(0, state.scratchers - 1);
-    var offer = {
+    var offer = applyOfferRulesMeta({
       id: 'off-' + Date.now(),
       title: reward.title,
       description: reward.description,
@@ -432,14 +901,22 @@
       code: generateCode('SCR'),
       source: 'Scratch Card',
       used: false
-    };
+    });
+    if (apiAvailable !== false) {
+      apiPostJson('/api/scratch', { identifier: getUserKey(), reward: reward }).then(function (data) {
+        applyServerPayload(data, true);
+        saveState();
+        syncAllUI();
+        if (isModalOpen) renderModal();
+      }).catch(function () {});
+    }
     state.offers.unshift(offer);
     state.activeOfferId = offer.id;
     markOfferRecent(offer.id);
     saveState();
 
     playRewardCue(reward.value >= 45 ? 'epic' : 'rare');
-    if (reward.value >= 30) fireCelebration(reward.value >= 45);
+    fireCelebration(reward.value >= 45);
     showOfferToast(offer.title, offer.code, offer.rewardType);
     syncAllUI();
   }
@@ -462,7 +939,9 @@
     var cx = 220, cy = 220, r = 186;
     var n = wedges.length;
     var sliceAngle = 360 / n;
-    var eligible = !isSpinning && spinsLeft > 0;
+    var signedIn = isUserSignedIn();
+    var spunToday = hasSpunToday();
+    var eligible = signedIn && !spunToday && !isSpinning && spinsLeft > 0;
 
     var defsGrads = '';
     for (var key in WEDGE_GRADIENTS) {
@@ -556,12 +1035,13 @@
       '<circle cx="' + cx + '" cy="' + cy + '" r="201" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-dasharray="190 900" stroke-dashoffset="-40"/>' +
       '<circle cx="' + (cx + 58) + '" cy="' + (cy - 190) + '" r="28" fill="url(#swRimFlare)" pointer-events="none"/>' +
       '<circle cx="' + (cx - 48) + '" cy="' + (cy + 192) + '" r="28" fill="url(#swRimFlare)" pointer-events="none"/>' +
-      '<g id="swSpinHub" class="sw-hub-btn' + (eligible ? ' eligible' : '') + '" role="button" tabindex="0" aria-label="Spin the wheel">' +
+      '<g id="swSpinHub" class="sw-hub-btn' + (eligible ? ' eligible' : ((!signedIn || spunToday) ? ' locked' : '')) + '" role="button" tabindex="0" aria-label="' + (!signedIn ? 'Sign in to spin' : (spunToday ? 'Daily spin used' : 'Spin the wheel')) + '">' +
         '<circle cx="' + cx + '" cy="' + cy + '" r="58" fill="url(#swHubChrome)" stroke="#0f172a" stroke-width="2.5"/>' +
         '<circle cx="' + cx + '" cy="' + cy + '" r="49" fill="#18181b" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>' +
         '<circle cx="' + cx + '" cy="' + cy + '" r="46" fill="url(#swSpinBg)"/>' +
         '<ellipse cx="' + cx + '" cy="' + (cy - 18) + '" rx="28" ry="13" fill="rgba(255,255,255,0.14)"/>' +
-        '<text x="' + cx + '" y="' + (cy + 2) + '" text-anchor="middle" dominant-baseline="middle" fill="url(#swSpinGold)" font-size="24" font-weight="900" font-family="Montserrat, sans-serif" letter-spacing="0.04em" filter="url(#swTextShadow)">SPIN</text>' +
+        '<text x="' + cx + '" y="' + ((signedIn && !spunToday) ? (cy + 2) : (cy - 4)) + '" text-anchor="middle" dominant-baseline="middle" fill="url(#swSpinGold)" font-size="' + ((signedIn && !spunToday) ? '24' : '20') + '" font-weight="900" font-family="Montserrat, sans-serif" letter-spacing="0.04em" filter="url(#swTextShadow)">SPIN</text>' +
+        (!signedIn ? '<text x="' + cx + '" y="' + (cy + 19) + '" text-anchor="middle" dominant-baseline="middle" fill="#fde68a" font-size="9.5" font-weight="800" font-family="Montserrat, sans-serif" letter-spacing="0.06em">🔒 SIGN IN</text>' : (spunToday ? '<text x="' + cx + '" y="' + (cy + 19) + '" text-anchor="middle" dominant-baseline="middle" fill="#7dd3fc" font-size="9.5" font-weight="800" font-family="Montserrat, sans-serif" letter-spacing="0.06em">⏳ 1/DAY DONE</text>' : '')) +
       '</g>' +
       '<g id="swPointer" transform="rotate(0 ' + cx + ' 24)" style="transition: transform 65ms ease-out">' +
         '<polygon points="' + (cx - 8) + ',30 ' + (cx + 8) + ',30 ' + cx + ',52" fill="url(#swSpinGold)" stroke="#451a03" stroke-width="1.4"/>' +
@@ -575,21 +1055,9 @@
       '</div></div>';
   }
 
-  function startSpinWheel(isGolden) {
-    if (isSpinning) return;
-    var spinsLeft = isGolden ? state.goldenSpins : state.spins;
-    if (spinsLeft <= 0) {
-      playClick();
-      showNoSpinsModal = true;
-      renderModal();
-      return;
-    }
-
+  var spinRequestPending = false;
+  function runWheelAnimation(isGolden, winIdx, serverData) {
     var wedges = isGolden ? GOLDEN_WHEEL_WEDGES : REGULAR_WHEEL_WEDGES;
-    if (isGolden) state.goldenSpins = Math.max(0, state.goldenSpins - 1);
-    else state.spins = Math.max(0, state.spins - 1);
-    saveState();
-
     showTapArrow = false;
     isSpinning = true;
     winResult = null;
@@ -604,7 +1072,6 @@
 
     var n = wedges.length;
     var sliceAngle = 360 / n;
-    var winIdx = pickWeightedIndex(wedges);
     var jitter = (Math.random() - 0.5) * (sliceAngle * 0.42);
     var targetMod = (((-winIdx * sliceAngle + jitter) % 360) + 360) % 360;
     var startRot = wheelRotation;
@@ -648,11 +1115,151 @@
         isSpinning = false;
         var wonWedge = wedges[winIdx];
         playRewardCue(getWedgeTier(wonWedge, isGolden));
-        handleWheelWin(wonWedge, isGolden);
+        if (serverData) {
+          applyServerPayload(serverData, true);
+          var celeb = isHighValueWedge(wonWedge, isGolden);
+          fireCelebration(celeb.jackpot);
+          if (serverData.offer) {
+            state.activeOfferId = serverData.offer.id;
+            markOfferRecent(serverData.offer.id);
+            saveState();
+            showOfferToast(serverData.offer.title, serverData.offer.code, serverData.offer.rewardType);
+            winResult = { wedge: wonWedge, wonOffer: serverData.offer, streakUnlocked: Boolean(serverData.streakUnlocked) };
+          } else if (serverData.box) {
+            showOfferToast(serverData.box.tier + ' Won!', '', 'mystery_box');
+            winResult = { wedge: wonWedge, wonBox: serverData.box, streakUnlocked: Boolean(serverData.streakUnlocked) };
+          } else {
+            showOfferToast(wonWedge.title, '', wonWedge.rewardType);
+            winResult = { wedge: wonWedge, isScratcher: wonWedge.rewardType === 'scratcher', streakUnlocked: Boolean(serverData.streakUnlocked) };
+          }
+          if (serverData.streakUnlocked) {
+            showOfferToast('🔥 7-Day Streak Bonus: +1 Golden Spin & Legendary Box!', '', 'mystery_box');
+          }
+          syncAllUI();
+        } else {
+          handleWheelWin(wonWedge, isGolden);
+        }
         renderModal();
       }
     }
     requestAnimationFrame(step);
+  }
+
+  function startSpinWheel(isGolden) {
+    if (isSpinning || spinRequestPending) return;
+    if (!isUserSignedIn()) {
+      playClick();
+      showAuthRequiredModal = true;
+      renderModal();
+      return;
+    }
+    if (hasSpunToday()) {
+      playClick();
+      showDailyLimitModal = true;
+      renderModal();
+      return;
+    }
+    var spinsLeft = isGolden ? state.goldenSpins : state.spins;
+    if (spinsLeft <= 0) {
+      playClick();
+      showNoSpinsModal = true;
+      renderModal();
+      return;
+    }
+
+    var wedges = isGolden ? GOLDEN_WHEEL_WEDGES : REGULAR_WHEEL_WEDGES;
+    if (apiAvailable !== false) {
+      spinRequestPending = true;
+      apiPostJson('/api/spin', { identifier: getUserKey(), isGolden: Boolean(isGolden) }).then(function (data) {
+        spinRequestPending = false;
+        serverHasSpunToday = true;
+        var todayKey = getTodayDateKey();
+        state.lastSpinDate = todayKey;
+        if (!state.dailySpinByUser || typeof state.dailySpinByUser !== 'object') state.dailySpinByUser = {};
+        state.dailySpinByUser[getUserKey()] = todayKey;
+        saveState();
+        runWheelAnimation(isGolden, Number(data.winningIndex) || 0, data);
+      }).catch(function (err) {
+        spinRequestPending = false;
+        if (err && err.status === 403) {
+          serverHasSpunToday = true;
+          if (err.data) applyServerPayload(err.data, true);
+          showDailyLimitModal = true;
+          syncAllUI();
+          renderModal();
+          return;
+        }
+        var todayKey = getTodayDateKey();
+        state.lastSpinDate = todayKey;
+        if (!state.dailySpinByUser || typeof state.dailySpinByUser !== 'object') state.dailySpinByUser = {};
+        state.dailySpinByUser[getUserKey()] = todayKey;
+        if (isGolden) state.goldenSpins = Math.max(0, state.goldenSpins - 1);
+        else state.spins = Math.max(0, state.spins - 1);
+        streakState.streakCount = Math.min(7, (streakState.streakCount || 0) + 1);
+        streakState.streakLastDate = todayKey;
+        saveState();
+        var winIdx = pickWeightedIndex(wedges);
+        recentWinners.unshift({ id: 'loc-' + Date.now(), userName: getUserDisplayName(), rewardTitle: wedges[winIdx].title, timeLabel: 'Just now' });
+        recentWinners = recentWinners.slice(0, 12);
+        runWheelAnimation(isGolden, winIdx, null);
+      });
+      return;
+    }
+
+    var todayKey = getTodayDateKey();
+    state.lastSpinDate = todayKey;
+    if (!state.dailySpinByUser || typeof state.dailySpinByUser !== 'object') state.dailySpinByUser = {};
+    state.dailySpinByUser[getUserKey()] = todayKey;
+    if (isGolden) state.goldenSpins = Math.max(0, state.goldenSpins - 1);
+    else state.spins = Math.max(0, state.spins - 1);
+    streakState.streakCount = Math.min(7, (streakState.streakCount || 0) + 1);
+    streakState.streakLastDate = todayKey;
+    saveState();
+    var winIdx = pickWeightedIndex(wedges);
+    recentWinners.unshift({ id: 'loc-' + Date.now(), userName: getUserDisplayName(), rewardTitle: wedges[winIdx].title, timeLabel: 'Just now' });
+    recentWinners = recentWinners.slice(0, 12);
+    runWheelAnimation(isGolden, winIdx, null);
+  }
+
+  /* -------------------- Live Ticker, 7-Day Streak & Referral Builders -------------------- */
+  function buildTickerHTML(modalCompact) {
+    var list = (recentWinners && recentWinners.length) ? recentWinners : [];
+    var items = list.map(function (w) {
+      return '<span class="sw-ticker-item">🎉 <b>' + esc(w.userName) + '</b> মাত্র <span class="rw">' + esc(w.rewardTitle) + '</span> জিতেছেন <span style="opacity:.45;margin-left:4px;">·</span></span>';
+    }).join('');
+    var grp = '<div class="sw-ticker-group">' + items + '</div>';
+    return '<div class="sw-ticker-bar' + (modalCompact ? ' modal-sm' : '') + '"><div class="sw-ticker-track">' + grp + grp + '</div></div>';
+  }
+
+  function renderTickerDOM() {
+    var homeTick = document.getElementById('swHomeTicker');
+    if (homeTick) homeTick.innerHTML = buildTickerHTML(false);
+  }
+
+  function buildStreakHTML(compact) {
+    var sc = Number(streakState.streakCount || 0);
+    var days = '';
+    for (var d = 1; d <= 7; d++) {
+      var done = sc >= d;
+      var cls = 'sw-streak-day' + (done ? ' done' : '') + (d === 7 ? ' day7' : '');
+      days += '<div class="' + cls + '">' + (d === 7 ? '🎁D7' : ('D' + d)) + '</div>';
+    }
+    return '<div class="sw-streak-card' + (compact ? ' modal-sm' : '') + '">' +
+      '<div class="sw-streak-hd"><span>🔥 7-Day Login Streak (' + sc + '/7)</span><span style="color:#34d399;font-size:10.5px;">Day 7: Golden Spin + Legend Box</span></div>' +
+      '<div class="sw-streak-days">' + days + '</div>' +
+    '</div>';
+  }
+
+  function buildReferralHTML() {
+    var link = getShareReferralUrl();
+    return '<div class="sw-ref-card">' +
+      '<div class="sw-streak-hd" style="color:#7dd3fc;"><span>🤝 Invite &amp; Earn (রেফারেল বোনাস)</span><span style="color:#fcd34d;font-size:10.5px;">Referred: ' + Number(referralState.referredCount || 0) + '</span></div>' +
+      '<div style="font-size:11.5px;color:#cbd5e1;">বন্ধু আপনার লিংকে সাইন-ইন করে ১ম অর্ডার করলে <b>দুইজনেই +1 Scratch Card &amp; +1 Golden Spin</b> পাবেন!</div>' +
+      '<div class="sw-ref-link-row">' +
+        '<input type="text" readonly class="sw-ref-inp" id="swRefLinkInp" value="' + esc(link) + '" />' +
+        '<button type="button" class="sw-ref-copy" id="swRefCopyBtn">Copy Link</button>' +
+      '</div>' +
+    '</div>';
   }
 
   /* -------------------- VIP Medal & Marquee Helpers -------------------- */
@@ -742,6 +1349,12 @@
     ctx.fillText('SCRATCH HERE TO WIN', canvas.width / 2, canvas.height / 2 + 28);
 
     function revealNow() {
+      if (!isUserSignedIn()) {
+        playClick();
+        showAuthRequiredModal = true;
+        renderModal();
+        return;
+      }
       if (scratchState.revealed || state.scratchers <= 0) return;
       scratchState.revealed = true;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -795,6 +1408,13 @@
       root.setAttribute('aria-label', 'Spin and Win');
       document.body.appendChild(root);
     }
+    if (!document.getElementById('swCheckoutView')) {
+      var cov = document.createElement('div');
+      cov.id = 'swCheckoutView';
+      var foot = document.getElementById('siteFooter');
+      if (foot && foot.parentNode) foot.parentNode.insertBefore(cov, foot);
+      else document.body.appendChild(cov);
+    }
   }
 
   function renderModal() {
@@ -810,7 +1430,7 @@
     root.classList.add('sw-open');
 
     var unopenedBoxes = state.boxes.filter(function (b) { return !b.opened; });
-    var activeOffers = state.offers.filter(function (o) { return !o.used; });
+    var activeOffers = getActiveOffersList();
     var topTitle = activeTab === 'boxes' ? 'OFFER' : (activeTab === 'scratch' ? 'SCRATCH' : 'SPIN');
     var counterText = activeTab === 'golden'
       ? ('Golden: ' + state.goldenSpins)
@@ -826,7 +1446,17 @@
     } else if (activeTab === 'golden') {
       stageHTML = buildWheelHTML(GOLDEN_WHEEL_WEDGES, state.goldenSpins, true);
     } else if (activeTab === 'scratch') {
-      if (state.scratchers > 0 || scratchState.revealed) {
+      if (!isUserSignedIn()) {
+        stageHTML = '<div class="sw-panel">' +
+          '<div class="sw-panel-h">Golden Offer Scratcher</div>' +
+          '<p class="sw-panel-sub">স্ক্র্যাচ কার্ড ব্যবহার করতে আগে আপনার অ্যাকাউন্টে Sign In করুন</p>' +
+          '<div class="sw-empty-card">' +
+            '<div style="font-size:28px;margin-bottom:6px;">🔒</div>' +
+            '<div style="font-size:14px;font-weight:800;color:#fff;">Sign In Required</div>' +
+            '<p style="font-size:12px;color:#94a3b8;margin:4px 0 12px;">সাইন ইন না করলে স্ক্র্যাচ কার্ড ও স্পিন ব্যবহার করা যাবে না।</p>' +
+            '<button type="button" class="sw-btn-gold" id="swScratchLoginBtn">Sign In / Login করুন</button>' +
+          '</div></div>';
+      } else if (state.scratchers > 0 || scratchState.revealed) {
         stageHTML = '<div class="sw-panel">' +
           '<div class="sw-panel-h">Golden Offer Scratcher</div>' +
           '<p class="sw-panel-sub">Rub the golden foil to reveal an instant Top-Up discount or bonus voucher</p>' +
@@ -869,10 +1499,14 @@
         : '<div class="sw-offer-list">' + activeOffers.map(function (o) {
             var isApp = o.id === state.activeOfferId;
             var isNew = recentOfferIds.indexOf(o.id) !== -1;
+            var condParts = [];
+            if (o.minOrderBdt > 0) condParts.push('ন্যূনতম ৳' + o.minOrderBdt + ' অর্ডার');
+            if (o.maxDiscountBdt > 0) condParts.push('সর্বোচ্চ ছাড় ৳' + o.maxDiscountBdt);
             return '<div class="sw-offer-card' + (isNew ? ' pulse' : (isApp ? ' applied' : '')) + '">' +
               '<div class="sw-offer-meta">' +
                 '<div class="sw-offer-name">' + esc(o.title) + (isNew ? ' <span style="color:#fcd34d;font-size:10px;">NEW</span>' : '') + '</div>' +
                 '<div class="sw-offer-code-row"><span class="sw-code-txt sw-font-mono">' + esc(o.code) + '</span><span>·</span><span>' + esc(o.source) + '</span></div>' +
+                '<div class="sw-offer-cond"><span class="exp">⏳ ' + esc(formatOfferExpiry(o.expiresAt)) + '</span>' + (condParts.length ? ('<span>' + esc(condParts.join(' · ')) + '</span>') : '') + '</div>' +
               '</div>' +
               '<button type="button" class="sw-copy-btn' + (isApp ? ' applied' : '') + '" data-offer-id="' + esc(o.id) + '">' + (isApp ? '✓ Applied' : 'Apply Code') + '</button>' +
             '</div>';
@@ -884,26 +1518,40 @@
       '</div>';
     }
 
+    var signedIn = isUserSignedIn();
+    var spunToday = hasSpunToday();
     var overlaysHTML = '';
     if (winResult) {
       var actBtn = '';
       if (winResult.wonOffer) actBtn = '<button type="button" class="sw-btn-gold" id="swWinUseBtn">Apply to Top-Up →</button>';
       else if (winResult.wonBox) actBtn = '<button type="button" class="sw-btn-gold" id="swWinBoxBtn">Open in Boxes</button>';
       else if (winResult.isScratcher) actBtn = '<button type="button" class="sw-btn-gold" id="swWinScratchBtn">Scratch Card Now →</button>';
-      overlaysHTML += '<div class="sw-overlay"><div class="sw-overlay-card">' +
-        '<div style="font-size:28px;margin-bottom:4px;">✨</div>' +
-        '<div class="sw-win-kicker">Congratulations! You Won</div>' +
-        '<div class="sw-win-title">' + esc(winResult.wedge.title) + '</div>' +
+      var winConds = [];
+      if (winResult.wonOffer) {
+        if (winResult.wonOffer.minOrderBdt > 0) winConds.push('ন্যূনতম ৳' + winResult.wonOffer.minOrderBdt + ' অর্ডারে প্রযোজ্য');
+        if (winResult.wonOffer.maxDiscountBdt > 0) winConds.push('সর্বোচ্চ ডিসকাউন্ট ৳' + winResult.wonOffer.maxDiscountBdt);
+      }
+      var winCodeHTML = (winResult.wonOffer
+        ? '<div class="sw-win-code-pill"><span class="lbl">Voucher Code</span><span class="code">' + esc(winResult.wonOffer.code) + '</span><span style="color:#7dd3fc;font-size:10px;">· ' + esc(formatOfferExpiry(winResult.wonOffer.expiresAt)) + '</span></div>'
+        : '') +
+        (winConds.length ? '<div style="margin-top:6px;font-size:11px;color:#fde68a;">📌 ' + esc(winConds.join(' · ')) + '</div>' : '') +
+        (winResult.streakUnlocked ? '<div style="margin-top:6px;font-size:11.5px;font-weight:800;color:#6ee7b7;">🔥 7-Day Streak Bonus: +1 Golden Spin &amp; Legendary Box!</div>' : '');
+      overlaysHTML += '<div class="sw-overlay" style="overflow:hidden;"><div class="sw-win-sunburst"></div><div class="sw-overlay-card sw-win-anim">' +
+        '<div class="sw-win-trophy-wrap"><span class="sw-twinkle t1">✦</span><span class="sw-twinkle t2">★</span><span class="sw-twinkle t3">✦</span><div class="sw-win-trophy">🏆</div></div>' +
+        '<div class="sw-win-kicker">🎉 Discount Unlocked! 🎉</div>' +
+        '<div class="sw-win-title" style="background:linear-gradient(180deg,#ffffff 0%,#fef08a 55%,#f59e0b 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">' + esc(winResult.wedge.title) + '</div>' +
         '<div class="sw-win-desc">' + esc(winResult.wedge.description) + '</div>' +
-        '<div class="sw-overlay-actions row">' + actBtn + '<button type="button" class="sw-btn-slate" id="swWinKeepBtn">Keep Spinning</button></div>' +
+        winCodeHTML +
+        '<div class="sw-overlay-actions row">' + actBtn + '<button type="button" class="sw-btn-slate" id="swWinKeepBtn">' + (spunToday ? 'Done (1/Day)' : 'Keep Spinning') + '</button></div>' +
       '</div></div>';
     } else if (openedBoxReward) {
-      overlaysHTML += '<div class="sw-overlay"><div class="sw-overlay-card emerald">' +
-        '<div style="font-size:30px;margin-bottom:4px;">✅</div>' +
-        '<div class="sw-win-kicker" style="color:#6ee7b7;">Mystery Box Unlocked!</div>' +
-        '<div class="sw-win-title">' + esc(openedBoxReward.title) + '</div>' +
+      overlaysHTML += '<div class="sw-overlay" style="overflow:hidden;"><div class="sw-win-sunburst emerald"></div><div class="sw-overlay-card emerald sw-win-anim">' +
+        '<div class="sw-win-trophy-wrap"><span class="sw-twinkle t1">✦</span><span class="sw-twinkle t2">★</span><div class="sw-win-trophy emerald">🎁</div></div>' +
+        '<div class="sw-win-kicker" style="color:#6ee7b7;">🎁 Mystery Box Unlocked!</div>' +
+        '<div class="sw-win-title" style="background:linear-gradient(180deg,#ffffff 0%,#a7f3d0 55%,#10b981 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">' + esc(openedBoxReward.title) + '</div>' +
         '<div class="sw-win-desc">' + esc(openedBoxReward.description) + '</div>' +
-        '<div class="sw-overlay-actions row"><button type="button" class="sw-btn-gold" id="swBoxUseBtn" style="background:#10b981;">Use on Top-Up</button><button type="button" class="sw-btn-slate" id="swBoxSaveBtn">Save</button></div>' +
+        '<div class="sw-win-code-pill" style="border-color:rgba(52,211,153,0.45);"><span class="lbl">Code</span><span class="code">' + esc(openedBoxReward.code) + '</span></div>' +
+        '<div class="sw-overlay-actions row"><button type="button" class="sw-btn-gold" id="swBoxUseBtn" style="background:#10b981;">Use on Top-Up →</button><button type="button" class="sw-btn-slate" id="swBoxSaveBtn">Save</button></div>' +
       '</div></div>';
     } else if (showHistoryPanel) {
       var histBody = state.spinHistory.length === 0
@@ -924,14 +1572,37 @@
         '</div>' + histBody +
         '<button type="button" class="sw-btn-gold" id="swCloseHistBtn" style="width:100%;margin-top:12px;">Back to Wheel</button>' +
       '</div></div>';
+    } else if (showAuthRequiredModal) {
+      overlaysHTML += '<div class="sw-overlay"><div class="sw-overlay-card">' +
+        '<div class="sw-auth-icon">🔒</div>' +
+        '<div class="sw-win-kicker">Sign In Required</div>' +
+        '<div class="sw-win-title" style="font-size:24px;">লগইন ছাড়া স্পিন করা যাবে না</div>' +
+        '<div class="sw-win-desc">Spin Wheel ঘোরাতে এবং ডিসকাউন্ট অফার জিততে আগে আপনার অ্যাকাউন্টে <b style="color:#fcd34d;">Sign In / Login</b> করুন।</div>' +
+        '<div class="sw-overlay-actions">' +
+          '<button type="button" class="sw-btn-gold" id="swAuthLoginBtn">Sign In / Login করুন</button>' +
+          '<button type="button" class="sw-btn-slate" id="swAuthCancelBtn">বন্ধ করুন</button>' +
+        '</div>' +
+      '</div></div>';
+    } else if (showDailyLimitModal) {
+      overlaysHTML += '<div class="sw-overlay"><div class="sw-overlay-card">' +
+        '<div class="sw-auth-icon" style="border-color:rgba(56,189,248,0.55);background:rgba(56,189,248,0.12);">⏳</div>' +
+        '<div class="sw-win-kicker" style="color:#7dd3fc;">Daily Limit: 1 Spin / Day</div>' +
+        '<div class="sw-win-title" style="font-size:24px;">আজকের ১টি স্পিন শেষ হয়েছে!</div>' +
+        '<div class="sw-win-desc">প্রতিদিন কেবল <b style="color:#fcd34d;">১ বার</b> স্পিন করা যাবে। আগামীকাল রাত ১২টার পর আপনার নতুন স্পিন আনলক হবে।</div>' +
+        '<div class="sw-countdown-box">পরবর্তী স্পিন: <span class="sw-countdown-val">' + esc(formatCountdownNextDay()) + '</span></div>' +
+        '<div class="sw-overlay-actions">' +
+          '<button type="button" class="sw-btn-gold" id="swDailyOffersBtn">My Offers / Boxes দেখুন</button>' +
+          '<button type="button" class="sw-btn-slate" id="swDailyCloseBtn">বন্ধ করুন</button>' +
+        '</div>' +
+      '</div></div>';
     } else if (showNoSpinsModal) {
       overlaysHTML += '<div class="sw-overlay"><div class="sw-overlay-card">' +
         '<div style="font-size:28px;margin-bottom:4px;">🔄</div>' +
-        '<div class="sw-win-title" style="font-size:24px;">NEED MORE SPINS?</div>' +
-        '<div class="sw-win-desc">Claim free bonus spins right now, or complete a Top-Up order to earn <b style="color:#fcd34d;">+1 Spin &amp; +1 Golden Spin</b>!</div>' +
+        '<div class="sw-win-title" style="font-size:24px;">NO SPINS AVAILABLE</div>' +
+        '<div class="sw-win-desc">প্রতিদিন ১টি ফ্রি স্পিন পাবেন। অথবা টপ-আপ অর্ডার করে আগামী দিনের জন্য বোনাস স্পিন জমা রাখুন।</div>' +
         '<div class="sw-overlay-actions">' +
-          '<button type="button" class="sw-btn-gold" id="swClaimSpinsBtn">Claim +2 Free Spins &amp; +1 Golden</button>' +
-          '<button type="button" class="sw-btn-slate" id="swGoBuyBtn">Order Top-Up Package</button>' +
+          '<button type="button" class="sw-btn-gold" id="swGoBuyBtn">Order Top-Up Package</button>' +
+          '<button type="button" class="sw-btn-slate" id="swNoSpinCloseBtn">বন্ধ করুন</button>' +
         '</div>' +
       '</div></div>';
     }
@@ -977,6 +1648,9 @@
               '</div>' +
               buildVipMedalHTML() +
             '</div>' +
+            buildTickerHTML(true) +
+            (signedIn ? buildStreakHTML(true) : '') +
+            (!signedIn ? '<div class="sw-auth-banner"><div class="sw-auth-banner-left"><span>🔒</span><span>স্পিন করতে আগে আপনার অ্যাকাউন্টে <b>Login</b> করুন</span></div><button type="button" class="sw-auth-banner-btn" id="swAuthBannerBtn">Login করুন</button></div>' : (spunToday ? '<div class="sw-auth-banner daily-done"><div class="sw-auth-banner-left"><span>⏳</span><span>আজকের ১টি স্পিন শেষ · পরবর্তী স্পিন: <b class="sw-countdown-val">' + esc(formatCountdownNextDay()) + '</b></span></div></div>' : '')) +
             '<div class="sw-stage">' + stageHTML + '</div>' +
             '<div class="sw-bottom-bar">' +
               '<div class="sw-bottom-left">' +
@@ -1011,6 +1685,8 @@
         winResult = null;
         showHistoryPanel = false;
         showNoSpinsModal = false;
+    showAuthRequiredModal = false;
+    showDailyLimitModal = false;
         renderModal();
       };
     });
@@ -1037,10 +1713,59 @@
       renderModal();
     };
 
+    var authBannerBtn = document.getElementById('swAuthBannerBtn');
+    if (authBannerBtn) authBannerBtn.onclick = function () {
+      playClick();
+      showAuthRequiredModal = true;
+      renderModal();
+    };
+    var scratchLoginBtn = document.getElementById('swScratchLoginBtn');
+    if (scratchLoginBtn) scratchLoginBtn.onclick = function () {
+      playClick();
+      triggerSiteLogin();
+    };
+    var authLoginBtn = document.getElementById('swAuthLoginBtn');
+    if (authLoginBtn) authLoginBtn.onclick = function () {
+      playClick();
+      triggerSiteLogin();
+    };
+    var authCancelBtn = document.getElementById('swAuthCancelBtn');
+    if (authCancelBtn) authCancelBtn.onclick = function () {
+      playClick();
+      showAuthRequiredModal = false;
+      renderModal();
+    };
+
+    var dailyOffersBtn = document.getElementById('swDailyOffersBtn');
+    if (dailyOffersBtn) dailyOffersBtn.onclick = function () {
+      playClick();
+      showDailyLimitModal = false;
+      activeTab = 'boxes';
+      renderModal();
+    };
+    var dailyCloseBtn = document.getElementById('swDailyCloseBtn');
+    if (dailyCloseBtn) dailyCloseBtn.onclick = function () {
+      playClick();
+      showDailyLimitModal = false;
+      renderModal();
+    };
+    var noSpinCloseBtn = document.getElementById('swNoSpinCloseBtn');
+    if (noSpinCloseBtn) noSpinCloseBtn.onclick = function () {
+      playClick();
+      showNoSpinsModal = false;
+      renderModal();
+    };
+
     var getSpinsBtn = document.getElementById('swGetSpinsBtn');
     if (getSpinsBtn) getSpinsBtn.onclick = function () {
       playClick();
-      showNoSpinsModal = true;
+      if (!isUserSignedIn()) {
+        showAuthRequiredModal = true;
+      } else if (hasSpunToday()) {
+        showDailyLimitModal = true;
+      } else {
+        showNoSpinsModal = true;
+      }
       renderModal();
     };
 
@@ -1076,7 +1801,8 @@
           navigator.clipboard.writeText(offer.code).catch(function () {});
         }
         syncAllUI();
-        renderModal();
+        closeModal();
+        openCheckoutPage();
       };
     });
 
@@ -1087,6 +1813,7 @@
       winResult = null;
       closeModal();
       syncAllUI();
+      openCheckoutPage();
     };
     var winBox = document.getElementById('swWinBoxBtn');
     if (winBox) winBox.onclick = function () { winResult = null; activeTab = 'boxes'; renderModal(); };
@@ -1102,6 +1829,7 @@
       openedBoxReward = null;
       closeModal();
       syncAllUI();
+      openCheckoutPage();
     };
     var boxSave = document.getElementById('swBoxSaveBtn');
     if (boxSave) boxSave.onclick = function () { openedBoxReward = null; renderModal(); };
@@ -1113,6 +1841,12 @@
 
     var claimBtn = document.getElementById('swClaimSpinsBtn');
     if (claimBtn) claimBtn.onclick = function () {
+      if (!isUserSignedIn()) {
+        showNoSpinsModal = false;
+        showAuthRequiredModal = true;
+        renderModal();
+        return;
+      }
       state.spins += 2;
       state.goldenSpins += 1;
       saveState();
@@ -1124,11 +1858,27 @@
     if (goBuyBtn) goBuyBtn.onclick = function () {
       showNoSpinsModal = false;
       closeModal();
-      location.hash = 'uid-topup';
+      openCheckoutPage();
     };
 
     clearInterval(arrowIntervalId);
-    if ((activeTab === 'spin' || activeTab === 'golden') && showTapArrow && !isSpinning) {
+    clearInterval(countdownIntervalId);
+    if (isModalOpen && isUserSignedIn() && hasSpunToday()) {
+      countdownIntervalId = setInterval(function () {
+        if (!hasSpunToday()) {
+          clearInterval(countdownIntervalId);
+          syncAllUI();
+          renderModal();
+          return;
+        }
+        var formatted = formatCountdownNextDay();
+        document.querySelectorAll('#swRoot .sw-countdown-val').forEach(function (el) {
+          el.textContent = formatted;
+        });
+      }, 1000);
+    }
+
+    if ((activeTab === 'spin' || activeTab === 'golden') && showTapArrow && !isSpinning && isUserSignedIn() && !hasSpunToday()) {
       var left = activeTab === 'golden' ? state.goldenSpins : state.spins;
       if (left > 0) {
         arrowIntervalId = setInterval(function () {
@@ -1183,23 +1933,25 @@
         '<button type="button" class="sw-summary-x" id="swSumX" aria-label="Close">✕</button>' +
         '<div class="sw-summary-hdr">' +
           '<div class="sw-summary-chk">✓</div>' +
-          '<div class="sw-summary-kicker">Order Completed</div>' +
+          '<div class="sw-summary-kicker">Status: ' + esc(order.status || 'Pending') + '</div>' +
           '<div class="sw-summary-title">Transaction Summary</div>' +
           '<div class="sw-summary-sub">' + esc(oid) + ' · ' + esc(formatTime()) + '</div>' +
         '</div>' +
         '<div class="sw-summary-box">' +
           '<div class="sw-summary-row"><span class="k">Package</span><span class="v">' + esc(order.gameName || 'Top-Up') + ' · ' + esc(order.packageLabel || '') + esc(bonusTxt) + '</span></div>' +
           '<div class="sw-summary-row"><span class="k">Player UID</span><span class="v uid sw-font-mono">' + esc(order.playerUid || '-') + '</span></div>' +
-          '<div class="sw-summary-row"><span class="k">Payment</span><span class="v">' + esc(order.paymentMethod || 'Wallet Pay') + '</span></div>' +
+          '<div class="sw-summary-row"><span class="k">Payment</span><span class="v">' + esc(order.paymentMethod || 'Wallet Pay') + (order.trxId ? (' · TrxID: ' + esc(order.trxId)) : '') + '</span></div>' +
         '</div>' +
         '<div class="sw-price-box">' +
           '<div class="sw-price-row"><span>Original Price</span><span class="sw-font-mono" style="font-weight:700;color:#fff;">৳' + orig + '</span></div>' +
-          '<div class="sw-price-row disc"><span>Discount Applied' + (order.appliedOfferCode ? '<span class="sw-code-pill">' + esc(order.appliedOfferCode) + '</span>' : '') + '</span><span class="sw-font-mono">' + (saved > 0 ? ('-৳' + saved) : '৳0') + '</span></div>' +
+          '<div class="sw-price-row disc"><span>Total Savings' + (order.appliedOfferCode ? '<span class="sw-code-pill">' + esc(order.appliedOfferCode) + '</span>' : '') + (order.promoCodeUsed ? '<span class="sw-code-pill">' + esc(order.promoCodeUsed) + '</span>' : '') + '</span><span class="sw-font-mono">' + (saved > 0 ? ('-৳' + saved) : '৳0') + '</span></div>' +
           '<div class="sw-price-final"><span class="lbl">Final Price Paid</span><span class="amt sw-font-mono">৳' + fin + '</span></div>' +
+          (order.cashbackEarned > 0 ? '<div style="text-align:right;font-size:11px;font-weight:800;color:#34d399;margin-top:4px;">+৳' + order.cashbackEarned + ' Wallet Cashback Credited!</div>' : '') +
         '</div>' +
         '<div class="sw-summary-bonus">Bonus Earned: +1 Spin &amp; +1 Golden Spin added to your account!</div>' +
         '<div class="sw-summary-btns">' +
           '<button type="button" class="sw-btn-gold" id="swSumSpinBtn">Spin &amp; Win Now</button>' +
+          '<a class="sw-btn-slate" style="text-decoration:none;background:#059669;color:#fff;" target="_blank" rel="noopener noreferrer" href="https://wa.me/' + esc((supportConfig.whatsapp || '8801700000024').replace(/[^0-9]/g, '')) + '?text=' + encodeURIComponent('হ্যালো Crazy_top_up (24) সাপোর্ট,\nঅর্ডার আইডি: ' + oid + '\nগেম: ' + (order.gameName || '') + ' (' + (order.packageLabel || '') + ')\nUID: ' + (order.playerUid || '') + '\nটাকা: ৳' + fin + (order.trxId ? ', TrxID: ' + order.trxId : '')) + '">WhatsApp Support</a>' +
           '<button type="button" class="sw-btn-slate" id="swSumDoneBtn">Done</button>' +
         '</div>' +
       '</div>';
@@ -1216,7 +1968,7 @@
 
   /* -------------------- Discount Calculation & FFX.html Hooks -------------------- */
   function getActiveOffer() {
-    var unused = state.offers.filter(function (o) { return !o.used; });
+    var unused = getActiveOffersList();
     if (!unused.length) return null;
     for (var i = 0; i < unused.length; i++) {
       if (unused[i].id === state.activeOfferId) return unused[i];
@@ -1227,18 +1979,38 @@
   function computePricing(basePrice) {
     var offer = getActiveOffer();
     if (!offer || !basePrice) {
-      return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: 0, offer: null };
+      return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: 0, offer: null, conditionWarning: '', cappedAtMax: false };
     }
+    if (isOfferExpired(offer)) {
+      return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: 0, offer: offer, conditionWarning: 'এই অফারটির ২৪ ঘণ্টার মেয়াদ শেষ হয়ে গেছে।', cappedAtMax: false };
+    }
+    if (offer.minOrderBdt && basePrice < offer.minOrderBdt) {
+      return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: 0, offer: offer, conditionWarning: 'ন্যূনতম ৳' + offer.minOrderBdt + ' অর্ডারে এই অফারটি প্রযোজ্য', cappedAtMax: false };
+    }
+    var minFloor = Math.min(basePrice, 10);
     if (offer.rewardType === 'percent_discount') {
       var saved = Math.round((basePrice * offer.value) / 100);
-      var fin = Math.max(1, basePrice - saved);
-      return { originalPrice: basePrice, discountSaved: basePrice - fin, finalPrice: fin, bonusPercent: 0, offer: offer };
+      var capped = false;
+      if (offer.maxDiscountBdt && offer.maxDiscountBdt > 0 && saved > offer.maxDiscountBdt) {
+        saved = offer.maxDiscountBdt;
+        capped = true;
+      }
+      var maxAllowed = Math.max(0, basePrice - minFloor);
+      saved = Math.min(saved, maxAllowed);
+      return { originalPrice: basePrice, discountSaved: saved, finalPrice: basePrice - saved, bonusPercent: 0, offer: offer, conditionWarning: '', cappedAtMax: capped };
     }
     if (offer.rewardType === 'flat_discount') {
-      var finFlat = Math.max(1, basePrice - offer.value);
-      return { originalPrice: basePrice, discountSaved: basePrice - finFlat, finalPrice: finFlat, bonusPercent: 0, offer: offer };
+      var savedF = offer.value;
+      var cappedF = false;
+      if (offer.maxDiscountBdt && offer.maxDiscountBdt > 0 && savedF > offer.maxDiscountBdt) {
+        savedF = offer.maxDiscountBdt;
+        cappedF = true;
+      }
+      var maxAllowedF = Math.max(0, basePrice - minFloor);
+      savedF = Math.min(savedF, maxAllowedF);
+      return { originalPrice: basePrice, discountSaved: savedF, finalPrice: basePrice - savedF, bonusPercent: 0, offer: offer, conditionWarning: '', cappedAtMax: cappedF };
     }
-    return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: offer.value, offer: offer };
+    return { originalPrice: basePrice, discountSaved: 0, finalPrice: basePrice, bonusPercent: offer.value, offer: offer, conditionWarning: '', cappedAtMax: false };
   }
 
   function updateProductOfferStrip(cfg) {
@@ -1247,7 +2019,7 @@
     var activeBtn = document.querySelector('#' + cfg.pkGrid + ' .pk.on');
     var rawPrice = activeBtn ? Number(activeBtn.getAttribute('data-price') || 0) : 0;
     var pricing = computePricing(rawPrice);
-    var unusedOffers = state.offers.filter(function (o) { return !o.used; });
+    var unusedOffers = getActiveOffersList();
 
     strip.className = 'sw-pv-offer' + (pricing.offer ? ' has-active' : '');
     var optionsHTML = '<option value="">-- কোনো অফার সিলেক্ট নেই (' + unusedOffers.length + 'টি অফার আছে) --</option>' +
@@ -1268,6 +2040,8 @@
           '<span>বোনাস অফার: +' + pricing.bonusPercent + '% Extra Bonus</span>' +
           '<span>মোট: ৳' + rawPrice + '</span>' +
         '</div>';
+      } else if (pricing.conditionWarning) {
+        breakdownHTML = '<div class="sw-rule-warn">⚠️ ' + esc(pricing.conditionWarning) + '</div>';
       }
     }
 
@@ -1349,8 +2123,9 @@
           var payMethod = activePay ? (activePay.getAttribute('data-pay') || 'Wallet Pay') : 'Wallet Pay';
           var pricing = computePricing(basePrice);
 
-          if (pricing.offer) {
-            pricing.offer.used = true;
+          var usedOfferObj = (pricing.offer && !pricing.conditionWarning) ? pricing.offer : null;
+          if (usedOfferObj) {
+            usedOfferObj.used = true;
             state.activeOfferId = null;
           }
           state.spins += 1;
@@ -1358,7 +2133,7 @@
           saveState();
           syncAllUI();
 
-          showOrderSummary({
+          var ordObj = {
             gameName: cfg.name,
             packageLabel: pkgName,
             playerUid: uidVal,
@@ -1367,11 +2142,1032 @@
             discountSaved: pricing.discountSaved,
             finalPrice: pricing.finalPrice,
             bonusPercent: pricing.bonusPercent,
-            appliedOfferCode: pricing.offer ? pricing.offer.code : ''
-          });
+            appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
+          };
+          if (apiAvailable !== false && isUserSignedIn()) {
+            apiPostJson('/api/orders', {
+              identifier: getUserKey(),
+              gameName: cfg.name,
+              packageLabel: pkgName,
+              playerUid: uidVal,
+              paymentMethod: payMethod,
+              originalPrice: pricing.originalPrice,
+              appliedOfferId: usedOfferObj ? usedOfferObj.id : null
+            }).then(function (data) {
+              applyServerPayload(data, true);
+              if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
+              syncAllUI();
+              showOrderSummary(data.order || ordObj);
+            }).catch(function () {
+              showOrderSummary(ordObj);
+            });
+          } else {
+            showOrderSummary(ordObj);
+          }
         });
       }
     });
+  }
+
+
+  /* -------------------- Crazy_top_up (24) Discount Checkout Page -------------------- */
+  var CO_CATEGORIES = [
+    {
+      id: 'uid-bd',
+      name: 'UID Topup (BD)',
+      publisher: 'Garena Free Fire',
+      currency: 'Diamonds',
+      uidLabel: 'Player UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'bd-25', name: '25 Diamond', bonus: 'Instant UID Delivery', price: 22 },
+        { id: 'bd-115', name: '115 Diamond', bonus: 'Instant UID Delivery', price: 79, popular: true },
+        { id: 'bd-240', name: '240 Diamond', bonus: 'Fast Top-Up', price: 158 },
+        { id: 'bd-355', name: '355 Diamond', bonus: 'Popular Pack', price: 237 },
+        { id: 'bd-610', name: '610 Diamond', bonus: 'Bonus Included', price: 400 },
+        { id: 'bd-1240', name: '1240 Diamond', bonus: 'Mega Bundle', price: 800 }
+      ]
+    },
+    {
+      id: 'wm',
+      name: 'Weekly / Monthly',
+      publisher: 'Free Fire Membership',
+      currency: 'Membership',
+      uidLabel: 'Player UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'wm-w1', name: 'WEEKLY', bonus: '450 Total Diamonds', price: 155, popular: true },
+        { id: 'wm-w2', name: '2X WEEKLY', bonus: '900 Total Diamonds', price: 310 },
+        { id: 'wm-m1', name: 'MONTHLY', bonus: '2600 Total Diamonds', price: 770 },
+        { id: 'wm-wm', name: '1X WEEKLY + 1X MONTHLY', bonus: 'Combo Membership', price: 925 }
+      ]
+    },
+    {
+      id: 'wl',
+      name: 'Weekly Lite',
+      publisher: 'Free Fire Lite',
+      currency: 'Weekly Lite',
+      uidLabel: 'Player UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'wl-1', name: '1X Weekly Lite', bonus: 'Daily Claim', price: 40, popular: true },
+        { id: 'wl-2', name: '2X Weekly Lite', bonus: 'Double Lite', price: 80 },
+        { id: 'wl-3', name: '3X Weekly Lite', bonus: 'Triple Lite', price: 120 },
+        { id: 'wl-5', name: '5X Weekly Lite', bonus: 'Max Lite', price: 200 }
+      ]
+    },
+    {
+      id: 'lu',
+      name: 'Level Up Pass',
+      publisher: 'Free Fire Pass',
+      currency: 'Level Up Pass',
+      uidLabel: 'Player UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'lu-6', name: 'Level Up - Level 6', bonus: '120 Diamonds', price: 43 },
+        { id: 'lu-10', name: 'Level Up - Level 10', bonus: '200 Diamonds', price: 75 },
+        { id: 'lu-30', name: 'Level Up - Level 30', bonus: '300 Diamonds', price: 105 },
+        { id: 'lu-full', name: 'Full Level Up (1270D)', bonus: 'All Levels Included', price: 448, popular: true }
+      ]
+    },
+    {
+      id: 'likes',
+      name: 'FF Likes',
+      publisher: 'Profile Boost',
+      currency: 'FF Likes',
+      uidLabel: 'Player UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'lk-200', name: '200 FF LIKE', bonus: 'Daily 1x / ID', price: 30, popular: true },
+        { id: 'lk-3k', name: '3000 FF LIKE', bonus: '15 Days Plan', price: 450 },
+        { id: 'lk-6k', name: '6000 FF LIKE', bonus: '30 Days Plan', price: 900 },
+        { id: 'lk-12k', name: '12000 FF LIKE', bonus: '60 Days Plan', price: 1800 }
+      ]
+    },
+    {
+      id: 'indo',
+      name: 'Indonesia Server',
+      publisher: 'FF Indo Region',
+      currency: 'Indo Diamonds',
+      uidLabel: 'Indonesia UID',
+      uidPlaceholder: 'e.g. 2149083712',
+      packages: [
+        { id: 'in-50', name: '50 Diamond (Indo)', bonus: 'Indo Server', price: 65 },
+        { id: 'in-140', name: '140 Diamond (Indo)', bonus: 'Indo Server', price: 180, popular: true },
+        { id: 'in-355', name: '355 Diamond (Indo)', bonus: 'Indo Server', price: 445 },
+        { id: 'in-720', name: '720 Diamond (Indo)', bonus: 'Indo Server', price: 890 }
+      ]
+    }
+  ];
+
+  var coState = {
+    catId: 'uid-bd',
+    pkgId: 'bd-115',
+    uid: '',
+    payMethod: 'bKash',
+    senderNumber: '',
+    trxId: '',
+    paymentProof: '',
+    promoInput: '',
+    appliedPromo: null,
+    promoMsg: '',
+    uidErr: '',
+    checkoutErr: '',
+    lbTab: 'buyers',
+    showWalletModal: false,
+    walletMethod: 'bKash',
+    walletAmt: '500',
+    walletSender: '',
+    walletTrx: '',
+    walletProof: '',
+    walletMsg: '',
+    supportOrderId: '',
+    supportInput: '',
+    supportErr: '',
+    showSaveProfile: false,
+    profileNick: '',
+    autoSaveUid: true,
+    celebrateUntil: 0
+  };
+  function computeStackedCheckoutPricing(basePrice) {
+    var offerPr = computePricing(basePrice);
+    var vip = getVipSpendStatusLocal(state.lifetimeSpendBdt || 0);
+    var flashLive = Boolean(flashSaleConfig && flashSaleConfig.active && flashSaleConfig.extraPercent > 0 && (!flashSaleConfig.endsAt || Date.now() < flashSaleConfig.endsAt));
+    var flashDisc = flashLive ? Math.round((basePrice * flashSaleConfig.extraPercent) / 100) : 0;
+    var vipDisc = vip.discountPercent > 0 ? Math.round((basePrice * vip.discountPercent) / 100) : 0;
+    var promoDisc = 0;
+    var promoWarn = '';
+    if (coState.appliedPromo) {
+      if (coState.appliedPromo.minOrderBdt > 0 && basePrice < coState.appliedPromo.minOrderBdt) {
+        promoWarn = 'প্রোমো ' + coState.appliedPromo.code + ': ন্যূনতম ৳' + coState.appliedPromo.minOrderBdt + ' প্রয়োজন।';
+      } else {
+        promoDisc = coState.appliedPromo.discountType === 'percent'
+          ? Math.round((basePrice * coState.appliedPromo.value) / 100)
+          : coState.appliedPromo.value;
+        if (coState.appliedPromo.maxDiscountBdt > 0) promoDisc = Math.min(promoDisc, coState.appliedPromo.maxDiscountBdt);
+      }
+    }
+    var rawTot = offerPr.discountSaved + flashDisc + vipDisc + promoDisc;
+    var totalSaved = Math.min(Math.max(0, basePrice - 10), rawTot);
+    var fin = Math.max(10, basePrice - totalSaved);
+    var estCb = (coState.payMethod === 'Wallet Pay' && walletCashbackPercent > 0)
+      ? Math.round((fin * walletCashbackPercent) / 100)
+      : 0;
+    return {
+      originalPrice: basePrice,
+      offerDiscount: offerPr.discountSaved,
+      flashDiscount: flashDisc,
+      vipDiscount: vipDisc,
+      promoDiscount: promoDisc,
+      discountSaved: totalSaved,
+      finalPrice: fin,
+      bonusPercent: offerPr.bonusPercent,
+      offer: offerPr.offer,
+      conditionWarning: offerPr.conditionWarning,
+      promoWarn: promoWarn,
+      estCashback: estCb,
+      vip: vip,
+      flashLive: flashLive
+    };
+  }
+
+  function fireCheckoutConfetti() {
+    if (typeof window.confetti === 'function') {
+      try {
+        window.confetti({
+          particleCount: 65,
+          spread: 85,
+          startVelocity: 38,
+          origin: { x: 0.5, y: 0.22 },
+          colors: ['#34d399', '#facc15', '#38bdf8', '#ffffff'],
+          disableForReducedMotion: true
+        });
+      } catch (e) {}
+    }
+  }
+
+  function openCheckoutPage(withCelebrate) {
+    if (withCelebrate !== false && getActiveOffer()) {
+      coState.celebrateUntil = Date.now() + 2600;
+      setTimeout(fireCheckoutConfetti, 80);
+    }
+    if (location.hash !== '#spin-checkout') {
+      location.hash = 'spin-checkout';
+    } else {
+      syncCheckoutRoute();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderCheckoutView() {
+    var view = document.getElementById('swCheckoutView');
+    if (!view) return;
+    if (location.hash !== '#spin-checkout') {
+      view.classList.remove('sw-active');
+      return;
+    }
+    view.classList.add('sw-active');
+
+    var cat = CO_CATEGORIES[0];
+    for (var i = 0; i < CO_CATEGORIES.length; i++) {
+      if (CO_CATEGORIES[i].id === coState.catId) { cat = CO_CATEGORIES[i]; break; }
+    }
+    coState.catId = cat.id;
+    var pkgList = Array.isArray(cat.packages) && cat.packages.length ? cat.packages : [{ id: 'empty', name: 'No Package', bonus: '', price: 100, inStock: false }];
+    var pkg = pkgList.find(function (p) { return p.id === coState.pkgId; }) || pkgList.find(function (p) { return p.inStock !== false; }) || pkgList[0];
+    coState.pkgId = pkg.id;
+    var isGameMaint = cat.active === false;
+    var isPkgOos = pkg.inStock === false;
+
+    var unusedOffers = getActiveOffersList();
+    var activeOffer = getActiveOffer();
+    var selPricing = computeStackedCheckoutPricing(pkg.price);
+    var vipStatus = selPricing.vip;
+    var totalSpins = state.spins + state.goldenSpins;
+
+    var isCelebrating = Date.now() < coState.celebrateUntil;
+    var appliedMeta = activeOffer
+      ? (' <span style="font-size:11px;color:#7dd3fc;font-family:JetBrains Mono,monospace;">[' + esc(formatOfferExpiry(activeOffer.expiresAt)) + ']</span>' +
+         (activeOffer.minOrderBdt ? ' <span style="font-size:11px;color:#fde68a;">· ন্যূনতম ৳' + activeOffer.minOrderBdt + '</span>' : '') +
+         (activeOffer.maxDiscountBdt ? ' <span style="font-size:11px;color:#fde68a;">· সর্বোচ্চ ছাড় ৳' + activeOffer.maxDiscountBdt + '</span>' : ''))
+      : '';
+    var appliedBarHTML = activeOffer
+      ? '<div class="sw-co-applied' + (isCelebrating ? ' sw-celebrate' : '') + '">' +
+          '<div class="sw-co-applied-txt">' + (isCelebrating ? '🎉' : '✓') + ' <b>' + (isCelebrating ? 'Discount Applied:' : 'Offer Applied:') + '</b> ' + esc(activeOffer.title) + ' <span class="sw-co-applied-code">(' + esc(activeOffer.code) + ')</span>' + appliedMeta + '</div>' +
+          '<button type="button" class="sw-co-remove" id="swCoRemoveOffer">✕ Remove</button>' +
+        '</div>'
+      : '';
+
+    var gamesHTML = CO_CATEGORIES.map(function (g) {
+      return '<button type="button" class="sw-co-game-btn' + (g.id === cat.id ? ' on' : '') + '" data-co-cat="' + esc(g.id) + '">' + esc(g.name) + (g.active === false ? '<span class="sw-co-game-off">Off</span>' : '') + '</button>';
+    }).join('');
+
+    var watchlistArr = Array.isArray(state.stockWatchlist) ? state.stockWatchlist : [];
+    var restockedNames = [];
+    CO_CATEGORIES.forEach(function (cg) {
+      cg.packages.forEach(function (pk) {
+        if (pk.inStock !== false && watchlistArr.indexOf(pk.id) !== -1) {
+          restockedNames.push(cg.name + ' · ' + pk.name);
+        }
+      });
+    });
+    var restockBannerHTML = restockedNames.length > 0
+      ? '<div class="sw-restock-banner"><span>🔔 <b>Back in Stock:</b> ' + esc(restockedNames.join(', ')) + '</span><span style="color:#34d399;font-weight:800;">Ready to Order!</span></div>'
+      : '';
+    var pkgsHTML = pkgList.map(function (p) {
+      var oos = p.inStock === false;
+      var pr = computeStackedCheckoutPricing(p.price);
+      var on = p.id === pkg.id && !oos;
+      var watched = watchlistArr.indexOf(p.id) !== -1;
+      return '<div style="display:flex;flex-direction:column;">' +
+        '<button type="button" class="sw-co-pkg' + (on ? ' on' : '') + (oos ? ' oos' : '') + '" data-co-pkg="' + esc(p.id) + '"' + (oos ? ' disabled' : '') + '>' +
+          '<div class="sw-co-pkg-top">' +
+            '<div><div class="sw-co-pkg-name">' + esc(p.name) + '</div><div class="sw-co-pkg-bonus">' + esc(p.bonus) + (!oos && pr.bonusPercent > 0 ? (' · +' + pr.bonusPercent + '% Spin Bonus') : '') + '</div></div>' +
+            (oos ? '<span class="sw-co-pkg-oos">Out of Stock</span>' : (p.popular ? '<span class="sw-co-pkg-pop">Popular</span>' : '')) +
+          '</div>' +
+          '<div class="sw-co-pkg-price"><span class="sw-co-pkg-final' + (!oos && isCelebrating && (pr.discountSaved > 0 || pr.bonusPercent > 0) ? ' sw-price-pop' : '') + '">৳' + pr.finalPrice + '</span>' + (!oos && pr.discountSaved > 0 ? '<span class="sw-co-pkg-orig">৳' + pr.originalPrice + '</span>' : '') + '</div>' +
+        '</button>' +
+        (oos ? '<button type="button" class="sw-watch-btn' + (watched ? ' on' : '') + '" data-watch-pkg="' + esc(p.id) + '">' + (watched ? '🔔 Alert Active (Tap to Remove)' : '🔔 Notify Me When Back') + '</button>' : '') +
+      '</div>';
+    }).join('');
+
+    var gameProfiles = (Array.isArray(state.savedProfiles) ? state.savedProfiles : []).filter(function (sp) { return sp.gameId === cat.id; });
+    var savedUidChipsHTML = gameProfiles.length > 0
+      ? '<div class="sw-uid-chips">' + gameProfiles.map(function (sp) {
+          var isMatch = (coState.uid || '').trim() === sp.playerUid;
+          return '<div class="sw-uid-chip' + (isMatch ? ' on' : '') + '">' +
+            '<button type="button" class="sw-uid-chip-btn" data-use-prof="' + esc(sp.playerUid) + '"><span>' + esc(sp.nickname) + '</span><span class="mono">' + esc(sp.playerUid) + '</span></button>' +
+            '<button type="button" class="sw-uid-chip-del" data-del-prof="' + esc(sp.id) + '" title="Delete">✕</button>' +
+          '</div>';
+        }).join('') + '</div>'
+      : '';
+
+    var offersHTML = unusedOffers.length === 0
+      ? '<div style="border:1px dashed #334155;border-radius:11px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0d131b;">' +
+          '<span style="font-size:12px;color:#94a3b8;">Spin the wheel to win instant discounts</span>' +
+          '<button type="button" id="swCoEmptySpin" style="background:none;border:none;color:#fcd34d;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">Spin Now →</button>' +
+        '</div>'
+      : '<div class="sw-co-offer-list">' + unusedOffers.map(function (o) {
+          var isOn = activeOffer && o.id === activeOffer.id;
+          var cond = (o.minOrderBdt ? (' · ন্যূনতম ৳' + o.minOrderBdt) : '') + (o.maxDiscountBdt ? (' · সর্বোচ্চ ৳' + o.maxDiscountBdt) : '');
+          return '<button type="button" class="sw-co-offer-item' + (isOn ? ' on' : '') + '" data-co-offer="' + esc(o.id) + '">' +
+            '<div style="min-width:0;"><div class="sw-co-offer-title">' + esc(o.title) + '</div><div class="sw-co-offer-code">' + esc(o.code) + ' · ⏳ ' + esc(formatOfferExpiry(o.expiresAt)) + esc(cond) + '</div></div>' +
+            '<span class="sw-co-offer-tag">' + (isOn ? 'Applied' : 'Apply') + '</span>' +
+          '</button>';
+        }).join('') + '</div>';
+
+    var pays = [
+      { name: 'bKash', dt: 'Send Money · TrxID' },
+      { name: 'Nagad', dt: 'Send Money · TrxID' },
+      { name: 'Rocket', dt: 'DBBL · TrxID' },
+      { name: 'Wallet Pay', dt: '৳' + (state.walletBalanceBdt || 0) + ' + ' + walletCashbackPercent + '% CB' }
+    ];
+    var paysHTML = pays.map(function (pm) {
+      return '<button type="button" class="sw-co-pay' + (coState.payMethod === pm.name ? ' on' : '') + '" data-co-pay="' + esc(pm.name) + '">' +
+        '<div class="sw-co-pay-nm">' + esc(pm.name) + '</div><div class="sw-co-pay-dt">' + esc(pm.dt) + '</div>' +
+      '</button>';
+    }).join('');
+    var activePayNum = coState.payMethod === 'bKash' ? paymentNumbers.bkash : (coState.payMethod === 'Nagad' ? paymentNumbers.nagad : (coState.payMethod === 'Rocket' ? paymentNumbers.rocket : ''));
+    var payExtraHTML = coState.payMethod !== 'Wallet Pay'
+      ? '<div class="sw-co-paybox">' +
+          '<div class="sw-co-paynum">' +
+            '<div><div style="font-size:11px;color:#94a3b8;">নিচের ' + esc(coState.payMethod) + ' (Personal) নম্বরে ৳' + selPricing.finalPrice + ' Send Money করুন:</div><strong>' + esc(activePayNum) + '</strong></div>' +
+            '<button type="button" class="sw-co-copy-mini" id="swCoCopyPayNum">Copy</button>' +
+          '</div>' +
+          '<div class="sw-co-paygrid">' +
+            '<div><label class="sw-co-lbl" for="swCoSenderInp">Sender Number</label><input type="text" class="sw-co-input" id="swCoSenderInp" value="' + esc(coState.senderNumber) + '" placeholder="017XXXXXXXX"/></div>' +
+            '<div><label class="sw-co-lbl" for="swCoTrxInp">TrxID</label><input type="text" class="sw-co-input" style="text-transform:uppercase;" id="swCoTrxInp" value="' + esc(coState.trxId) + '" placeholder="e.g. BL78K291M"/></div>' +
+          '</div>' +
+          '<div class="sw-proof-box">' +
+            '<label class="sw-proof-lbl" for="swCoProofInp"><span>📸 Payment Screenshot (Optional)</span><span class="sw-proof-btn">' + (coState.paymentProof ? 'Change Image' : 'Upload Proof') + '</span></label>' +
+            '<input type="file" accept="image/*" id="swCoProofInp" style="display:none;"/>' +
+            (coState.paymentProof ? '<div class="sw-proof-prev"><img src="' + esc(coState.paymentProof) + '" alt="Payment Proof"/><button type="button" id="swCoProofRem" style="background:none;border:0;color:#f87171;font-size:11px;font-weight:800;cursor:pointer;">✕ Remove</button></div>' : '') +
+          '</div>' +
+        '</div>'
+      : '<div class="sw-co-wallet-box">' +
+          '<div><div style="font-weight:800;color:#34d399;">Wallet Balance: ৳' + (state.walletBalanceBdt || 0) + '</div><div style="font-size:11px;color:#cbd5e1;">ওয়ালেটে পে করলে +' + walletCashbackPercent + '% (৳' + selPricing.estCashback + ') Cashback পাবেন!</div></div>' +
+          '<button type="button" class="sw-co-promo-btn" style="background:#10b981;color:#020617;border:0;padding:7px 11px;" id="swCoOpenWallet">+ Add Money</button>' +
+        '</div>';
+
+    var promoHTML = '<div class="sw-co-promo">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;"><label class="sw-co-lbl" for="swCoPromoInp" style="margin:0;">Promo Code (e.g. CRAZY10, VIP50)</label>' +
+      (coState.appliedPromo ? '<button type="button" id="swCoRemovePromo" style="background:none;border:none;color:#f87171;font-size:11px;font-weight:800;cursor:pointer;">Remove ' + esc(coState.appliedPromo.code) + '</button>' : '') +
+      '</div>' +
+      '<div class="sw-co-promo-row"><input type="text" class="sw-co-input" style="text-transform:uppercase;padding:8px 10px;font-size:12px;" id="swCoPromoInp" value="' + esc(coState.promoInput) + '" placeholder="Enter promo code"/><button type="button" class="sw-co-promo-btn" id="swCoApplyPromoBtn">Apply</button></div>' +
+      (coState.promoMsg ? '<div style="font-size:11px;font-weight:700;margin-top:5px;color:' + (coState.promoMsg.indexOf('✅') === 0 ? '#34d399' : '#fcd34d') + ';">' + esc(coState.promoMsg) + '</div>' : '') +
+      '</div>';
+
+    var flashHTML = (selPricing.flashLive && flashSaleConfig)
+      ? '<div class="sw-co-flash"><span>⚡ ' + esc(flashSaleConfig.title) + ' (Auto +' + flashSaleConfig.extraPercent + '% OFF)</span><span class="tm">Ends: ' + esc(formatOfferExpiry(flashSaleConfig.endsAt)) + '</span></div>'
+      : '';
+
+    var vipCardHTML = '<div class="sw-vip-card">' +
+      '<div class="sw-vip-top"><span>👑 ' + esc(vipStatus.rank) + ' VIP Tier</span><span style="color:#34d399;font-family:JetBrains Mono,monospace;">' + (vipStatus.discountPercent > 0 ? (vipStatus.discountPercent + '% Auto OFF') : 'Spend ৳1000 → 2%') + '</span></div>' +
+      '<div class="sw-vip-bar"><div class="sw-vip-fill" style="width:' + vipStatus.progressPercent + '%;"></div></div>' +
+      '<div class="sw-vip-sub">' + (vipStatus.nextRank ? ('৳' + vipStatus.lifetimeSpendBdt + ' / ৳' + vipStatus.nextThresholdBdt + ' → ' + vipStatus.nextRank) : ('সর্বোচ্চ Diamond VIP (৳' + vipStatus.lifetimeSpendBdt + ')')) + '</div>' +
+      '</div>';
+
+    var lbEntries = coState.lbTab === 'buyers' ? (leaderboardData.topBuyers || []) : (leaderboardData.topReferrers || []);
+    var lbHTML = '<div class="sw-co-card">' +
+      '<div class="sw-co-card-hd"><h2>🏆 Monthly Leaderboard</h2><div class="sw-lb-tabs">' +
+      '<button type="button" class="sw-lb-tab' + (coState.lbTab === 'buyers' ? ' on' : '') + '" data-lb-tab="buyers">Top Buyers</button>' +
+      '<button type="button" class="sw-lb-tab' + (coState.lbTab === 'referrers' ? ' on' : '') + '" data-lb-tab="referrers">Top Referrers</button>' +
+      '</div></div>' +
+      lbEntries.map(function (ent, idx) {
+        return '<div class="sw-lb-row"><span><b style="color:#fcd34d;margin-right:6px;">#' + (idx + 1) + '</b><b style="color:#fff;">' + esc(ent.name) + '</b> <span style="font-size:10px;color:#c084fc;">(' + esc(ent.vipRank) + ')</span></span><span style="font-family:JetBrains Mono,monospace;font-weight:800;color:#34d399;">' + (coState.lbTab === 'buyers' ? ('৳' + ent.metricValue) : (ent.metricValue + ' Invites')) + '</span></div>';
+      }).join('') +
+      '</div>';
+
+    var waNumClean = (supportConfig.whatsapp || '8801700000024').replace(/[^0-9]/g, '');
+    var ordersList = Array.isArray(state.orders) ? state.orders : [];
+    var recentOrdersHTML = ordersList.length > 0
+      ? '<div class="sw-co-card"><div class="sw-co-card-hd"><h3>Recent Purchases &amp; Live Status</h3></div>' +
+          ordersList.slice(0, 4).map(function (ord) {
+            var st = ord.status || 'Pending';
+            var ordWaHref = 'https://wa.me/' + waNumClean + '?text=' + encodeURIComponent('হ্যালো Crazy_top_up (24) সাপোর্ট,\nঅর্ডার আইডি: ' + ord.id + ' (' + st + ')\nUID: ' + ord.playerUid + (ord.trxId ? ', TrxID: ' + ord.trxId : ''));
+            return '<div class="sw-co-ord-row">' +
+              '<div style="min-width:0;"><div style="font-weight:700;color:#fff;">' + esc(ord.gameName) + ' · ' + esc(ord.packageLabel) + '</div>' +
+              '<div style="color:#94a3b8;font-family:JetBrains Mono,monospace;font-size:11px;">' + esc(ord.id) + ' · UID ' + esc(ord.playerUid) + (ord.trxId ? (' · ' + esc(ord.trxId)) : '') + '</div></div>' +
+              '<div style="text-align:right;flex-shrink:0;"><div><span class="sw-st-badge sw-st-' + esc(st) + '">' + esc(st) + '</span> <span style="font-weight:800;color:#fcd34d;font-family:JetBrains Mono,monospace;">৳' + ord.finalPrice + '</span></div>' +
+              '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:3px;">' +
+                '<button type="button" data-ord-chat="' + esc(ord.id) + '" style="background:none;border:0;padding:0;font-size:10.5px;color:#7dd3fc;font-weight:800;cursor:pointer;">💬 Support Chat' + ((ord.supportMessages && ord.supportMessages.length) ? (' (' + ord.supportMessages.length + ')') : '') + '</button>' +
+                '<a href="' + ordWaHref + '" target="_blank" rel="noopener noreferrer" style="font-size:10.5px;color:#34d399;text-decoration:none;font-weight:700;">WhatsApp</a>' +
+              '</div>' +
+              '</div></div>';
+          }).join('') +
+        '</div>'
+      : '';
+
+    var walletModalHTML = coState.showWalletModal
+      ? '<div class="sw-summary-root sw-open" style="z-index:2147483000;">' +
+          '<div class="sw-summary-backdrop" id="swWalBd"></div>' +
+          '<div class="sw-summary-card">' +
+            '<button type="button" class="sw-summary-x" id="swWalClose">✕</button>' +
+            '<h3 style="margin:0 0 4px;color:#fff;font-size:18px;font-weight:900;">Crazy Wallet · ৳' + (state.walletBalanceBdt || 0) + '</h3>' +
+            '<div style="font-size:11.5px;color:#94a3b8;margin-bottom:12px;">ওয়ালেট পেমেন্টে প্রতি অর্ডারে ' + walletCashbackPercent + '% Cashback</div>' +
+            '<form id="swWalForm">' +
+              '<div class="sw-co-pays" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px;">' +
+                ['bKash', 'Nagad', 'Rocket'].map(function (wm) {
+                  return '<button type="button" class="sw-co-pay' + (coState.walletMethod === wm ? ' on' : '') + '" data-wal-m="' + wm + '" style="text-align:center;padding:7px;"><div class="sw-co-pay-nm">' + wm + '</div></button>';
+                }).join('') +
+              '</div>' +
+              '<div class="sw-co-paynum" style="background:#0b1017;padding:8px 10px;border-radius:8px;border:1px solid #1e293b;"><span>' + esc(coState.walletMethod) + ' Number:</span><strong>' + esc(coState.walletMethod === 'bKash' ? paymentNumbers.bkash : (coState.walletMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket)) + '</strong></div>' +
+              '<div class="sw-co-paygrid" style="margin-bottom:8px;">' +
+                '<div><label class="sw-co-lbl">Amount (৳)</label><input type="number" min="20" class="sw-co-input" id="swWalAmt" value="' + esc(coState.walletAmt) + '"/></div>' +
+                '<div><label class="sw-co-lbl">Sender Number</label><input type="text" class="sw-co-input" id="swWalSender" value="' + esc(coState.walletSender) + '" placeholder="017XXXXXXXX"/></div>' +
+              '</div>' +
+              '<div style="margin-bottom:8px;"><label class="sw-co-lbl">Transaction ID (TrxID)</label><input type="text" class="sw-co-input" style="text-transform:uppercase;" id="swWalTrx" value="' + esc(coState.walletTrx) + '" placeholder="e.g. BL78K291M"/></div>' +
+              '<div class="sw-proof-box" style="margin-bottom:10px;">' +
+                '<label class="sw-proof-lbl" for="swWalProofInp"><span>📸 Payment Screenshot</span><span class="sw-proof-btn">' + (coState.walletProof ? 'Change' : 'Upload') + '</span></label>' +
+                '<input type="file" accept="image/*" id="swWalProofInp" style="display:none;"/>' +
+                (coState.walletProof ? '<div class="sw-proof-prev"><img src="' + esc(coState.walletProof) + '" alt="Wallet Proof"/><button type="button" id="swWalProofRem" style="background:none;border:0;color:#f87171;font-size:11px;font-weight:800;cursor:pointer;">✕ Remove</button></div>' : '') +
+              '</div>' +
+              (coState.walletMsg ? '<div style="font-size:11.5px;font-weight:700;margin-bottom:8px;color:' + (coState.walletMsg.indexOf('✅') === 0 ? '#34d399' : '#f87171') + ';">' + esc(coState.walletMsg) + '</div>' : '') +
+              '<button type="submit" class="sw-co-submit" style="margin-top:0;">Submit Add-Money Request</button>' +
+            '</form>' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    view.innerHTML =
+      '<header class="sw-co-hdr"><div class="sw-co-hdr-in">' +
+        '<a href="#" class="sw-co-brand" id="swCoBrandHome">Crazy_top_up (24)</a>' +
+        '<div class="sw-co-hdr-acts">' +
+          '<button type="button" class="sw-co-wallet-chip" id="swCoHdrWallet">💳 ৳' + (state.walletBalanceBdt || 0) + '</button>' +
+          '<button type="button" class="sw-pwa-btn" id="swCoInstallApp">📲 App</button>' +
+          '<a href="admin.html" class="sw-co-admin-btn">⚙ Admin</a>' +
+          '<button type="button" class="sw-co-home-btn" id="swCoBackHome">← Main Site</button>' +
+          '<button type="button" class="sw-co-spin-btn" id="swCoHdrSpin"><span>🎡 Spin &amp; Win</span>' + (totalSpins > 0 ? '<span class="sw-co-spin-cnt">' + totalSpins + '</span>' : '') + '</button>' +
+        '</div>' +
+      '</div></header>' +
+      '<main class="sw-co-main">' +
+        buildTickerHTML(false) +
+        (function () {
+          if (!announcementConfig || !announcementConfig.active || !String(announcementConfig.text || '').trim()) return '';
+          var copies = [0, 1, 2, 3].map(function () {
+            return '<span class="sw-notice-copy"><span>' + esc(announcementConfig.text) + '</span><span style="opacity:.5;">•</span></span>';
+          }).join('');
+          return '<div class="sw-notice-bar"><span class="sw-notice-tag">📢 ' + esc(announcementConfig.tagLabel || 'NOTICE') + '</span><div class="sw-notice-mask"><div class="sw-notice-track">' + copies + '</div></div></div>';
+        })() +
+        flashHTML +
+        (function () {
+          if (!promoBanners || !promoBanners.length) return '';
+          if (activeBannerIdx >= promoBanners.length) activeBannerIdx = 0;
+          var sl = promoBanners[activeBannerIdx];
+          var dots = promoBanners.length > 1
+            ? '<div class="sw-banner-dots">' + promoBanners.map(function (_b, bi) {
+                return '<button type="button" class="sw-banner-dot' + (bi === activeBannerIdx ? ' on' : '') + '" data-ban-dot="' + bi + '" aria-label="Slide ' + (bi + 1) + '"></button>';
+              }).join('') + '</div>'
+            : '';
+          return '<div class="sw-banner-slider accent-' + esc(sl.accent || 'gold') + '">' +
+            '<div style="min-width:0;flex:1;">' +
+              (sl.badge ? '<span class="sw-banner-badge">' + esc(sl.badge) + '</span>' : '') +
+              '<div style="font-size:16px;font-weight:900;color:#fff;line-height:1.25;">' + esc(sl.title) + '</div>' +
+              (sl.subtitle ? '<div style="font-size:12px;color:#cbd5e1;margin-top:3px;">' + esc(sl.subtitle) + '</div>' : '') +
+              dots +
+            '</div>' +
+            (sl.ctaLabel ? '<button type="button" class="sw-co-btn-amber" data-ban-cta="' + esc(sl.ctaTarget || 'spin') + '">' + esc(sl.ctaLabel) + ' →</button>' : '') +
+          '</div>';
+        })() +
+        restockBannerHTML +
+        '<section class="sw-co-hero">' +
+          '<div class="sw-co-hero-kicker">Instant Discounts · ' + walletCashbackPercent + '% Wallet Cashback · VIP Perks</div>' +
+          '<h1 class="sw-co-hero-title">Game Top-Up Store &amp; Spin Discount Wheel</h1>' +
+          '<p class="sw-co-hero-sub">স্পিন করে পাওয়া ডিসকাউন্ট, Promo Code, VIP র‍্যাংক ডিসকাউন্ট ও Crazy Wallet দিয়ে টপ-আপ অর্ডার করুন।</p>' +
+          '<div class="sw-co-hero-btns">' +
+            '<button type="button" class="sw-co-btn-amber" id="swCoHeroSpin">✨ Open Spin Wheel (' + totalSpins + ')</button>' +
+            '<button type="button" class="sw-co-btn-slate" id="swCoHeroOffers">🏷 My Offers (' + unusedOffers.length + ')</button>' +
+            '<button type="button" class="sw-co-btn-slate" style="border-color:rgba(52,211,153,0.45);color:#6ee7b7;" id="swCoHeroWallet">💳 Add Money (৳' + (state.walletBalanceBdt || 0) + ')</button>' +
+          '</div>' +
+        '</section>' +
+        appliedBarHTML +
+        (selPricing.conditionWarning ? '<div class="sw-rule-warn" style="margin-bottom:12px;">⚠️ ' + esc(selPricing.conditionWarning) + ' — এই অফার নিতে আরও বড় প্যাকেজ সিলেক্ট করুন।</div>' : '') +
+        (selPricing.promoWarn ? '<div class="sw-rule-warn" style="margin-bottom:12px;">⚠️ ' + esc(selPricing.promoWarn) + '</div>' : '') +
+        '<div class="sw-features-3col">' + vipCardHTML + buildStreakHTML(false) + buildReferralHTML() + '</div>' +
+        '<div class="sw-co-games">' + gamesHTML + '</div>' +
+        '<div class="sw-co-grid">' +
+          '<div class="sw-co-col">' +
+            (isGameMaint ? '<div class="sw-maint-banner">⛔ ' + esc(cat.name) + ' বর্তমানে মেইনটেন্যান্সে আছে — সাময়িকভাবে নতুন অর্ডার বন্ধ।</div>' : '') +
+            '<div class="sw-co-card">' +
+              '<div class="sw-co-card-hd"><h2>1. Enter ' + esc(cat.name) + ' Account</h2><button type="button" class="sw-uid-save-btn" id="swCoToggleSaveUid">+ Save UID</button></div>' +
+              savedUidChipsHTML +
+              (coState.showSaveProfile ? '<div class="sw-uid-save-box"><input type="text" class="sw-co-input" style="padding:7px 10px;font-size:12px;" id="swCoProfNick" value="' + esc(coState.profileNick) + '" placeholder="Nickname (e.g. Main ID, Vaiya ID)"/><button type="button" class="sw-co-promo-btn" id="swCoSaveProfBtn">Save</button></div>' : '') +
+              '<label class="sw-co-lbl" for="swCoUidInput">' + esc(cat.uidLabel) + '</label>' +
+              '<input type="text" class="sw-co-input" id="swCoUidInput" value="' + esc(coState.uid) + '" placeholder="' + esc(cat.uidPlaceholder) + '"/>' +
+              '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#94a3b8;cursor:pointer;"><input type="checkbox" id="swCoAutoSaveUid"' + (coState.autoSaveUid ? ' checked' : '') + '/> অর্ডার করলে এই UID অটো-সেভ রাখুন</label>' +
+              (coState.uidErr ? '<div class="sw-co-err">' + esc(coState.uidErr) + '</div>' : '') +
+            '</div>' +
+            '<div class="sw-co-card">' +
+              '<div class="sw-co-card-hd"><h2>2. Select ' + esc(cat.currency) + ' Package</h2><span class="sw-co-card-sub">' + (activeOffer || selPricing.flashLive || coState.appliedPromo ? 'Discounts active' : 'Select a bundle') + '</span></div>' +
+              '<div class="sw-co-pkgs">' + pkgsHTML + '</div>' +
+            '</div>' +
+            lbHTML +
+          '</div>' +
+          '<div class="sw-co-col">' +
+            '<form class="sw-co-card" id="swCoForm">' +
+              '<div class="sw-co-card-hd"><h2>3. Apply Won Spin Offer (' + unusedOffers.length + ' available)</h2></div>' +
+              offersHTML +
+              promoHTML +
+              '<div class="sw-co-card-hd" style="margin-top:16px;"><h2>4. Payment Method</h2></div>' +
+              '<div class="sw-co-pays">' + paysHTML + '</div>' +
+              payExtraHTML +
+              '<div class="sw-co-sum">' +
+                '<div class="sw-co-sum-row"><span>Package</span><b style="color:#fff;">' + esc(pkg.name) + '</b></div>' +
+                '<div class="sw-co-sum-row"><span>Base Price</span><span style="font-family:JetBrains Mono,monospace;">৳' + selPricing.originalPrice + '</span></div>' +
+                (selPricing.offerDiscount > 0 ? '<div class="sw-co-sum-row sav"><span>Spin Offer</span><span style="font-family:JetBrains Mono,monospace;">-৳' + selPricing.offerDiscount + '</span></div>' : '') +
+                (selPricing.flashDiscount > 0 ? '<div class="sw-co-sum-row" style="color:#fcd34d;"><span>Flash Sale</span><span style="font-family:JetBrains Mono,monospace;">-৳' + selPricing.flashDiscount + '</span></div>' : '') +
+                (selPricing.vipDiscount > 0 ? '<div class="sw-co-sum-row" style="color:#d8b4fe;"><span>' + esc(vipStatus.rank) + ' VIP</span><span style="font-family:JetBrains Mono,monospace;">-৳' + selPricing.vipDiscount + '</span></div>' : '') +
+                (selPricing.promoDiscount > 0 && coState.appliedPromo ? '<div class="sw-co-sum-row" style="color:#7dd3fc;"><span>Promo (' + esc(coState.appliedPromo.code) + ')</span><span style="font-family:JetBrains Mono,monospace;">-৳' + selPricing.promoDiscount + '</span></div>' : '') +
+                (selPricing.bonusPercent > 0 ? '<div class="sw-co-sum-row bon"><span>Bonus Top-Up</span><span style="font-family:JetBrains Mono,monospace;">+' + selPricing.bonusPercent + '%</span></div>' : '') +
+                '<div class="sw-co-total"><span class="sw-co-total-lbl">Total Payable</span><span class="sw-co-total-amt' + (isCelebrating ? ' sw-price-pop' : '') + '">৳' + selPricing.finalPrice + '</span></div>' +
+              '</div>' +
+              (coState.checkoutErr ? '<div class="sw-co-err" style="margin-top:8px;">❌ ' + esc(coState.checkoutErr) + '</div>' : '') +
+              '<button type="submit" class="sw-co-submit"' + ((isGameMaint || isPkgOos) ? ' disabled' : '') + '>' + (isGameMaint ? 'Game in Maintenance' : (isPkgOos ? 'Package Out of Stock' : ('Complete Purchase · ৳' + selPricing.finalPrice))) + '</button>' +
+              '<div class="sw-co-foot-note">🛡 TrxID Verified · Crazy_top_up (24)</div>' +
+            '</form>' +
+            recentOrdersHTML +
+          '</div>' +
+        '</div>' +
+        '<div class="sw-co-support-foot">' +
+          '<span><strong>Crazy_top_up (24)</strong> · Instant Top-Up Support</span>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<a href="https://wa.me/' + waNumClean + '" target="_blank" rel="noopener noreferrer" class="sw-sup-btn sw-sup-wa">💬 WhatsApp Support</a>' +
+            '<a href="' + esc(supportConfig.telegram || 'https://t.me/crazy_top_up_24') + '" target="_blank" rel="noopener noreferrer" class="sw-sup-btn sw-sup-tg">✈ Telegram Support</a>' +
+          '</div>' +
+        '</div>' +
+      '</main>' +
+      walletModalHTML +
+      (function () {
+        if (!coState.supportOrderId) return '';
+        var targetOrd = ordersList.find(function (o) { return o.id === coState.supportOrderId; });
+        if (!targetOrd) return '';
+        var msgs = Array.isArray(targetOrd.supportMessages) ? targetOrd.supportMessages : [];
+        var msgsHTML = msgs.length === 0
+          ? '<div style="text-align:center;color:#64748b;font-size:12px;padding:18px 0;">No messages yet. Ask admin anything about this order!</div>'
+          : msgs.map(function (m) {
+              return '<div class="sw-chat-msg ' + (m.sender === 'admin' ? 'admin' : 'user') + '">' +
+                '<div style="font-size:10px;opacity:.75;margin-bottom:2px;">' + (m.sender === 'admin' ? '🛡 Admin Support' : 'You') + ' · ' + esc(m.createdAt || '') + '</div>' +
+                '<div>' + esc(m.text) + '</div>' +
+              '</div>';
+            }).join('');
+        return '<div class="sw-summary-root sw-open" style="z-index:2147483005;">' +
+          '<div class="sw-summary-backdrop" id="swSupBd"></div>' +
+          '<div class="sw-summary-card">' +
+            '<button type="button" class="sw-summary-x" id="swSupClose">✕</button>' +
+            '<h3 style="margin:0 0 4px;color:#fff;font-size:16px;font-weight:900;">Order Support Chat · ' + esc(targetOrd.id) + '</h3>' +
+            '<div style="font-size:11px;color:#94a3b8;">' + esc(targetOrd.gameName) + ' · ' + esc(targetOrd.packageLabel) + '</div>' +
+            '<div class="sw-chat-log">' + msgsHTML + '</div>' +
+            (coState.supportErr ? '<div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:6px;">' + esc(coState.supportErr) + '</div>' : '') +
+            '<form id="swSupForm" style="display:flex;gap:8px;">' +
+              '<input type="text" class="sw-co-input" id="swSupInp" value="' + esc(coState.supportInput) + '" placeholder="Type message to admin..." style="flex:1;padding:8px 10px;font-size:12px;"/>' +
+              '<button type="submit" class="sw-co-promo-btn" style="background:#0ea5e9;color:#05202e;border:0;">Send</button>' +
+            '</form>' +
+          '</div>' +
+        '</div>';
+      })();
+
+    var brandHome = document.getElementById('swCoBrandHome');
+    if (brandHome) brandHome.onclick = function (e) { e.preventDefault(); location.hash = ''; };
+    var backHome = document.getElementById('swCoBackHome');
+    if (backHome) backHome.onclick = function () { playClick(); location.hash = ''; };
+    var hdrSpin = document.getElementById('swCoHdrSpin');
+    if (hdrSpin) hdrSpin.onclick = function () { playClick(); openModal('spin'); };
+    var heroSpin = document.getElementById('swCoHeroSpin');
+    if (heroSpin) heroSpin.onclick = function () { playClick(); openModal('spin'); };
+    var heroOffers = document.getElementById('swCoHeroOffers');
+    if (heroOffers) heroOffers.onclick = function () { playClick(); openModal('boxes'); };
+    var emptySpin = document.getElementById('swCoEmptySpin');
+    if (emptySpin) emptySpin.onclick = function () { playClick(); openModal('spin'); };
+    var remBtn = document.getElementById('swCoRemoveOffer');
+    if (remBtn) remBtn.onclick = function () {
+      state.activeOfferId = null;
+      saveState();
+      syncAllUI();
+      renderCheckoutView();
+    };
+
+    view.querySelectorAll('[data-co-cat]').forEach(function (btn) {
+      btn.onclick = function () {
+        playClick();
+        coState.catId = btn.getAttribute('data-co-cat');
+        for (var k = 0; k < CO_CATEGORIES.length; k++) {
+          if (CO_CATEGORIES[k].id === coState.catId) {
+            coState.pkgId = CO_CATEGORIES[k].packages[0].id;
+            break;
+          }
+        }
+        coState.uidErr = '';
+        renderCheckoutView();
+      };
+    });
+
+    view.querySelectorAll('[data-co-pkg]').forEach(function (btn) {
+      btn.onclick = function () {
+        playClick();
+        coState.pkgId = btn.getAttribute('data-co-pkg');
+        renderCheckoutView();
+      };
+    });
+
+    view.querySelectorAll('[data-co-offer]').forEach(function (btn) {
+      btn.onclick = function () {
+        playClick();
+        var oid = btn.getAttribute('data-co-offer');
+        var nextId = (state.activeOfferId === oid) ? null : oid;
+        state.activeOfferId = nextId;
+        if (nextId) {
+          coState.celebrateUntil = Date.now() + 2600;
+          fireCheckoutConfetti();
+        }
+        saveState();
+        syncAllUI();
+        renderCheckoutView();
+      };
+    });
+
+    view.querySelectorAll('[data-co-pay]').forEach(function (btn) {
+      btn.onclick = function () {
+        playClick();
+        coState.payMethod = btn.getAttribute('data-co-pay');
+        renderCheckoutView();
+      };
+    });
+
+    var installAppBtn = document.getElementById('swCoInstallApp');
+    if (installAppBtn) installAppBtn.onclick = function () { playClick(); triggerPwaInstall(); };
+    var hdrWallet = document.getElementById('swCoHdrWallet');
+    if (hdrWallet) hdrWallet.onclick = function () { playClick(); coState.showWalletModal = true; renderCheckoutView(); };
+    var heroWallet = document.getElementById('swCoHeroWallet');
+    if (heroWallet) heroWallet.onclick = function () { playClick(); coState.showWalletModal = true; renderCheckoutView(); };
+    var openWalBtn = document.getElementById('swCoOpenWallet');
+    if (openWalBtn) openWalBtn.onclick = function () { playClick(); coState.showWalletModal = true; renderCheckoutView(); };
+
+    var copyPayBtn = document.getElementById('swCoCopyPayNum');
+    if (copyPayBtn) copyPayBtn.onclick = function () {
+      try { navigator.clipboard.writeText(activePayNum); } catch (e) {}
+      copyPayBtn.textContent = '✓ Copied';
+      setTimeout(function () { copyPayBtn.textContent = 'Copy'; }, 1800);
+    };
+    var senderEl = document.getElementById('swCoSenderInp');
+    if (senderEl) senderEl.oninput = function () { coState.senderNumber = senderEl.value; coState.checkoutErr = ''; };
+    var trxEl = document.getElementById('swCoTrxInp');
+    if (trxEl) trxEl.oninput = function () { coState.trxId = trxEl.value.toUpperCase(); coState.checkoutErr = ''; };
+    var cProof = document.getElementById('swCoProofInp');
+    if (cProof) cProof.onchange = function (ev) {
+      var f = ev.target.files && ev.target.files[0];
+      if (f) compressProofImage(f, function (b64) { coState.paymentProof = b64; renderCheckoutView(); });
+    };
+    var cProofRem = document.getElementById('swCoProofRem');
+    if (cProofRem) cProofRem.onclick = function () { coState.paymentProof = ''; renderCheckoutView(); };
+    view.querySelectorAll('[data-ban-dot]').forEach(function (dot) {
+      dot.onclick = function () {
+        activeBannerIdx = Number(dot.getAttribute('data-ban-dot') || 0);
+        renderCheckoutView();
+      };
+    });
+    view.querySelectorAll('[data-ban-cta]').forEach(function (btn) {
+      btn.onclick = function () {
+        var tgt = btn.getAttribute('data-ban-cta') || 'spin';
+        if (tgt === 'wallet') { coState.showWalletModal = true; renderCheckoutView(); }
+        else if (tgt.indexOf('promo:') === 0) {
+          coState.promoInput = tgt.slice(6).toUpperCase();
+          var apBtn = document.getElementById('swCoApplyPromoBtn');
+          if (apBtn) apBtn.click();
+          else renderCheckoutView();
+        } else {
+          openModal('spin');
+        }
+      };
+    });
+    view.querySelectorAll('[data-watch-pkg]').forEach(function (wBtn) {
+      wBtn.onclick = function () {
+        var pid = wBtn.getAttribute('data-watch-pkg');
+        if (!pid) return;
+        if (!isUserSignedIn()) { showAuthRequiredModal = true; openModal('spin'); return; }
+        apiPostJson('/api/watchlist/toggle', { identifier: getUserKey(), packageId: pid })
+          .then(function (data) { applyServerPayload(data, true); renderCheckoutView(); })
+          .catch(function () {});
+      };
+    });
+    view.querySelectorAll('[data-ord-chat]').forEach(function (cBtn) {
+      cBtn.onclick = function () {
+        coState.supportOrderId = cBtn.getAttribute('data-ord-chat') || '';
+        coState.supportErr = '';
+        renderCheckoutView();
+      };
+    });
+    var supBd = document.getElementById('swSupBd');
+    var supCl = document.getElementById('swSupClose');
+    if (supBd) supBd.onclick = function () { coState.supportOrderId = ''; renderCheckoutView(); };
+    if (supCl) supCl.onclick = function () { coState.supportOrderId = ''; renderCheckoutView(); };
+    var supInp = document.getElementById('swSupInp');
+    if (supInp) supInp.oninput = function () { coState.supportInput = supInp.value; coState.supportErr = ''; };
+    var supForm = document.getElementById('swSupForm');
+    if (supForm) supForm.onsubmit = function (ev) {
+      ev.preventDefault();
+      var txt = (coState.supportInput || '').trim();
+      if (!txt) { coState.supportErr = 'Please write a message.'; renderCheckoutView(); return; }
+      apiPostJson('/api/orders/support', {
+        identifier: getUserKey(),
+        orderId: coState.supportOrderId,
+        message: txt
+      }).then(function (data) {
+        coState.supportInput = '';
+        coState.supportErr = '';
+        applyServerPayload(data, true);
+        renderCheckoutView();
+      }).catch(function (err) {
+        coState.supportErr = (err.data && err.data.error) || err.message || 'Failed to send.';
+        renderCheckoutView();
+      });
+    };
+
+    var promoInp = document.getElementById('swCoPromoInp');
+    if (promoInp) promoInp.oninput = function () { coState.promoInput = promoInp.value.toUpperCase(); };
+    var applyPromoBtn = document.getElementById('swCoApplyPromoBtn');
+    if (applyPromoBtn) applyPromoBtn.onclick = function () {
+      var code = (coState.promoInput || '').trim().toUpperCase();
+      if (!code) { coState.promoMsg = 'প্রোমো কোড লিখুন।'; renderCheckoutView(); return; }
+      fetch('/api/promo/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, basePrice: pkg.price })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.d.ok) {
+            coState.appliedPromo = null;
+            coState.promoMsg = '❌ ' + (res.d.error || 'অকার্যকর কোড');
+          } else {
+            coState.appliedPromo = res.d;
+            coState.promoMsg = '✅ ' + res.d.code + ' অ্যাপ্লাই হয়েছে (-৳' + res.d.discountSaved + ')!';
+          }
+          renderCheckoutView();
+        }).catch(function () {
+          coState.promoMsg = 'সার্ভারের সাথে সংযোগ হয়নি।';
+          renderCheckoutView();
+        });
+    };
+    var remPromoBtn = document.getElementById('swCoRemovePromo');
+    if (remPromoBtn) remPromoBtn.onclick = function () {
+      coState.appliedPromo = null; coState.promoInput = ''; coState.promoMsg = ''; renderCheckoutView();
+    };
+
+    view.querySelectorAll('[data-lb-tab]').forEach(function (btn) {
+      btn.onclick = function () { playClick(); coState.lbTab = btn.getAttribute('data-lb-tab'); renderCheckoutView(); };
+    });
+
+    if (coState.showWalletModal) {
+      var wb = document.getElementById('swWalBd');
+      var wc = document.getElementById('swWalClose');
+      if (wb) wb.onclick = function () { coState.showWalletModal = false; renderCheckoutView(); };
+      if (wc) wc.onclick = function () { coState.showWalletModal = false; renderCheckoutView(); };
+      view.querySelectorAll('[data-wal-m]').forEach(function (btn) {
+        btn.onclick = function () { coState.walletMethod = btn.getAttribute('data-wal-m'); renderCheckoutView(); };
+      });
+      var wAmt = document.getElementById('swWalAmt'); if (wAmt) wAmt.oninput = function () { coState.walletAmt = wAmt.value; };
+      var wSnd = document.getElementById('swWalSender'); if (wSnd) wSnd.oninput = function () { coState.walletSender = wSnd.value; };
+      var wTrx = document.getElementById('swWalTrx'); if (wTrx) wTrx.oninput = function () { coState.walletTrx = wTrx.value.toUpperCase(); };
+      var wProof = document.getElementById('swWalProofInp');
+      if (wProof) wProof.onchange = function (ev) {
+        var f = ev.target.files && ev.target.files[0];
+        if (f) compressProofImage(f, function (b64) { coState.walletProof = b64; renderCheckoutView(); });
+      };
+      var wProofRem = document.getElementById('swWalProofRem');
+      if (wProofRem) wProofRem.onclick = function () { coState.walletProof = ''; renderCheckoutView(); };
+      var wForm = document.getElementById('swWalForm');
+      if (wForm) wForm.onsubmit = function (ev) {
+        ev.preventDefault();
+        if (!isUserSignedIn()) { showAuthRequiredModal = true; openModal('spin'); return; }
+        var amtN = Math.round(Number(coState.walletAmt || 0));
+        if (amtN < 20 || (coState.walletSender || '').trim().length < 6 || (coState.walletTrx || '').trim().length < 4) {
+          coState.walletMsg = 'ন্যূনতম ৳২০, সঠিক Sender Number ও TrxID দিন।';
+          renderCheckoutView();
+          return;
+        }
+        apiPostJson('/api/wallet/deposit', {
+          identifier: getUserKey(),
+          method: coState.walletMethod,
+          amountBdt: amtN,
+          senderNumber: coState.walletSender.trim(),
+          trxId: coState.walletTrx.trim().toUpperCase(),
+          screenshotUrl: coState.walletProof || undefined
+        }).then(function (data) {
+          applyServerPayload(data, true);
+          coState.walletSender = ''; coState.walletTrx = ''; coState.walletProof = '';
+          coState.walletMsg = '✅ Request submitted! Balance will be credited after admin approval.';
+          renderCheckoutView();
+        }).catch(function (err) {
+          coState.walletMsg = '❌ ' + (err.message || 'সাবমিট ব্যর্থ হয়েছে।');
+          renderCheckoutView();
+        });
+      };
+    }
+
+    var uidEl = document.getElementById('swCoUidInput');
+    if (uidEl) {
+      uidEl.oninput = function () {
+        coState.uid = uidEl.value;
+        coState.uidErr = '';
+      };
+    }
+    var autoSaveCb = document.getElementById('swCoAutoSaveUid');
+    if (autoSaveCb) {
+      autoSaveCb.onchange = function () { coState.autoSaveUid = autoSaveCb.checked; };
+    }
+    var togSaveBtn = document.getElementById('swCoToggleSaveUid');
+    if (togSaveBtn) {
+      togSaveBtn.onclick = function () {
+        coState.showSaveProfile = !coState.showSaveProfile;
+        coState.uidErr = '';
+        renderCheckoutView();
+      };
+    }
+    var nickInp = document.getElementById('swCoProfNick');
+    if (nickInp) nickInp.oninput = function () { coState.profileNick = nickInp.value; };
+    var saveProfBtn = document.getElementById('swCoSaveProfBtn');
+    if (saveProfBtn) {
+      saveProfBtn.onclick = function () {
+        var chk = validateDropinUid(cat.id, coState.uid);
+        if (!chk.ok) { coState.uidErr = chk.error; renderCheckoutView(); return; }
+        var nick = (coState.profileNick || '').trim() || (cat.name + ' ID');
+        if (apiAvailable !== false && isUserSignedIn()) {
+          apiPostJson('/api/user/profiles', {
+            identifier: getUserKey(),
+            gameId: cat.id,
+            playerUid: chk.uid,
+            nickname: nick
+          }).then(function (data) {
+            applyServerPayload(data, true);
+            coState.showSaveProfile = false;
+            coState.profileNick = '';
+            coState.uidErr = '';
+            renderCheckoutView();
+          }).catch(function (err) {
+            coState.uidErr = (err.data && err.data.error) || err.message || 'সেভ ব্যর্থ হয়েছে।';
+            renderCheckoutView();
+          });
+        } else {
+          if (!Array.isArray(state.savedProfiles)) state.savedProfiles = [];
+          state.savedProfiles = state.savedProfiles.filter(function (p) { return !(p.gameId === cat.id && p.playerUid === chk.uid); });
+          state.savedProfiles.unshift({ id: 'uid-' + Date.now(), gameId: cat.id, playerUid: chk.uid, nickname: nick, savedAt: formatTime() });
+          state.savedProfiles = state.savedProfiles.slice(0, 15);
+          saveState();
+          coState.showSaveProfile = false;
+          coState.profileNick = '';
+          renderCheckoutView();
+        }
+      };
+    }
+    view.querySelectorAll('[data-use-prof]').forEach(function (btn) {
+      btn.onclick = function () {
+        playClick();
+        coState.uid = btn.getAttribute('data-use-prof');
+        coState.uidErr = '';
+        renderCheckoutView();
+      };
+    });
+    view.querySelectorAll('[data-del-prof]').forEach(function (btn) {
+      btn.onclick = function () {
+        var pid = btn.getAttribute('data-del-prof');
+        if (apiAvailable !== false && isUserSignedIn()) {
+          apiPostJson('/api/user/profiles/delete', { identifier: getUserKey(), profileId: pid }).then(function (data) {
+            applyServerPayload(data, true);
+            renderCheckoutView();
+          }).catch(function () {});
+        } else {
+          state.savedProfiles = (state.savedProfiles || []).filter(function (p) { return p.id !== pid; });
+          saveState();
+          renderCheckoutView();
+        }
+      };
+    });
+
+    var copyRefBtn = document.getElementById('swRefCopyBtn');
+    if (copyRefBtn) {
+      copyRefBtn.onclick = function () {
+        var link = getShareReferralUrl();
+        try { navigator.clipboard.writeText(link); } catch (e) {
+          var inp = document.getElementById('swRefLinkInp');
+          if (inp) { inp.select(); document.execCommand('copy'); }
+        }
+        copyRefBtn.textContent = '✓ Copied!';
+        setTimeout(function () { copyRefBtn.textContent = 'Copy Link'; }, 2000);
+      };
+    }
+
+    var formEl = document.getElementById('swCoForm');
+    if (formEl) {
+      formEl.onsubmit = function (e) {
+        e.preventDefault();
+        if (isGameMaint) {
+          coState.checkoutErr = cat.name + ' বর্তমানে মেইনটেন্যান্সে আছে।';
+          renderCheckoutView();
+          return;
+        }
+        if (isPkgOos) {
+          coState.checkoutErr = pkg.name + ' বর্তমানে Out of Stock!';
+          renderCheckoutView();
+          return;
+        }
+        var uidChk = validateDropinUid(cat.id, coState.uid);
+        coState.checkoutErr = '';
+        if (!uidChk.ok) {
+          coState.uidErr = uidChk.error;
+          renderCheckoutView();
+          return;
+        }
+        var cleanUid = uidChk.uid;
+        var isWal = coState.payMethod === 'Wallet Pay';
+        if (!isWal && ((coState.senderNumber || '').trim().length < 6 || (coState.trxId || '').trim().length < 4)) {
+          coState.checkoutErr = coState.payMethod + ' পেমেন্টের জন্য সঠিক Sender Number এবং TrxID দিন।';
+          renderCheckoutView();
+          return;
+        }
+        var appliedObj = (selPricing.offer && !selPricing.conditionWarning) ? selPricing.offer : null;
+        if (apiAvailable !== false && isUserSignedIn()) {
+          apiPostJson('/api/orders', {
+            identifier: getUserKey(),
+            gameId: cat.id,
+            packageId: pkg.id,
+            gameName: cat.name,
+            packageLabel: pkg.name,
+            playerUid: cleanUid,
+            saveProfile: coState.autoSaveUid,
+            profileNickname: cat.name + ' ID',
+            paymentMethod: coState.payMethod,
+            senderNumber: isWal ? undefined : coState.senderNumber.trim(),
+            trxId: isWal ? undefined : coState.trxId.trim().toUpperCase(),
+            promoCode: coState.appliedPromo ? coState.appliedPromo.code : undefined,
+            screenshotUrl: isWal ? undefined : (coState.paymentProof || undefined),
+            originalPrice: selPricing.originalPrice,
+            appliedOfferId: appliedObj ? appliedObj.id : null
+          }).then(function (data) {
+            playRewardCue('rare');
+            if (appliedObj) state.activeOfferId = null;
+            coState.trxId = '';
+            coState.paymentProof = '';
+            coState.appliedPromo = null;
+            coState.promoInput = '';
+            coState.promoMsg = '';
+            applyServerPayload(data, true);
+            if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
+            syncAllUI();
+            renderCheckoutView();
+            showOrderSummary(data.order);
+          }).catch(function (err) {
+            coState.checkoutErr = (err.data && err.data.error) || err.message || 'অর্ডার সম্পন্ন করা যায়নি।';
+            renderCheckoutView();
+          });
+        } else {
+          playRewardCue('rare');
+          var ord = {
+            id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+            gameName: cat.name,
+            packageLabel: pkg.name + (selPricing.bonusPercent > 0 ? (' (+' + selPricing.bonusPercent + '% Spin Bonus)') : ''),
+            playerUid: cleanUid,
+            paymentMethod: coState.payMethod,
+            senderNumber: isWal ? '' : coState.senderNumber.trim(),
+            trxId: isWal ? '' : coState.trxId.trim().toUpperCase(),
+            status: 'Pending',
+            originalPrice: selPricing.originalPrice,
+            discountSaved: selPricing.discountSaved,
+            finalPrice: selPricing.finalPrice,
+            bonusPercent: selPricing.bonusPercent,
+            appliedOfferCode: appliedObj ? appliedObj.code : '',
+            promoCodeUsed: coState.appliedPromo ? coState.appliedPromo.code : '',
+            createdAt: formatTime()
+          };
+          if (appliedObj) {
+            appliedObj.used = true;
+            state.activeOfferId = null;
+          }
+          if (coState.autoSaveUid) {
+            if (!Array.isArray(state.savedProfiles)) state.savedProfiles = [];
+            state.savedProfiles = state.savedProfiles.filter(function (p) { return !(p.gameId === cat.id && p.playerUid === cleanUid); });
+            state.savedProfiles.unshift({ id: 'uid-' + Date.now(), gameId: cat.id, playerUid: cleanUid, nickname: cat.name + ' ID', savedAt: formatTime() });
+            state.savedProfiles = state.savedProfiles.slice(0, 15);
+          }
+          if (!Array.isArray(state.orders)) state.orders = [];
+          state.orders.unshift(ord);
+          coState.trxId = '';
+          coState.appliedPromo = null;
+          coState.promoInput = '';
+          coState.promoMsg = '';
+          saveState();
+          syncAllUI();
+          renderCheckoutView();
+          showOrderSummary(ord);
+        }
+      };
+    }
+  }
+
+  function syncCheckoutRoute() {
+    var onCheckout = location.hash === '#spin-checkout';
+    document.body.classList.toggle('sw-on-checkout', onCheckout);
+    var home = document.getElementById('homeView');
+    var foot = document.getElementById('siteFooter');
+    if (onCheckout) {
+      if (home) home.hidden = true;
+      if (foot) foot.hidden = true;
+      renderCheckoutView();
+      setTimeout(function () {
+        if (location.hash === '#spin-checkout') {
+          document.body.classList.add('sw-on-checkout');
+          var h = document.getElementById('homeView');
+          var ft = document.getElementById('siteFooter');
+          if (h) h.hidden = true;
+          if (ft) ft.hidden = true;
+        }
+      }, 0);
+    } else {
+      var v = document.getElementById('swCheckoutView');
+      if (v) v.classList.remove('sw-active');
+      if (!location.hash || location.hash === '#') {
+        if (home) home.hidden = false;
+        if (foot) foot.hidden = false;
+      }
+    }
   }
 
   /* -------------------- Header & Home Triggers -------------------- */
@@ -1413,6 +3209,38 @@
       banner.onclick = function () { playClick(); openModal('spin'); };
       quick.parentNode.insertBefore(banner, quick.nextSibling);
     }
+    if (quick && !document.getElementById('swHomeTicker')) {
+      var tick = document.createElement('div');
+      tick.id = 'swHomeTicker';
+      tick.style.margin = '10px 0 6px';
+      tick.innerHTML = buildTickerHTML(false);
+      var hbEl = document.getElementById('swHomeBanner');
+      if (hbEl && hbEl.parentNode) hbEl.parentNode.insertBefore(tick, hbEl.nextSibling);
+      else quick.parentNode.insertBefore(tick, quick.nextSibling);
+    }
+    if (hr && !document.getElementById('swHdrPwa')) {
+      var pwaBtn = document.createElement('button');
+      pwaBtn.type = 'button';
+      pwaBtn.id = 'swHdrPwa';
+      pwaBtn.className = 'sw-pwa-btn';
+      pwaBtn.style.marginRight = '6px';
+      pwaBtn.textContent = '📲 App';
+      pwaBtn.onclick = function () { playClick(); triggerPwaInstall(); };
+      var spinHdrP = document.getElementById('swHdrBtn');
+      if (spinHdrP) hr.insertBefore(pwaBtn, spinHdrP);
+      else hr.appendChild(pwaBtn);
+    }
+    if (hr && !document.getElementById('swHdrAdmin')) {
+      var admLink = document.createElement('a');
+      admLink.id = 'swHdrAdmin';
+      admLink.href = 'admin.html';
+      admLink.className = 'sw-co-admin-btn';
+      admLink.style.marginRight = '6px';
+      admLink.textContent = '⚙ Admin';
+      var spinHdr = document.getElementById('swHdrBtn');
+      if (spinHdr) hr.insertBefore(admLink, spinHdr);
+      else hr.appendChild(admLink);
+    }
   }
 
   function syncBadges() {
@@ -1423,30 +3251,130 @@
       hb.style.display = total > 0 ? 'inline-flex' : 'none';
     }
     var sub = document.getElementById('swHomeSub');
+    var cta = document.getElementById('swHomeCta');
+    var signedIn = isUserSignedIn();
+    var spunToday = hasSpunToday();
     if (sub) {
-      var unusedOffers = state.offers.filter(function (o) { return !o.used; }).length;
-      sub.textContent = total > 0
-        ? ('আপনার ' + state.spins + ' স্পিন' + (state.goldenSpins ? ', ' + state.goldenSpins + ' গোল্ডেন' : '') + ' ও ' + unusedOffers + 'টি অফার রয়েছে')
-        : 'অর্ডার করে ফ্রি স্পিন জিতুন এবং ৯০% পর্যন্ত ছাড় পান!';
+      if (!signedIn) {
+        sub.textContent = '🔒 স্পিন করতে আগে Sign In / Login করুন — প্রতিদিন ১ বার স্পিন!';
+      } else if (spunToday) {
+        sub.textContent = '⏳ আজকের ১টি স্পিন শেষ হয়েছে — আগামীকাল আবার স্পিন করতে পারবেন!';
+      } else {
+        var unusedOffers = state.offers.filter(function (o) { return !o.used; }).length;
+        sub.textContent = total > 0
+          ? ('🎁 আজকের ১টি স্পিন রেডি আছে! (' + unusedOffers + 'টি অফার সংরক্ষিত)')
+          : 'অর্ডার করে ফ্রি স্পিন জিতুন এবং ৯০% পর্যন্ত ছাড় পান!';
+      }
+    }
+    if (cta) {
+      cta.textContent = !signedIn ? 'Login to Spin' : (spunToday ? 'View Offers' : 'Spin Now');
     }
   }
 
   function syncAllUI() {
     syncBadges();
+    renderTickerDOM();
     syncAllProductViews();
+    if (location.hash === '#spin-checkout') renderCheckoutView();
+    if (isUserSignedIn() && getUserKey() !== '__default__' && getUserKey() !== lastSyncedUserKey) {
+      syncSessionWithServer();
+    }
   }
 
   /* -------------------- Init -------------------- */
+  function hookAuthWatchers() {
+    if (typeof window.setProfile === 'function' && !window.setProfile.__swWrapped) {
+      var origSetProfile = window.setProfile;
+      var wrapped = function (p) {
+        var res = origSetProfile.apply(this, arguments);
+        if (p && typeof p.loggedIn === 'boolean') {
+          forceLoggedIn = p.loggedIn;
+          if (forceLoggedIn) showAuthRequiredModal = false;
+        }
+        syncAllUI();
+        if (isModalOpen) renderModal();
+        return res;
+      };
+      wrapped.__swWrapped = true;
+      window.setProfile = wrapped;
+    }
+
+    ['acLoTx', 'accLo', 'accName', 'buyBtn'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && typeof MutationObserver !== 'undefined') {
+        var authObs = new MutationObserver(function () {
+          syncAllUI();
+          if (isModalOpen) renderModal();
+        });
+        authObs.observe(el, { childList: true, characterData: true, subtree: true });
+      }
+    });
+  }
+
+  function setupOfflineIndicator() {
+    var pill = null;
+    function showPill(online) {
+      if (!pill) {
+        pill = document.createElement('div');
+        document.body.appendChild(pill);
+      }
+      pill.className = 'sw-offline-pill' + (online ? ' online' : '');
+      pill.innerHTML = online
+        ? '<span>📶</span><span>Back Online — Live store synced</span>'
+        : '<span>📡</span><span>Offline Mode — Cached store view active</span>';
+      pill.style.display = 'inline-flex';
+      if (online) {
+        setTimeout(function () { if (pill) pill.style.display = 'none'; }, 3000);
+      }
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) showPill(false);
+    window.addEventListener('offline', function () { showPill(false); });
+    window.addEventListener('online', function () { showPill(true); });
+  }
+
   function init() {
+    setupOfflineIndicator();
+    if (!bannerTimerStarted) {
+      bannerTimerStarted = true;
+      setInterval(function () {
+        if (promoBanners.length > 1 && location.hash === '#spin-checkout') {
+          activeBannerIdx = (activeBannerIdx + 1) % promoBanners.length;
+          renderCheckoutView();
+        }
+      }, 5000);
+    }
     buildRootShell();
     injectSiteTriggers();
     setupProductHooks();
+    hookAuthWatchers();
+    window.addEventListener('hashchange', syncCheckoutRoute);
+    syncCheckoutRoute();
     syncAllUI();
+    fetchPublicFeed();
+    syncSessionWithServer();
+    setInterval(function () {
+      if (apiAvailable !== false && isUserSignedIn() && location.hash === '#spin-checkout') {
+        var uk = getUserKey();
+        if (uk && uk !== '__default__') {
+          fetch('/api/user/state?identifier=' + encodeURIComponent(uk))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) { if (data) { applyServerPayload(data, true); renderCheckoutView(); } })
+            .catch(function () {});
+        }
+      }
+    }, 15000);
 
     window.SPIN_SYSTEM = {
       open: openModal,
       close: closeModal,
       getState: function () { return state; },
+      isLoggedIn: isUserSignedIn,
+      setLoggedIn: function (loggedIn) {
+        forceLoggedIn = Boolean(loggedIn);
+        if (forceLoggedIn) showAuthRequiredModal = false;
+        syncAllUI();
+        if (isModalOpen) renderModal();
+      },
       grantSpinsAfterOrder: function (spinsCount, goldenCount) {
         state.spins += Number(spinsCount || 1);
         state.goldenSpins += Number(goldenCount || 1);

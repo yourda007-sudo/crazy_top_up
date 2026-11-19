@@ -1,915 +1,1271 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const zlib = require('zlib');
+// Crazy_top_up (24) — Full-Stack Server (Spin Lock, Wallet, TrxID Orders, Promo Codes, Flash Sale, VIP Tiers, Leaderboard, Telegram Alerts)
+try { require('dotenv').config(); } catch (e) {}
+var fs = require('fs');
+var path = require('path');
+var express = require('express');
 
-const GH_TOKEN = process.env['FFX-G'] || process.env.FFX_G || '';
-const GH_REPO = (process.env['FFX-REPO'] || process.env.FFX_REPO || process.env.RENDER_GIT_REPO_SLUG || '').trim();
-const GH_BRANCH = (process.env['FFX-BRANCH'] || process.env.FFX_BRANCH || 'ffx-data').trim();
-const GH_API = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
-const GH_DIR = 'ffx-data';
-const USE_GH = !!GH_TOKEN;
+var app = express();
+app.use(express.json({ limit: '6mb' }));
 
-const PORT = process.env.PORT || 3000;
-const ROOT_DIR = __dirname;
+var DB_PATH = path.join(__dirname, 'spin-db.json');
 
-const ADMIN_PASSWORD = process.env['FFX-PASS'] || process.env.FFX_PASS || '';
-const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT_DIR, 'data'));
-const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
-const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
-const SESSION_MS = 12 * 60 * 60 * 1000;
-const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
+var REGULAR_WEDGES = [
+  { id: 'w-50-off', title: '50% Instant Top-Up Discount', description: 'Half price on your next game top-up package.', rewardType: 'percent_discount', value: 50, line1: '50% OFF', weight: 6 },
+  { id: 'w-15-off', title: '15% Top-Up Discount', description: 'Save 15% on any game package at checkout.', rewardType: 'percent_discount', value: 15, line1: '15% OFF', weight: 14 },
+  { id: 'w-20-bonus', title: '+20% Extra Diamonds / Coins', description: 'Receive 20% extra in-game currency on your next top-up.', rewardType: 'bonus_percent', value: 20, line1: '+20% Bonus', weight: 12 },
+  { id: 'w-200-off', title: '৳200 Flat Cash Discount', description: 'Instant ৳200 off any top-up order.', rewardType: 'flat_discount', value: 200, line1: '৳200 OFF', weight: 7 },
+  { id: 'w-10-off', title: '10% Instant Discount', description: 'Enjoy 10% off your next top-up checkout.', rewardType: 'percent_discount', value: 10, line1: '10% OFF', weight: 16 },
+  { id: 'w-epic-box', title: 'Epic Mystery Box', description: 'Open in Boxes vault for a high-value discount or bonus offer!', rewardType: 'mystery_box', value: 2, line1: 'Epic Box', weight: 7 },
+  { id: 'w-scratcher', title: 'Bonus Scratch Offer Card', description: 'Reveals a hidden top-up promo code in the Scratch tab!', rewardType: 'scratcher', value: 1, line1: 'Scratcher', weight: 10 },
+  { id: 'w-25-off', title: '25% Flash Discount', description: 'Quarter off your next diamond, UC, or coin bundle.', rewardType: 'percent_discount', value: 25, line1: '25% OFF', weight: 10 },
+  { id: 'w-rare-box', title: 'Rare Mystery Box', description: 'Crack it open in the Boxes tab for a surprise top-up deal!', rewardType: 'mystery_box', value: 1, line1: 'Rare Box', weight: 9 },
+  { id: 'w-100-off', title: '৳100 Top-Up Voucher', description: 'Instant ৳100 price reduction on any package.', rewardType: 'flat_discount', value: 100, line1: '৳100 Voucher', weight: 9 },
+  { id: 'w-75-jackpot', title: '75% JACKPOT Top-Up Deal', description: 'Mega jackpot discount — 75% off your selected top-up!', rewardType: 'percent_discount', value: 75, line1: '75% OFF', weight: 3 },
+  { id: 'w-5-off', title: '5% Instant Discount', description: 'Quick 5% savings on your next top-up.', rewardType: 'percent_discount', value: 5, line1: '5% OFF', weight: 18 },
+  { id: 'w-35-bonus', title: '+35% Bonus Top-Up', description: 'Get 35% extra bonus currency delivered with your order.', rewardType: 'bonus_percent', value: 35, line1: '+35% Bonus', weight: 8 },
+  { id: 'w-50-flat', title: '৳50 Instant Discount', description: 'Flat ৳50 off any top-up package.', rewardType: 'flat_discount', value: 50, line1: '৳50 OFF', weight: 14 }
+];
 
-const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json; charset=utf-8',
-  '.ico': 'image/x-icon'
+var GOLDEN_WEDGES = [
+  { id: 'g-80-off', title: '80% Golden VIP Discount', description: 'Massive 80% off any top-up package!', rewardType: 'percent_discount', value: 80, line1: '80% OFF', weight: 6 },
+  { id: 'g-30-off', title: '30% Golden Discount', description: 'Instant 30% discount at checkout.', rewardType: 'percent_discount', value: 30, line1: '30% OFF', weight: 14 },
+  { id: 'g-50-bonus', title: '+50% Bonus Credits', description: '50% extra Diamonds / Coins on your order.', rewardType: 'bonus_percent', value: 50, line1: '+50% Bonus', weight: 12 },
+  { id: 'g-500-off', title: '৳500 Golden Voucher', description: 'Flat ৳500 off any major top-up bundle.', rewardType: 'flat_discount', value: 500, line1: '৳500 OFF', weight: 7 },
+  { id: 'g-25-off', title: '25% VIP Discount', description: '25% off any game top-up.', rewardType: 'percent_discount', value: 25, line1: '25% OFF', weight: 15 },
+  { id: 'g-legend-box', title: 'Legendary Mystery Box', description: 'Guaranteed high-tier voucher inside!', rewardType: 'mystery_box', value: 3, line1: 'Legend Box', weight: 8 },
+  { id: 'g-2x-scratch', title: '2x Bonus Scratch Cards', description: 'Unlocks two Golden Scratch offer cards!', rewardType: 'scratcher', value: 2, line1: '2x Scratch', weight: 10 },
+  { id: 'g-40-off', title: '40% Super Saver', description: '40% off your next top-up checkout.', rewardType: 'percent_discount', value: 40, line1: '40% OFF', weight: 10 },
+  { id: 'g-epic-box', title: 'Epic Mystery Box', description: 'Open in Boxes vault for a premium offer!', rewardType: 'mystery_box', value: 2, line1: 'Epic Box', weight: 10 },
+  { id: 'g-300-off', title: '৳300 Golden Cashback', description: 'Flat ৳300 discount applied instantly.', rewardType: 'flat_discount', value: 300, line1: '৳300 Voucher', weight: 9 },
+  { id: 'g-90-jackpot', title: '90% MEGA JACKPOT', description: 'Pay only 10% for your next top-up package!', rewardType: 'percent_discount', value: 90, line1: '90% JACKPOT', weight: 3 },
+  { id: 'g-20-off', title: '20% Instant Discount', description: 'Save 20% on any order.', rewardType: 'percent_discount', value: 20, line1: '20% OFF', weight: 16 },
+  { id: 'g-100-bonus', title: '2X Double Top-Up Bonus', description: 'Double your diamonds / top-up bonus on one order!', rewardType: 'bonus_percent', value: 100, line1: '2X Bonus', weight: 5 },
+  { id: 'g-150-off', title: '৳150 Instant Off', description: 'Flat ৳150 discount on your top-up.', rewardType: 'flat_discount', value: 150, line1: '৳150 OFF', weight: 12 }
+];
+
+
+var DEFAULT_CATALOG = {
+  games: [
+    { id: 'uid-bd', name: 'UID Topup (BD)', publisher: 'Garena Free Fire', currencyName: 'Diamonds', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'wm', name: 'Weekly / Monthly', publisher: 'Free Fire Membership', currencyName: 'Membership', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'wl', name: 'Weekly Lite', publisher: 'Free Fire Lite', currencyName: 'Weekly Lite', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'lu', name: 'Level Up Pass', publisher: 'Free Fire Pass', currencyName: 'Level Up Pass', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'likes', name: 'FF Likes', publisher: 'Profile Boost', currencyName: 'FF Likes', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'indo', name: 'Indonesia Server', publisher: 'FF Indo Region', currencyName: 'Indo Diamonds', uidLabel: 'Indonesia UID', uidPlaceholder: 'e.g. 2149083712', active: true }
+  ],
+  packages: [
+    { id: 'bd-25', gameId: 'uid-bd', amountLabel: '25 Diamond', bonusLabel: 'Instant UID Delivery', priceBdt: 22, popular: false, inStock: true },
+    { id: 'bd-115', gameId: 'uid-bd', amountLabel: '115 Diamond', bonusLabel: 'Instant UID Delivery', priceBdt: 79, popular: true, inStock: true },
+    { id: 'bd-240', gameId: 'uid-bd', amountLabel: '240 Diamond', bonusLabel: 'Fast Top-Up', priceBdt: 158, popular: false, inStock: true },
+    { id: 'bd-355', gameId: 'uid-bd', amountLabel: '355 Diamond', bonusLabel: 'Popular Pack', priceBdt: 237, popular: false, inStock: true },
+    { id: 'bd-610', gameId: 'uid-bd', amountLabel: '610 Diamond', bonusLabel: 'Bonus Included', priceBdt: 400, popular: false, inStock: true },
+    { id: 'bd-1240', gameId: 'uid-bd', amountLabel: '1240 Diamond', bonusLabel: 'Mega Bundle', priceBdt: 800, popular: false, inStock: true },
+
+    { id: 'wm-w1', gameId: 'wm', amountLabel: 'WEEKLY', bonusLabel: '450 Total Diamonds', priceBdt: 155, popular: true, inStock: true },
+    { id: 'wm-w2', gameId: 'wm', amountLabel: '2X WEEKLY', bonusLabel: '900 Total Diamonds', priceBdt: 310, popular: false, inStock: true },
+    { id: 'wm-m1', gameId: 'wm', amountLabel: 'MONTHLY', bonusLabel: '2600 Total Diamonds', priceBdt: 770, popular: false, inStock: true },
+    { id: 'wm-wm', gameId: 'wm', amountLabel: '1X WEEKLY + 1X MONTHLY', bonusLabel: 'Combo Membership', priceBdt: 925, popular: false, inStock: true },
+
+    { id: 'wl-1', gameId: 'wl', amountLabel: '1X Weekly Lite', bonusLabel: 'Daily Claim', priceBdt: 40, popular: true, inStock: true },
+    { id: 'wl-2', gameId: 'wl', amountLabel: '2X Weekly Lite', bonusLabel: 'Double Lite', priceBdt: 80, popular: false, inStock: true },
+    { id: 'wl-3', gameId: 'wl', amountLabel: '3X Weekly Lite', bonusLabel: 'Triple Lite', priceBdt: 120, popular: false, inStock: true },
+    { id: 'wl-5', gameId: 'wl', amountLabel: '5X Weekly Lite', bonusLabel: 'Max Lite', priceBdt: 200, popular: false, inStock: true },
+
+    { id: 'lu-6', gameId: 'lu', amountLabel: 'Level Up - Level 6', bonusLabel: '120 Diamonds', priceBdt: 43, popular: false, inStock: true },
+    { id: 'lu-10', gameId: 'lu', amountLabel: 'Level Up - Level 10', bonusLabel: '200 Diamonds', priceBdt: 75, popular: false, inStock: true },
+    { id: 'lu-30', gameId: 'lu', amountLabel: 'Level Up - Level 30', bonusLabel: '300 Diamonds', priceBdt: 105, popular: false, inStock: true },
+    { id: 'lu-full', gameId: 'lu', amountLabel: 'Full Level Up (1270D)', bonusLabel: 'All Levels Included', priceBdt: 448, popular: true, inStock: true },
+
+    { id: 'lk-200', gameId: 'likes', amountLabel: '200 FF LIKE', bonusLabel: 'Daily 1x / ID', priceBdt: 30, popular: true, inStock: true },
+    { id: 'lk-3k', gameId: 'likes', amountLabel: '3000 FF LIKE', bonusLabel: '15 Days Plan', priceBdt: 450, popular: false, inStock: true },
+    { id: 'lk-6k', gameId: 'likes', amountLabel: '6000 FF LIKE', bonusLabel: '30 Days Plan', priceBdt: 900, popular: false, inStock: true },
+    { id: 'lk-12k', gameId: 'likes', amountLabel: '12000 FF LIKE', bonusLabel: '60 Days Plan', priceBdt: 1800, popular: false, inStock: true },
+
+    { id: 'in-50', gameId: 'indo', amountLabel: '50 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 65, popular: false, inStock: true },
+    { id: 'in-140', gameId: 'indo', amountLabel: '140 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 180, popular: true, inStock: true },
+    { id: 'in-355', gameId: 'indo', amountLabel: '355 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 445, popular: false, inStock: true },
+    { id: 'in-720', gameId: 'indo', amountLabel: '720 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 890, popular: false, inStock: true }
+  ]
 };
 
-const BLOCKED_NAMES = new Set(['server.js', 'package.json', 'package-lock.json', 'admin.html']);
+function validatePlayerUid(gameId, rawUid) {
+  var uid = String(rawUid || '').trim();
+  if (!uid) return { ok: false, error: 'অনুগ্রহ করে Player UID দিন।' };
+  var gid = String(gameId || '').toLowerCase();
+  if (gid === 'uid-bd' || gid === 'wm' || gid === 'wl' || gid === 'lu' || gid === 'likes' || gid === 'indo' || gid === 'freefire') {
+    if (!/^\d{6,15}$/.test(uid)) {
+      return { ok: false, error: 'সঠিক Free Fire UID দিন (৬-১৫ সংখ্যার নম্বর, কোনো স্পেস বা অক্ষর নয়)।' };
+    }
+    return { ok: true, uid: uid };
+  }
+  if (gid === 'pubg') {
+    if (!/^\d{8,14}$/.test(uid)) return { ok: false, error: 'PUBG Player ID ৮-১৪ সংখ্যার হতে হবে।' };
+    return { ok: true, uid: uid };
+  }
+  if (gid === 'mlbb') {
+    if (!/^\d{5,12}\s*[\(\s-]?\d{3,6}\)?$/.test(uid)) {
+      return { ok: false, error: 'MLBB ID ফরম্যাট: UserID (ZoneID), যেমন 123456789 (1234)।' };
+    }
+    return { ok: true, uid: uid };
+  }
+  if (uid.length < 4) return { ok: false, error: 'সঠিক Player UID দিন (ন্যূনতম ৪ অক্ষর)।' };
+  return { ok: true, uid: uid };
+}
 
-const DEFAULT_PACKAGES = [
-  { label: '200 FF LIKE- প্রতিদিন ১ আইডিতে ১বার', name: '200 FF LIKE', price: 30 },
-  { label: '3000 FF LIKE- 15 দিন এ পাবেন', name: '3000 FF LIKE', price: 450 },
-  { label: '6000 FF LIKE- 30 দিন এ পাবেন', name: '6000 FF LIKE', price: 900 },
-  { label: '12000 FF LIKE- 60 দিন এ পাবেন', name: '12000 FF LIKE', price: 1800 }
+var VIP_RANKS = [
+  { rank: 'Bronze', minSpendBdt: 0, discountPercent: 0 },
+  { rank: 'Silver', minSpendBdt: 1000, discountPercent: 2 },
+  { rank: 'Gold', minSpendBdt: 3000, discountPercent: 4 },
+  { rank: 'Diamond', minSpendBdt: 8000, discountPercent: 7 }
 ];
 
-const DEFAULT_BANNERS = ['default:Banner 1.jpg', 'default:Banner 2.jpg', 'default:Banner 3.jpg'];
-const DEFAULT_QUICK = [
-  { label: 'Telegram', url: '' },
-  { label: 'Join Group', url: '' },
-  { label: 'YouTube', url: '' }
-];
-const MAX_BANNERS = 10;
-
-const PRODUCTS = [
-  { key: 'ff',  view: 'ffView',  hash: 'ff-likes',         grid: 'pkGrid',    img: 'ffBanner' },
-  { key: 'uid', view: 'uidView', hash: 'uid-topup',        grid: 'uidPkGrid', img: 'uid' },
-  { key: 'wm',  view: 'wmView',  hash: 'weekly-monthly',   grid: 'wmPkGrid',  img: 'wm' },
-  { key: 'wl',  view: 'wlView',  hash: 'weekly-lite',      grid: 'wlPkGrid',  img: 'wl' },
-  { key: 'lu',  view: 'luView',  hash: 'level-up-pass',    grid: 'luPkGrid',  img: 'lu' },
-  { key: 'in',  view: 'inView',  hash: 'indonesia-server', grid: 'inPkGrid',  img: 'in' },
-  { key: 'uc',  view: 'ucView',  hash: 'uid-checker',      grid: null,        img: 'uc' }
-];
-
-const IMAGES = {
-  logo:     { file: 'Main logo.jpg',          prefix: 'logo' },
-  ffBanner: { file: 'FF LIKES.jpg',           prefix: 'ff-banner' },
-  uid:      { file: 'UID TOPUP (BD).jpg',     prefix: 'img-uid' },
-  wm:       { file: 'WEEKLYMONTHLY.jpg',      prefix: 'img-wm' },
-  wl:       { file: 'WEEKLY LITE.jpg',        prefix: 'img-wl' },
-  lu:       { file: 'LEVEL UP PASS.jpg',      prefix: 'img-lu' },
-  in:       { file: 'INDONESIA SERVER.jpg',   prefix: 'img-in' },
-  uc:       { file: 'uid checker.jpg',        prefix: 'img-uc' },
-  pop:      { file: 'Notification.jpg',       prefix: 'img-pop' }
-};
-const IMG_KEYS = Object.keys(IMAGES);
-
-const TEXTS = [
-  { id: 'siteName', label: 'Website name', def: 'Nickname', max: 40 },
-  { id: 'sec1', label: 'Home section title (top)', def: 'FREE FIRE TOPUP', max: 60, wrap: ['<em>', '</em>'] },
-  { id: 'sec2', label: 'Home section title (UID Checker)', def: 'UID CHECKER', max: 60, wrap: ['<em>', '</em>'] },
-  { id: 'pop', label: 'Popup message', def: 'সবথেকে কম দামে টপ করার জন্য সেরা ওয়েবসাইট\n১০০% বিশ্বস্ত ও দ্রুত ডেলিভারিতে\nঅর্ডার করুন নিশ্চিন্তে 🥰', max: 400, multi: true },
-  { id: 'hours', label: 'Support hours', def: 'সকাল ৮টা থেকে রাত ১২টা', max: 60 },
-  { id: 'warn', label: 'Footer warning', def: '১৮ বছরের নিচে অভিভাবকের অনুমতি ছাড়া অর্ডার করা সম্পূর্ণ নিষিদ্ধ।', max: 300, multi: true },
-  { id: 'dlTitle', label: 'App download title', def: 'DOWNLOAD OUR MOBILE APP', max: 60 },
-  { id: 'playUrl', label: 'Google Play link', def: '', max: 300, url: true }
-];
-
-function emptyCfg() { return { logo: null, ffBanner: null, banners: null, quick: null, images: null, prod: null, texts: null }; }
-let config = emptyCfg();
-function imgGet(c, k) { return (k === 'logo' || k === 'ffBanner') ? c[k] : ((c.images && c.images[k]) || null); }
-function imgSet(next, k, v) {
-  if (k === 'logo' || k === 'ffBanner') { next[k] = v; return; }
-  const m = Object.assign({}, next.images || {});
-  if (v) m[k] = v; else delete m[k];
-  next.images = Object.keys(m).length ? m : null;
-}
-function uploadedFiles(c) {
-  const out = [c.logo, c.ffBanner].concat(Array.isArray(c.banners) ? c.banners : []);
-  if (c.images && typeof c.images === 'object') Object.keys(c.images).forEach(function (k) { out.push(c.images[k]); });
-  return out.filter(isUploaded);
-}
-let renderCache = null;
-let cfgVersion = 0;
-
-const SAFE_FILE = /^[a-z0-9._-]+$/i;
-
-function sanitizePackages(list) {
-  if (!Array.isArray(list)) throw new Error('প্যাকেজ লিস্ট ঠিক নেই');
-  if (list.length < 1) throw new Error('কমপক্ষে ১টি প্যাকেজ রাখতে হবে');
-  if (list.length > 40) throw new Error('সর্বোচ্চ ৪০টি প্যাকেজ রাখা যাবে');
-  return list.map(function (p, i) {
-    const label = String((p && p.label) || '').trim().slice(0, 140);
-    let name = String((p && p.name) || '').trim().slice(0, 100);
-    const price = Number(p && p.price);
-    if (!label) throw new Error('প্যাকেজ ' + (i + 1) + ': নাম/বিবরণ ফাঁকা');
-    if (!Number.isFinite(price) || price < 0 || price > 10000000) throw new Error('প্যাকেজ ' + (i + 1) + ': প্রাইস ঠিক নেই');
-    if (!name) name = label;
-    return { label: label, name: name, price: Math.round(price * 100) / 100 };
-  });
-}
-
-function sanitizeProd(c) {
-  const o = {};
-  if (!c || typeof c !== 'object') return o;
-  ['name', 'title', 'pill'].forEach(function (k) { if (typeof c[k] === 'string' && c[k].trim()) o[k] = c[k].trim().slice(0, 80); });
-  if (c.packages) o.packages = sanitizePackages(c.packages);
-  if (Array.isArray(c.rules)) o.rules = c.rules.map(function (x) { return String(x == null ? '' : x).trim().slice(0, 300); }).filter(Boolean).slice(0, 20);
-  return o;
-}
-
-function sanitizeBanners(list) {
-  if (!Array.isArray(list)) throw new Error('ব্যানার লিস্ট ঠিক নেই');
-  if (list.length < 1) throw new Error('কমপক্ষে ১টি ব্যানার রাখতে হবে');
-  if (list.length > MAX_BANNERS) throw new Error('সর্বোচ্চ ' + MAX_BANNERS + 'টি ব্যানার রাখা যাবে');
-  return list.map(function (e) {
-    e = String(e);
-    if (DEFAULT_BANNERS.indexOf(e) !== -1 || SAFE_FILE.test(e)) return e;
-    throw new Error('ব্যানারের নাম ঠিক নেই');
-  });
-}
-
-function cleanUrl(u) {
-  u = String(u == null ? '' : u).trim().slice(0, 300);
-  if (!u) return '';
-  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
-  if (!/^https?:\/\/[^\s<>"']+$/i.test(u)) throw new Error('লিংক ঠিক নেই');
-  return u;
-}
-
-function sanitizeQuick(list) {
-  if (!Array.isArray(list) || list.length !== 3) throw new Error('বাটনের তথ্য ঠিক নেই');
-  return list.map(function (q, i) {
+function getVipSpendStatus(spendRaw) {
+  var spend = Math.max(0, Number(spendRaw) || 0);
+  var idx = 0;
+  for (var i = 0; i < VIP_RANKS.length; i++) {
+    if (spend >= VIP_RANKS[i].minSpendBdt) idx = i;
+  }
+  var current = VIP_RANKS[idx];
+  var next = idx < VIP_RANKS.length - 1 ? VIP_RANKS[idx + 1] : null;
+  if (!next) {
     return {
-      label: String((q && q.label) || '').trim().slice(0, 30) || DEFAULT_QUICK[i].label,
-      url: cleanUrl(q && q.url)
+      rank: current.rank,
+      lifetimeSpendBdt: spend,
+      discountPercent: current.discountPercent,
+      nextRank: null,
+      nextThresholdBdt: current.minSpendBdt,
+      progressPercent: 100
     };
-  });
-}
-
-function bannerSrc(e) {
-  return e.indexOf('default:') === 0 ? '/' + encodeURI(e.slice(8)) : '/uploads/' + e;
-}
-function bannerList() { return config.banners || DEFAULT_BANNERS; }
-function isUploaded(e) { return typeof e === 'string' && e.indexOf('default:') !== 0 && SAFE_FILE.test(e); }
-
-function loadLocal() {
-  config = emptyCfg();
-  try {
-    const j = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    if (typeof j.logo === 'string' && SAFE_FILE.test(j.logo) && fs.existsSync(path.join(UPLOAD_DIR, j.logo))) config.logo = j.logo;
-    if (typeof j.ffBanner === 'string' && SAFE_FILE.test(j.ffBanner) && fs.existsSync(path.join(UPLOAD_DIR, j.ffBanner))) config.ffBanner = j.ffBanner;
-    if (j.images && typeof j.images === 'object') {
-      const im = {};
-      IMG_KEYS.forEach(function (k) {
-        const n = j.images[k];
-        if (k !== 'logo' && k !== 'ffBanner' && typeof n === 'string' && SAFE_FILE.test(n) && fs.existsSync(path.join(UPLOAD_DIR, n))) im[k] = n;
-      });
-      if (Object.keys(im).length) config.images = im;
-    }
-    const pr = {};
-    if (j.prod && typeof j.prod === 'object') {
-      PRODUCTS.forEach(function (p) {
-        if (!j.prod[p.key]) return;
-        try { const c = sanitizeProd(j.prod[p.key]); if (Object.keys(c).length) pr[p.key] = c; } catch (e) {}
-      });
-    }
-    if (j.ffPackages) { try { pr.ff = Object.assign({}, pr.ff, { packages: sanitizePackages(j.ffPackages) }); } catch (e) {} }
-    if (Object.keys(pr).length) config.prod = pr;
-    if (j.texts && typeof j.texts === 'object') {
-      const tx = {};
-      TEXTS.forEach(function (t) { if (typeof j.texts[t.id] === 'string' && j.texts[t.id].trim()) tx[t.id] = j.texts[t.id].trim().slice(0, t.max); });
-      if (Object.keys(tx).length) config.texts = tx;
-    }
-    if (j.banners) {
-      const b = sanitizeBanners(j.banners).filter(function (e) { return !isUploaded(e) || fs.existsSync(path.join(UPLOAD_DIR, e)); });
-      config.banners = b.length ? b : null;
-    }
-    if (j.quick) config.quick = sanitizeQuick(j.quick);
-  } catch (e) {}
-  cfgVersion++;
-  renderCache = null;
-}
-
-function writeLocalConfig(obj) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  const tmp = CONFIG_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
-  fs.renameSync(tmp, CONFIG_FILE);
-}
-
-const storage = { mode: USE_GH ? 'github' : 'local', ok: !USE_GH, error: null, repo: GH_REPO, branch: GH_BRANCH };
-const shas = {};
-let chain = Promise.resolve();
-function enqueue(fn) { const run = chain.then(fn); chain = run.catch(function () {}); return run; }
-
-function encPath(p) { return p.split('/').map(encodeURIComponent).join('/'); }
-function contentsUrl(p) { return '/repos/' + GH_REPO + '/contents/' + encPath(p); }
-
-async function gh(method, urlPath, body, accept) {
-  const headers = {
-    'Authorization': 'Bearer ' + GH_TOKEN,
-    'Accept': accept || 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'ffx-admin'
-  };
-  if (body) headers['Content-Type'] = 'application/json';
-  try {
-    return await fetch(GH_API + urlPath, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(20000) });
-  } catch (e) {
-    throw new Error('GitHub এর সাথে যোগাযোগ করা যাচ্ছে না, একটু পরে আবার চেষ্টা করুন');
   }
-}
-
-function ghErr(status) {
-  if (status === 401) return new Error('GitHub টোকেন (FFX-G) ঠিক নেই বা মেয়াদ শেষ');
-  if (status === 403) return new Error('GitHub: অনুমতি নেই বা রেট লিমিট। টোকেনে Contents → Read and write দিন');
-  if (status === 404) return new Error('GitHub: repo (' + GH_REPO + ') পাওয়া যায়নি বা টোকেনের এই repo তে অ্যাক্সেস নেই');
-  return new Error('GitHub সমস্যা (' + status + ')');
-}
-
-async function ensureBranch() {
-  const b = await gh('GET', '/repos/' + GH_REPO + '/branches/' + encodeURIComponent(GH_BRANCH));
-  if (b.ok) return;
-  if (b.status !== 404) throw ghErr(b.status);
-
-  const rp = await gh('GET', '/repos/' + GH_REPO);
-  if (!rp.ok) throw ghErr(rp.status);
-  const def = (await rp.json()).default_branch;
-  const ref = await gh('GET', '/repos/' + GH_REPO + '/git/ref/heads/' + encodeURIComponent(def));
-  if (!ref.ok) throw ghErr(ref.status);
-  const sha = (await ref.json()).object.sha;
-  const mk = await gh('POST', '/repos/' + GH_REPO + '/git/refs', { ref: 'refs/heads/' + GH_BRANCH, sha: sha });
-  if (!mk.ok && mk.status !== 422) throw ghErr(mk.status);
-}
-
-async function ghPut(p, buf, msg) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const body = { message: msg, content: buf.toString('base64'), branch: GH_BRANCH };
-    if (shas[p]) body.sha = shas[p];
-    const r = await gh('PUT', contentsUrl(p), body);
-    if (r.ok) { shas[p] = (await r.json()).content.sha; return; }
-    if (attempt === 0 && (r.status === 409 || r.status === 422)) {
-      const g = await gh('GET', contentsUrl(p) + '?ref=' + encodeURIComponent(GH_BRANCH));
-      if (g.ok) shas[p] = (await g.json()).sha; else delete shas[p];
-      continue;
-    }
-    throw ghErr(r.status);
-  }
-  throw new Error('GitHub এ সেভ করা যায়নি, আবার চেষ্টা করুন');
-}
-
-async function ghDelete(p, msg) {
-  const g = await gh('GET', contentsUrl(p) + '?ref=' + encodeURIComponent(GH_BRANCH));
-  if (g.status === 404) return;
-  if (!g.ok) throw ghErr(g.status);
-  const sha = (await g.json()).sha;
-  const r = await gh('DELETE', contentsUrl(p), { message: msg, sha: sha, branch: GH_BRANCH });
-  delete shas[p];
-  if (!r.ok && r.status !== 404) throw ghErr(r.status);
-}
-
-async function ghDownload(p) {
-  const r = await gh('GET', contentsUrl(p) + '?ref=' + encodeURIComponent(GH_BRANCH), null, 'application/vnd.github.raw+json');
-  if (!r.ok) throw ghErr(r.status);
-  return Buffer.from(await r.arrayBuffer());
-}
-
-let retryTimer = null;
-async function initStorage() {
-  loadLocal();
-  if (!USE_GH) return;
-  if (!GH_REPO) {
-    storage.ok = false;
-    storage.error = 'repo নাম পাওয়া যায়নি। Render Environment এ FFX-REPO = username/repo দিন';
-    return;
-  }
-  try {
-    await ensureBranch();
-    const r = await gh('GET', contentsUrl(GH_DIR + '/config.json') + '?ref=' + encodeURIComponent(GH_BRANCH));
-    if (r.ok) {
-      const j = await r.json();
-      shas[GH_DIR + '/config.json'] = j.sha;
-      const remote = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'));
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      const remoteFiles = uploadedFiles(remote);
-      for (const n of remoteFiles) {
-        if (typeof n === 'string' && SAFE_FILE.test(n) && !fs.existsSync(path.join(UPLOAD_DIR, n))) {
-          fs.writeFileSync(path.join(UPLOAD_DIR, n), await ghDownload(GH_DIR + '/uploads/' + n));
-        }
-      }
-      writeLocalConfig(remote);
-      loadLocal();
-    } else if (r.status === 404) {
-
-      if (Object.keys(config).some(function (k) { return config[k]; })) {
-        await enqueue(async function () {
-          const localFiles = uploadedFiles(config);
-          for (const n of localFiles) {
-            await ghPut(GH_DIR + '/uploads/' + n, fs.readFileSync(path.join(UPLOAD_DIR, n)), 'Initial sync');
-          }
-          await ghPut(GH_DIR + '/config.json', Buffer.from(JSON.stringify(config, null, 2)), 'Initial sync');
-        });
-      }
-    } else {
-      throw ghErr(r.status);
-    }
-    storage.ok = true;
-    storage.error = null;
-  } catch (e) {
-    storage.ok = false;
-    storage.error = e.message || 'GitHub সংযোগ হয়নি';
-    console.log('GitHub init error:', storage.error);
-    if (!retryTimer) {
-      retryTimer = setTimeout(function () { retryTimer = null; ready = initStorage(); }, 30000);
-      retryTimer.unref();
-    }
-  }
-}
-
-async function commit(next, msg, add, del) {
-  if (USE_GH && !storage.ok) throw new Error('GitHub এর সাথে এখনো সংযোগ হয়নি। উপরের "আবার চেষ্টা করুন" চাপুন।');
-  if (USE_GH) {
-    await enqueue(async function () {
-      const done = [];
-      try {
-        for (const f of add) { await ghPut(GH_DIR + '/uploads/' + f.name, f.buf, msg); done.push(f.name); }
-        await ghPut(GH_DIR + '/config.json', Buffer.from(JSON.stringify(next, null, 2)), msg);
-      } catch (e) {
-        for (const n of done) { try { await ghDelete(GH_DIR + '/uploads/' + n, 'Rollback'); } catch (_) {} }
-        throw e;
-      }
-    });
-  }
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  add.forEach(function (f) { fs.writeFileSync(path.join(UPLOAD_DIR, f.name), f.buf); });
-  writeLocalConfig(next);
-  config = next;
-  cfgVersion++;
-  renderCache = null;
-  del.forEach(function (n) {
-    removeUpload(n);
-    if (USE_GH) enqueue(function () { return ghDelete(GH_DIR + '/uploads/' + n, 'Remove old image'); }).catch(function () {});
-  });
-}
-
-let ready = initStorage();
-
-function esc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function packagesHtml(list) {
-  return list.map(function (p) {
-    return '        <button type="button" class="pk" data-name="' + esc(p.name) + '" data-price="' + esc(p.price) +
-      '"><span>' + esc(p.label) + '</span><b>BDT ' + esc(p.price) + '</b></button>';
-  }).join('\n');
-}
-
-function unesc(s) { return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&'); }
-function stripTags(s) { return String(s).replace(/<[^>]+>/g, ''); }
-function jsStr(s) { return JSON.stringify(String(s)).replace(/</g, '\\u003c'); }
-function parseDefaults(html) {
-  const out = {};
-  PRODUCTS.forEach(function (p) {
-    const d = { name: '', title: '', pill: '', packages: [], rules: [] };
-    const cm = html.match(new RegExp('data-open="' + p.hash + '"[^>]*>[\\s\\S]*?<p>([\\s\\S]*?)</p>'));
-    if (cm) d.name = unesc(stripTags(cm[1])).trim();
-    const s = html.indexOf('<main class="wrap" id="' + p.view + '"');
-    const e = s < 0 ? -1 : html.indexOf('</main>', s);
-    if (s >= 0 && e > s) {
-      const seg = html.slice(s, e);
-      let m = seg.match(/<h1>([\s\S]*?)<\/h1>/); if (m) d.title = unesc(stripTags(m[1])).trim();
-      m = seg.match(/<span class="pv-pill">(?:<svg[\s\S]*?<\/svg>)?([\s\S]*?)<\/span>/); if (m) d.pill = unesc(m[1]).trim();
-      const gm = p.grid && seg.match(new RegExp('<div class="pk-grid" id="' + p.grid + '">([\\s\\S]*?)</div>'));
-      if (gm) {
-        const re = /<button[^>]*class="pk"[^>]*data-name="([^"]*)"[^>]*data-price="([^"]*)"[^>]*>\s*<span>([\s\S]*?)<\/span>/g; let b;
-        while ((b = re.exec(gm[1]))) d.packages.push({ label: unesc(b[3]).trim(), name: unesc(b[1]), price: Number(b[2]) });
-      }
-      const rm = seg.match(/<ul class="rl">([\s\S]*?)<\/ul>/);
-      if (rm) { const re = /<li>([\s\S]*?)<\/li>/g; let b; while ((b = re.exec(rm[1]))) d.rules.push(unesc(stripTags(b[1])).trim()); }
-    }
-    out[p.key] = d;
-  });
-  return out;
-}
-let defCache = { mtime: 0, v: null };
-function getDefaults() {
-  try {
-    const f = path.join(ROOT_DIR, 'FFX.html');
-    const st = fs.statSync(f);
-    if (!defCache.v || defCache.mtime !== st.mtimeMs) defCache = { mtime: st.mtimeMs, v: parseDefaults(fs.readFileSync(f, 'utf8')) };
-    return defCache.v;
-  } catch (e) { return {}; }
-}
-
-function applyProducts(html) {
-  const P = config.prod || {};
-  PRODUCTS.forEach(function (p) {
-    const c = P[p.key];
-    if (!c) return;
-    if (c.name) html = html.replace(new RegExp('(data-open="' + p.hash + '"[^>]*>[\\s\\S]*?<p>)[\\s\\S]*?(</p>)'), function (m, a, b) { return a + esc(c.name) + b; });
-    const s = html.indexOf('<main class="wrap" id="' + p.view + '"');
-    const e = s < 0 ? -1 : html.indexOf('</main>', s);
-    if (s < 0 || e < 0) return;
-    let seg = html.slice(s, e);
-    if (c.title) seg = seg.replace(/(<h1>)[\s\S]*?(<\/h1>)/, function (m, a, b) { return a + esc(c.title) + b; });
-    if (c.pill) seg = seg.replace(/(<span class="pv-pill">(?:<svg[\s\S]*?<\/svg>)?)[\s\S]*?(<\/span>)/, function (m, a, b) { return a + esc(c.pill) + b; });
-    if (c.packages && p.grid) seg = seg.replace(new RegExp('(<div class="pk-grid" id="' + p.grid + '">)[\\s\\S]*?(</div>)'), function (m, a, b) { return a + '\n' + packagesHtml(c.packages) + '\n      ' + b; });
-    if (c.rules) seg = seg.replace(/(<ul class="rl">)[\s\S]*?(<\/ul>)/, function (m, a, b) { return a + '\n' + c.rules.map(function (r) { return '        <li>' + esc(r) + '</li>'; }).join('\n') + '\n      ' + b; });
-    html = html.slice(0, s) + seg + html.slice(e);
-  });
-  return html;
-}
-
-function applyTexts(html, inj) {
-  const T = config.texts || {};
-  if (T.siteName) {
-    const v = esc(T.siteName);
-    html = html.split('<title>Nickname</title>').join('<title>' + v + '</title>')
-      .split('data-site-name>Nickname<').join('data-site-name>' + v + '<')
-      .split('alt="Nickname"').join('alt="' + v + '"')
-      .split("(typeof website_name !== 'undefined'").join("(window.__SITE ? window.__SITE : typeof website_name !== 'undefined'");
-    inj.push('window.__SITE = ' + jsStr(T.siteName) + ';');
-  }
-  if (T.pop) {
-    html = html.split("(typeof notification_text !== 'undefined'").join("(window.__POP ? window.__POP : typeof notification_text !== 'undefined'");
-    inj.push('window.__POP = ' + jsStr(T.pop) + ';');
-    html = html.replace(/(<p id="popText">)[\s\S]*?(<\/p>)/, function (m, a, b) { return a + esc(T.pop).split(/\r?\n/).join('<br>') + b; });
-  }
-  TEXTS.forEach(function (t) {
-    if (!T[t.id] || t.id === 'siteName' || t.id === 'pop' || t.id === 'playUrl') return;
-    const w = t.wrap || ['>', '<'];
-    html = html.split(w[0] + t.def + w[1]).join(w[0] + esc(T[t.id]) + w[1]);
-  });
-  if (T.hours) html = html.split(TEXTS.filter(function (t) { return t.id === 'hours'; })[0].def).join(esc(T.hours));
-  if (T.playUrl) html = html.replace('<a class="play" href="#">', '<a class="play" href="' + esc(T.playUrl) + '" target="_blank" rel="noopener noreferrer">');
-  return html;
-}
-
-function applySiteConfig(html) {
-  const inj = [];
-
-  if (config.banners) {
-    const slides = config.banners.map(function (e, i) {
-      return '      <div class="slide"><img src="' + esc(bannerSrc(e)) + '" alt="Banner ' + (i + 1) + '" draggable="false" decoding="async"></div>';
-    }).join('\n');
-    const dots = config.banners.map(function (e, i) { return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('');
-    html = html.replace(/(<div class="track" id="track">)[\s\S]*?(<\/div>\s*<div class="dots" id="dots">)[\s\S]*?(<\/div>)/, function (m, a, b, c) {
-      return a + '\n' + slides + '\n    ' + b + dots + c;
-    });
-  }
-
-  if (config.quick) {
-    const icons = ['tg', 'grp', 'yt'], keys = ['telegram-channel', 'telegram-group', 'youtube-channel'], small = ['Support', 'Group', 'Channel'];
-    const items = config.quick.map(function (x, i) {
-      return '    <a class="q" href="#" data-link="' + keys[i] + '"><span class="ic"><svg class="f"><use href="#' + icons[i] + '"/></svg></span><span><small>' + small[i] + '</small><b>' + esc(x.label) + '</b></span></a>';
-    }).join('\n');
-    html = html.replace(/(<div class="quick">)[\s\S]*?(<\/div>)/, function (m, a, b) { return a + '\n' + items + '\n  ' + b; });
-    const L = { tgCh: config.quick[0].url, tgGrp: config.quick[1].url, yt: config.quick[2].url };
-    if (L.tgCh || L.tgGrp || L.yt) {
-      inj.push('window.__LINKS = ' + JSON.stringify(L).replace(/</g, '\\u003c') + ';');
-      html = html.split("bindLinks('[data-link=\"telegram-channel\"]', validTgCh);").join("bindLinks('[data-link=\"telegram-channel\"]', (window.__LINKS && window.__LINKS.tgCh) || validTgCh);");
-      html = html.split("bindLinks('[data-link=\"telegram-group\"]', validTgGrp);").join("bindLinks('[data-link=\"telegram-group\"]', (window.__LINKS && window.__LINKS.tgGrp) || validTgGrp);");
-      html = html.split("bindLinks('[data-link=\"youtube-channel\"]', validYtCh);").join("bindLinks('[data-link=\"youtube-channel\"]', (window.__LINKS && window.__LINKS.yt) || validYtCh);");
-    }
-  }
-  html = applyProducts(html);
-  html = applyTexts(html, inj);
-  if (inj.length) html = html.replace('window.ACCOUNT_CONFIG = window.ACCOUNT_CONFIG || {};', function (m) { return m + '\n' + inj.join('\n'); });
-  return html;
-}
-
-function getHomePage(cb) {
-  const file = path.join(ROOT_DIR, 'FFX.html');
-  fs.stat(file, function (err, st) {
-    if (err || !st.isFile()) return cb(null);
-    if (renderCache && renderCache.mtime === st.mtimeMs && renderCache.cfgVersion === cfgVersion) return cb(renderCache);
-    fs.readFile(file, 'utf8', function (e2, html) {
-      if (e2) return cb(null);
-      IMG_KEYS.forEach(function (k) {
-        const f = imgGet(config, k);
-        if (f) html = html.split(IMAGES[k].file).join('/uploads/' + f);
-      });
-      html = applySiteConfig(html);
-      const raw = Buffer.from(html, 'utf8');
-      zlib.gzip(raw, function (e3, gz) {
-        renderCache = { mtime: st.mtimeMs, cfgVersion: cfgVersion, raw: raw, gz: e3 ? null : gz };
-        cb(renderCache);
-      });
-    });
-  });
-}
-
-function sendHome(req, res) {
-  getHomePage(function (page) {
-    if (!page) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('404 Not Found');
-    }
-    const headers = {
-      'Content-Type': MIME_TYPES['.html'],
-      'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*',
-      'Vary': 'Accept-Encoding'
-    };
-    const wantsGzip = page.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
-    if (wantsGzip) headers['Content-Encoding'] = 'gzip';
-    res.writeHead(200, headers);
-    res.end(wantsGzip ? page.gz : page.raw);
-  });
-}
-
-const SECRET = crypto.createHash('sha256').update('ffx-admin-secret:' + ADMIN_PASSWORD).digest();
-
-function safeEq(a, b) {
-  const A = crypto.createHash('sha256').update(String(a)).digest();
-  const B = crypto.createHash('sha256').update(String(b)).digest();
-  return crypto.timingSafeEqual(A, B);
-}
-function sign(exp) { return crypto.createHmac('sha256', SECRET).update(String(exp)).digest('hex'); }
-function makeToken() { const exp = Date.now() + SESSION_MS; return { token: exp + '.' + sign(exp), expires: exp }; }
-function checkToken(t) {
-  if (!ADMIN_PASSWORD || typeof t !== 'string') return false;
-  const parts = t.split('.');
-  if (parts.length !== 2 || !/^\d+$/.test(parts[0])) return false;
-  if (Number(parts[0]) < Date.now()) return false;
-  return safeEq(parts[1], sign(parts[0]));
-}
-function isAuthed(req) {
-  const h = req.headers['authorization'] || '';
-  return checkToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
-}
-
-const LOCK_MS = 15 * 60 * 1000;
-const fails = new Map();
-let globalFails = { n: 0, first: Date.now() };
-function clientIp(req) {
-  return ((req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || 'unknown';
-}
-function lockedFor(ip) {
-  const now = Date.now();
-  if (now - globalFails.first > LOCK_MS) globalFails = { n: 0, first: now };
-  if (globalFails.n >= 40) return LOCK_MS - (now - globalFails.first);
-  const f = fails.get(ip);
-  if (!f) return 0;
-  if (now - f.first > LOCK_MS) { fails.delete(ip); return 0; }
-  return f.n >= 5 ? LOCK_MS - (now - f.first) : 0;
-}
-function recordFail(ip) {
-  const f = fails.get(ip);
-  if (!f || Date.now() - f.first > LOCK_MS) fails.set(ip, { n: 1, first: Date.now() });
-  else f.n++;
-  globalFails.n++;
-}
-setInterval(function () {
-  const now = Date.now();
-  fails.forEach(function (v, k) { if (now - v.first > LOCK_MS) fails.delete(k); });
-}, 5 * 60 * 1000).unref();
-
-function sendJson(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(obj));
-}
-
-function readBody(req, limit) {
-  return new Promise(function (resolve, reject) {
-    let size = 0; const chunks = [];
-    req.on('data', function (c) {
-      size += c.length;
-      if (size > limit) { reject(new Error('too_large')); req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
-    req.on('error', reject);
-  });
-}
-
-async function readJson(req, limit) {
-  const txt = await readBody(req, limit || 64 * 1024);
-  try { return JSON.parse(txt || '{}'); } catch (e) { throw new Error('bad_json'); }
-}
-
-function currentView() {
-  const defs = getDefaults();
-  const images = {};
-  IMG_KEYS.forEach(function (k) {
-    const f = imgGet(config, k);
-    images[k] = { src: f ? '/uploads/' + f : null, def: '/' + IMAGES[k].file, custom: !!f };
-  });
-  const P = config.prod || {}, T = config.texts || {};
+  var span = Math.max(1, next.minSpendBdt - current.minSpendBdt);
+  var pct = Math.min(100, Math.round(((spend - current.minSpendBdt) / span) * 100));
   return {
-    images: images,
-    products: PRODUCTS.map(function (p) {
-      const c = P[p.key] || {}, d = defs[p.key] || { name: '', title: '', pill: '', packages: [], rules: [] };
-      return {
-        key: p.key, img: p.img, hasGrid: !!p.grid, hasRules: d.rules.length > 0 || !!c.rules,
-        name: c.name || d.name, title: c.title || d.title, pill: c.pill || d.pill,
-        packages: c.packages || d.packages, rules: c.rules || d.rules,
-        defaults: d, anyCustom: Object.keys(c).length > 0,
-        custom: { packages: !!c.packages, rules: !!c.rules }
-      };
-    }),
-    texts: TEXTS.map(function (t) {
-      return { id: t.id, label: t.label, def: t.def, value: T[t.id] || t.def, custom: !!T[t.id], multi: !!t.multi, url: !!t.url, max: t.max };
-    }),
-    banners: bannerList().map(function (e) { return { id: e, src: bannerSrc(e), isDefault: !isUploaded(e) }; }),
-    bannersCustom: !!config.banners,
-    quick: config.quick || DEFAULT_QUICK,
-    quickCustom: !!config.quick,
-    maxBanners: MAX_BANNERS,
-    storage: { mode: storage.mode, ok: storage.ok, error: storage.error, repo: storage.repo, branch: storage.branch },
-    persistent: USE_GH || !!process.env.DATA_DIR
+    rank: current.rank,
+    lifetimeSpendBdt: spend,
+    discountPercent: current.discountPercent,
+    nextRank: next.rank,
+    nextThresholdBdt: next.minSpendBdt,
+    progressPercent: pct
   };
 }
 
-function detectImage(buf) {
-  if (buf.length > 12 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'png';
-  if (buf.length > 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'jpg';
-  if (buf.length > 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+function getTodayBD() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+}
+
+function getYesterdayBD() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date(Date.now() - 86400000));
+}
+
+function formatTimeBD() {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+
+var DEFAULT_ANNOUNCEMENT = {
+  active: true,
+  tagLabel: 'NOTICE',
+  text: 'Instant UID Delivery Active 24/7 — Spin daily for up to 90% OFF & upload payment screenshot for faster approval!'
+};
+
+var DEFAULT_BANNERS = [
+  {
+    id: 'ban-1',
+    badge: 'MEGA OFFER',
+    title: 'Spin & Win Up to 90% Instant Discount',
+    subtitle: 'Get 1 Free Daily Spin + Bonus Spins on every top-up order.',
+    ctaLabel: 'Spin Now',
+    ctaTarget: 'spin',
+    accent: 'gold',
+    active: true
+  },
+  {
+    id: 'ban-2',
+    badge: 'WALLET PERK',
+    title: '3% Instant Cashback on Crazy Wallet Pay',
+    subtitle: 'Add money via bKash, Nagad, or Rocket and enjoy instant checkout.',
+    ctaLabel: 'Add Money',
+    ctaTarget: 'wallet',
+    accent: 'emerald',
+    active: true
+  },
+  {
+    id: 'ban-3',
+    badge: 'PROMO DEAL',
+    title: 'Use Code CRAZY10 for Extra 10% Savings',
+    subtitle: 'Stack Promo Codes with VIP Rank discounts at checkout.',
+    ctaLabel: 'Apply CRAZY10',
+    ctaTarget: 'promo:CRAZY10',
+    accent: 'sky',
+    active: true
+  }
+];
+
+function normalizeTrxId(raw) {
+  return String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+function sanitizeScreenshot(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return undefined;
+  if (s.indexOf('data:image/') === 0 && s.length <= 2800000) return s;
+  return undefined;
+}
+
+function findDuplicateTrxId(d, trxRaw) {
+  var clean = normalizeTrxId(trxRaw);
+  if (!clean) return null;
+  var orders = d.ordersLog || [];
+  for (var i = 0; i < orders.length; i++) {
+    var o = orders[i];
+    if (o.status !== 'Rejected' && normalizeTrxId(o.trxId) === clean) {
+      return { type: 'order', refId: o.id, userIdentifier: o.userIdentifier };
+    }
+  }
+  var deps = d.walletDeposits || [];
+  for (var j = 0; j < deps.length; j++) {
+    var dep = deps[j];
+    if (dep.status !== 'Rejected' && normalizeTrxId(dep.trxId) === clean) {
+      return { type: 'deposit', refId: dep.id, userIdentifier: dep.userIdentifier };
+    }
+  }
   return null;
 }
 
-function removeUpload(name) {
-  if (name && SAFE_FILE.test(name)) fs.unlink(path.join(UPLOAD_DIR, name), function () {});
+function logActivity(d, action, detail, level, actor) {
+  if (!Array.isArray(d.activityLog)) d.activityLog = [];
+  if (action === 'Duplicate TrxID Blocked') {
+    d.duplicateTrxBlockedCount = (d.duplicateTrxBlockedCount || 0) + 1;
+  }
+  d.activityLog.unshift({
+    id: 'ACT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    action: action,
+    detail: detail,
+    level: level || 'info',
+    actor: actor || 'Admin',
+    createdAt: getTodayBD() + ' ' + formatTimeBD()
+  });
+  d.activityLog = d.activityLog.slice(0, 120);
 }
 
-async function handleApi(req, res, pathname) {
+function defaultDb() {
+  var rw = {};
+  REGULAR_WEDGES.forEach(function (w) { rw[w.id] = w.weight; });
+  var gw = {};
+  GOLDEN_WEDGES.forEach(function (w) { gw[w.id] = w.weight; });
+  return {
+    config: {
+      regularWeights: rw,
+      goldenWeights: gw,
+      rules: { expiryHours: 24, bigPercentThreshold: 40, bigFlatThreshold: 200, minOrderBdt: 300, maxDiscountBdt: 150 },
+      paymentNumbers: { bkash: '01700-000024', nagad: '01800-000024', rocket: '01900-000024' },
+      support: { whatsapp: '8801700000024', telegram: 'https://t.me/crazy_top_up_24' },
+      walletCashbackPercent: 3,
+      flashSale: {
+        active: true,
+        title: 'Happy Hour Flash Sale · Extra 5% OFF',
+        extraPercent: 5,
+        endsAt: Date.now() + 24 * 3600000
+      },
+      promoCodes: [
+        { code: 'CRAZY10', discountType: 'percent', value: 10, minOrderBdt: 100, maxDiscountBdt: 120, maxUses: 100, usedCount: 0, active: true },
+        { code: 'VIP50', discountType: 'flat', value: 50, minOrderBdt: 250, maxDiscountBdt: 50, maxUses: 50, usedCount: 0, active: true }
+      ],
+      catalog: JSON.parse(JSON.stringify(DEFAULT_CATALOG)),
+      announcement: Object.assign({}, DEFAULT_ANNOUNCEMENT),
+      banners: JSON.parse(JSON.stringify(DEFAULT_BANNERS)),
+      telegramBotToken: '',
+      telegramChatId: ''
+    },
+    users: {},
+    recentWinners: [
+      { id: 'seed-1', userName: 'Sakib', rewardTitle: '৳50 ভাউচার', timeLabel: '2m ago' },
+      { id: 'seed-2', userName: 'Nabil', rewardTitle: '25% OFF', timeLabel: '5m ago' },
+      { id: 'seed-3', userName: 'Tanvir', rewardTitle: '+35% Bonus', timeLabel: '9m ago' },
+      { id: 'seed-4', userName: 'Rafi', rewardTitle: '৳100 Voucher', timeLabel: '14m ago' }
+    ],
+    spinsLog: [],
+    ordersLog: [],
+    walletDeposits: [],
+    activityLog: [],
+    duplicateTrxBlockedCount: 0
+  };
+}
+
+function loadDb() {
   try {
-    if (req.method === 'POST' && pathname === '/api/admin/login') {
-      if (!ADMIN_PASSWORD) return sendJson(res, 503, { error: 'Render এ FFX-PASS সেট করা নেই। Environment এ FFX-PASS যোগ করে আবার Deploy করুন।' });
-      const ip = clientIp(req);
-      const wait = lockedFor(ip);
-      if (wait > 0) return sendJson(res, 429, { error: 'অনেকবার ভুল হয়েছে। ' + Math.ceil(wait / 60000) + ' মিনিট পরে আবার চেষ্টা করুন।' });
-      const body = await readJson(req, 4096);
-      if (typeof body.password === 'string' && safeEq(body.password, ADMIN_PASSWORD)) {
-        fails.delete(ip);
-        const t = makeToken();
-        return sendJson(res, 200, { token: t.token, expires: t.expires });
-      }
-      recordFail(ip);
-      await new Promise(function (r) { setTimeout(r, 500); });
-      return sendJson(res, 401, { error: 'পাসওয়ার্ড ঠিক নেই' });
+    if (!fs.existsSync(DB_PATH)) {
+      var d = defaultDb();
+      fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
+      return d;
     }
-
-    if (!pathname.startsWith('/api/admin/')) return sendJson(res, 404, { error: 'Not found' });
-    if (!isAuthed(req)) return sendJson(res, 401, { error: 'লগইন করুন' });
-
-    if (req.method === 'GET' && pathname === '/api/admin/config') {
-      return sendJson(res, 200, currentView());
+    var p = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    var def = defaultDb();
+    p.config = Object.assign({}, def.config, p.config || {});
+    p.config.regularWeights = Object.assign({}, def.config.regularWeights, p.config.regularWeights || {});
+    p.config.goldenWeights = Object.assign({}, def.config.goldenWeights, p.config.goldenWeights || {});
+    p.config.rules = Object.assign({}, def.config.rules, p.config.rules || {});
+    p.config.paymentNumbers = Object.assign({}, def.config.paymentNumbers, p.config.paymentNumbers || {});
+    p.config.support = Object.assign({}, def.config.support, p.config.support || {});
+    if (typeof p.config.walletCashbackPercent !== 'number') p.config.walletCashbackPercent = def.config.walletCashbackPercent;
+    if (!p.config.flashSale) p.config.flashSale = def.config.flashSale;
+    if (!Array.isArray(p.config.promoCodes)) p.config.promoCodes = def.config.promoCodes;
+    if (!p.config.catalog || !Array.isArray(p.config.catalog.games) || !Array.isArray(p.config.catalog.packages)) {
+      p.config.catalog = def.config.catalog;
     }
-
-    if (req.method === 'POST' && pathname === '/api/admin/packages') {
-      const body = await readJson(req, 128 * 1024);
-      const cur = Object.assign({}, (config.prod || {}).ff, { packages: body.packages });
-      const prod = Object.assign({}, config.prod, { ff: sanitizeProd(cur) });
-      await commit(Object.assign({}, config, { prod: prod }), 'Update FF Like packages', [], []);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/product') {
-      const body = await readJson(req, 128 * 1024);
-      const p = PRODUCTS.filter(function (x) { return x.key === body.key; })[0];
-      if (!p) return sendJson(res, 400, { error: 'প্রোডাক্ট পাওয়া যায়নি' });
-      const patch = (body.patch && typeof body.patch === 'object') ? body.patch : {};
-      const cur = Object.assign({}, (config.prod || {})[p.key]);
-      ['name', 'title', 'pill', 'packages', 'rules'].forEach(function (f) {
-        if (!(f in patch)) return;
-        if (patch[f] === null || patch[f] === '') delete cur[f]; else cur[f] = patch[f];
-      });
-      const clean = sanitizeProd(cur);
-      const prod = Object.assign({}, config.prod);
-      if (Object.keys(clean).length) prod[p.key] = clean; else delete prod[p.key];
-      await commit(Object.assign({}, config, { prod: Object.keys(prod).length ? prod : null }), 'Update product ' + p.key, [], []);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/texts') {
-      const body = await readJson(req, 32 * 1024);
-      const T = Object.assign({}, config.texts);
-      Object.keys(body.texts || {}).forEach(function (id) {
-        const t = TEXTS.filter(function (x) { return x.id === id; })[0];
-        if (!t) throw new Error('ভুল ফিল্ড');
-        let v = String(body.texts[id] == null ? '' : body.texts[id]).trim().slice(0, t.max);
-        if (t.url) v = cleanUrl(v);
-        if (v) T[id] = v; else delete T[id];
-      });
-      await commit(Object.assign({}, config, { texts: Object.keys(T).length ? T : null }), 'Update texts', [], []);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/upload') {
-      const body = await readJson(req, Math.ceil(MAX_UPLOAD_BYTES * 1.4) + 1024);
-      if (IMG_KEYS.indexOf(body.kind) === -1) return sendJson(res, 400, { error: 'ভুল ধরন' });
-      const kind = IMAGES[body.kind];
-      const m = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.dataUrl || ''));
-      if (!m) return sendJson(res, 400, { error: 'শুধু PNG, JPG বা WEBP ছবি দিন' });
-      const buf = Buffer.from(m[2], 'base64');
-      if (buf.length > MAX_UPLOAD_BYTES) return sendJson(res, 413, { error: 'ছবি ৩MB এর বেশি বড়' });
-      const ext = detectImage(buf);
-      if (!ext) return sendJson(res, 400, { error: 'ছবিটা ঠিক নেই' });
-      const fname = kind.prefix + '-' + Date.now() + '.' + ext;
-      const old = imgGet(config, body.kind);
-      const next = Object.assign({}, config);
-      imgSet(next, body.kind, fname);
-      await commit(next, 'Update ' + kind.prefix, [{ name: fname, buf: buf }], old ? [old] : []);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/quick') {
-      const body = await readJson(req, 8 * 1024);
-      const next = Object.assign({}, config, { quick: sanitizeQuick(body.items) });
-      await commit(next, 'Update quick buttons', [], []);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/banner') {
-      const body = await readJson(req, Math.ceil(MAX_UPLOAD_BYTES * 1.4) + 1024);
-      const act = body.action;
-      const list = bannerList().slice();
-      const add = [], del = [];
-      const idx = Number(body.index);
-      const readImg = function () {
-        const m = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.dataUrl || ''));
-        if (!m) throw new Error('শুধু PNG, JPG বা WEBP ছবি দিন');
-        const buf = Buffer.from(m[2], 'base64');
-        if (buf.length > MAX_UPLOAD_BYTES) throw new Error('ছবি ৩MB এর বেশি বড়');
-        const ext = detectImage(buf);
-        if (!ext) throw new Error('ছবিটা ঠিক নেই');
-        return { name: 'banner-' + Date.now() + '-' + Math.floor(Math.random() * 10000) + '.' + ext, buf: buf };
-      };
-      const okIdx = function (i) { return Number.isInteger(i) && i >= 0 && i < list.length; };
-      if (act === 'add') {
-        if (list.length >= MAX_BANNERS) throw new Error('সর্বোচ্চ ' + MAX_BANNERS + 'টি ব্যানার রাখা যাবে');
-        const f = readImg(); add.push(f); list.push(f.name);
-      } else if (act === 'replace') {
-        if (!okIdx(idx)) throw new Error('ব্যানার পাওয়া যায়নি');
-        const f = readImg(); add.push(f);
-        const old = list[idx]; list[idx] = f.name;
-        if (isUploaded(old)) del.push(old);
-      } else if (act === 'delete') {
-        if (list.length <= 1) throw new Error('কমপক্ষে ১টি ব্যানার রাখতে হবে');
-        if (!okIdx(idx)) throw new Error('ব্যানার পাওয়া যায়নি');
-        const old = list.splice(idx, 1)[0];
-        if (isUploaded(old)) del.push(old);
-      } else if (act === 'move') {
-        const to = idx + (body.dir === 'up' ? -1 : 1);
-        if (!okIdx(idx) || to < 0 || to >= list.length) throw new Error('সরানো যাচ্ছে না');
-        const t = list[idx]; list[idx] = list[to]; list[to] = t;
-      } else {
-        throw new Error('ভুল কাজ');
-      }
-      const next = Object.assign({}, config, { banners: list });
-      await commit(next, 'Update banners', add, del);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/reset') {
-      const body = await readJson(req, 4096);
-      const next = Object.assign({}, config);
-      let del = [];
-      if (body.kind === 'packages' || body.kind === 'product') {
-        const key = body.kind === 'packages' ? 'ff' : body.key;
-        const prod = Object.assign({}, config.prod);
-        if (body.kind === 'packages') { const c = Object.assign({}, prod.ff); delete c.packages; if (Object.keys(c).length) prod.ff = c; else delete prod.ff; }
-        else delete prod[key];
-        next.prod = Object.keys(prod).length ? prod : null;
-      } else if (body.kind === 'text') {
-        const T = Object.assign({}, config.texts); delete T[body.id];
-        next.texts = Object.keys(T).length ? T : null;
-      } else if (body.kind === 'quick') {
-        next.quick = null;
-      } else if (body.kind === 'banners') {
-        del = (config.banners || []).filter(isUploaded);
-        next.banners = null;
-      } else {
-        if (IMG_KEYS.indexOf(body.kind) === -1) return sendJson(res, 400, { error: 'ভুল ধরন' });
-        const old = imgGet(config, body.kind);
-        if (old) del = [old];
-        imgSet(next, body.kind, null);
-      }
-      await commit(next, 'Reset ' + String(body.kind), [], del);
-      return sendJson(res, 200, currentView());
-    }
-
-    if (req.method === 'POST' && pathname === '/api/admin/resync') {
-      ready = initStorage();
-      await ready;
-      return sendJson(res, 200, currentView());
-    }
-
-    return sendJson(res, 404, { error: 'Not found' });
+    p.users = p.users || {};
+    Object.keys(p.users).forEach(function (k) {
+      var u = p.users[k];
+      if (typeof u.walletBalanceBdt !== 'number') u.walletBalanceBdt = 0;
+      if (typeof u.lifetimeSpendBdt !== 'number') u.lifetimeSpendBdt = 0;
+      if (!Array.isArray(u.walletRequests)) u.walletRequests = [];
+      if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
+    });
+    if (!Array.isArray(p.recentWinners) || !p.recentWinners.length) p.recentWinners = def.recentWinners;
+    p.spinsLog = Array.isArray(p.spinsLog) ? p.spinsLog : [];
+    p.ordersLog = Array.isArray(p.ordersLog) ? p.ordersLog : [];
+    p.walletDeposits = Array.isArray(p.walletDeposits) ? p.walletDeposits : [];
+    p.activityLog = Array.isArray(p.activityLog) ? p.activityLog : [];
+    p.duplicateTrxBlockedCount = Number(p.duplicateTrxBlockedCount || 0);
+    p.config.announcement = Object.assign({}, DEFAULT_ANNOUNCEMENT, p.config.announcement || {});
+    p.config.banners = (Array.isArray(p.config.banners) && p.config.banners.length) ? p.config.banners : JSON.parse(JSON.stringify(DEFAULT_BANNERS));
+    return p;
   } catch (e) {
-    if (e && e.message === 'too_large') return sendJson(res, 413, { error: 'ডাটা অনেক বড়' });
-    if (e && e.message === 'bad_json') return sendJson(res, 400, { error: 'ভুল ডাটা' });
-    return sendJson(res, 400, { error: (e && e.message) || 'কিছু একটা সমস্যা হয়েছে' });
+    return defaultDb();
   }
 }
 
-const server = http.createServer((req, res) => {
-  ready.then(function () { handle(req, res); }).catch(function () {
-    try { res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('500 Internal Server Error'); } catch (e) {}
+var db = loadDb();
+
+function saveDb(d) {
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(d, null, 2));
+  } catch (e) {}
+}
+
+function genCode(prefix) {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var out = '';
+  for (var i = 0; i < 5; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return (prefix || 'SPIN') + '-' + out;
+}
+
+function makeRefCode(name) {
+  var clean = (name || 'CRZ').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4) || 'CRZ';
+  return clean + Math.floor(1000 + Math.random() * 9000);
+}
+
+function getOrCreateUser(identRaw, nameRaw, refBy) {
+  var key = String(identRaw || '').trim().toLowerCase();
+  var today = getTodayBD();
+  var u = db.users[key];
+  if (!u) {
+    var validRef = null;
+    if (refBy) {
+      var target = String(refBy).trim().toUpperCase();
+      Object.keys(db.users).forEach(function (k) {
+        if (db.users[k].referralCode && db.users[k].referralCode.toUpperCase() === target && k !== key) {
+          validRef = k;
+        }
+      });
+    }
+    var nm = (nameRaw || key.split('@')[0] || 'Player').trim();
+    u = {
+      identifier: key,
+      name: nm,
+      spins: 1,
+      goldenSpins: 0,
+      scratchers: 0,
+      vipMultiplier: 1,
+      totalSpinsPerformed: 0,
+      walletBalanceBdt: 0,
+      lifetimeSpendBdt: 0,
+      lastSpinDate: null,
+      lastDailyResetDate: today,
+      streakCount: 0,
+      streakLastDate: null,
+      streakUnlockedDate: null,
+      referralCode: makeRefCode(nm),
+      referredBy: validRef,
+      referredCount: 0,
+      referralBonusEarned: 0,
+      firstOrderCompleted: false,
+      boxes: [],
+      offers: [],
+      orders: [],
+      walletRequests: [],
+      savedProfiles: [],
+      spinHistory: [],
+      stockWatchlist: []
+    };
+    db.users[key] = u;
+  } else {
+    if (nameRaw && nameRaw.trim()) u.name = nameRaw.trim();
+    if (u.lastDailyResetDate !== today) {
+      if (u.lastSpinDate !== today) u.spins = Math.max(1, u.spins);
+      u.lastDailyResetDate = today;
+    }
+  }
+  return u;
+}
+
+function buildOffer(params) {
+  var rules = db.config.rules;
+  var isBig = (params.rewardType === 'percent_discount' && params.value >= rules.bigPercentThreshold) ||
+              (params.rewardType === 'flat_discount' && params.value >= rules.bigFlatThreshold);
+  return {
+    id: 'off-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    code: params.code,
+    title: params.title,
+    description: params.description,
+    rewardType: params.rewardType,
+    value: params.value,
+    wonAt: formatTimeBD(),
+    source: params.source,
+    used: false,
+    minOrderBdt: isBig ? rules.minOrderBdt : 0,
+    maxDiscountBdt: (isBig && params.rewardType !== 'bonus_percent') ? rules.maxDiscountBdt : 0,
+    expiresAt: Date.now() + Math.max(1, rules.expiryHours) * 3600000
+  };
+}
+
+function buildLeaderboard() {
+  var realUsers = Object.keys(db.users).map(function (k) { return db.users[k]; });
+  var seedBuyers = [
+    { name: 'Sakib', vipRank: 'Gold', metricValue: 6450 },
+    { name: 'Nabil', vipRank: 'Gold', metricValue: 3820 },
+    { name: 'Tanvir', vipRank: 'Silver', metricValue: 1940 },
+    { name: 'Rafi', vipRank: 'Silver', metricValue: 1250 }
+  ];
+  var seedRefs = [
+    { name: 'Rafi', vipRank: 'Gold', metricValue: 9 },
+    { name: 'Arif', vipRank: 'Silver', metricValue: 6 },
+    { name: 'Fahim', vipRank: 'Silver', metricValue: 4 },
+    { name: 'Siam', vipRank: 'Bronze', metricValue: 3 }
+  ];
+
+  var userBuyers = realUsers
+    .filter(function (u) { return (u.lifetimeSpendBdt || 0) > 0; })
+    .map(function (u) {
+      return {
+        name: u.name.split(' ')[0] || u.name,
+        vipRank: getVipSpendStatus(u.lifetimeSpendBdt || 0).rank,
+        metricValue: u.lifetimeSpendBdt || 0
+      };
+    });
+
+  var userRefs = realUsers
+    .filter(function (u) { return (u.referredCount || 0) > 0; })
+    .map(function (u) {
+      return {
+        name: u.name.split(' ')[0] || u.name,
+        vipRank: getVipSpendStatus(u.lifetimeSpendBdt || 0).rank,
+        metricValue: u.referredCount || 0
+      };
+    });
+
+  return {
+    topBuyers: userBuyers.concat(seedBuyers).sort(function (a, b) { return b.metricValue - a.metricValue; }).slice(0, 5),
+    topReferrers: userRefs.concat(seedRefs).sort(function (a, b) { return b.metricValue - a.metricValue; }).slice(0, 5)
+  };
+}
+
+function evaluatePromoCode(codeRaw, basePrice) {
+  var clean = String(codeRaw || '').trim().toUpperCase();
+  if (!clean) return { ok: false, discount: 0, error: 'প্রোমো কোড লিখুন।' };
+  var promo = (db.config.promoCodes || []).find(function (p) { return p.code.toUpperCase() === clean; });
+  if (!promo || !promo.active) return { ok: false, discount: 0, error: 'ভুল বা নিষ্ক্রিয় প্রোমো কোড!' };
+  if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
+    return { ok: false, discount: 0, error: 'এই প্রোমো কোডের ব্যবহার সীমা শেষ হয়ে গেছে।' };
+  }
+  if (promo.minOrderBdt > 0 && basePrice < promo.minOrderBdt) {
+    return { ok: false, discount: 0, error: 'এই কোডের জন্য ন্যূনতম ৳' + promo.minOrderBdt + ' অর্ডার প্রয়োজন।' };
+  }
+  var disc = promo.discountType === 'percent' ? Math.round((basePrice * promo.value) / 100) : promo.value;
+  if (promo.maxDiscountBdt > 0) disc = Math.min(disc, promo.maxDiscountBdt);
+  disc = Math.min(disc, Math.max(0, basePrice - 10));
+  return { ok: true, discount: disc, promo: promo };
+}
+
+function serializeUser(u) {
+  var today = getTodayBD();
+  return {
+    todayDate: today,
+    hasSpunToday: u.lastSpinDate === today,
+    user: { name: u.name, identifier: u.identifier },
+    state: {
+      spins: u.spins,
+      goldenSpins: u.goldenSpins,
+      scratchers: u.scratchers,
+      vipMultiplier: u.vipMultiplier,
+      totalSpinsPerformed: u.totalSpinsPerformed,
+      walletBalanceBdt: u.walletBalanceBdt || 0,
+      lifetimeSpendBdt: u.lifetimeSpendBdt || 0,
+      boxes: u.boxes,
+      offers: u.offers,
+      orders: u.orders,
+      walletRequests: (u.walletRequests || []).slice(0, 10),
+      savedProfiles: (u.savedProfiles || []).slice(0, 15),
+      spinHistory: u.spinHistory,
+      lastSpinDate: u.lastSpinDate,
+      lastDailyResetDate: u.lastDailyResetDate,
+      stockWatchlist: Array.isArray(u.stockWatchlist) ? u.stockWatchlist : []
+    },
+    vipStatus: getVipSpendStatus(u.lifetimeSpendBdt || 0),
+    streak: {
+      streakCount: u.streakCount,
+      streakLastDate: u.streakLastDate,
+      streakUnlockedToday: u.streakUnlockedDate === today
+    },
+    referral: {
+      referralCode: u.referralCode,
+      referredBy: u.referredBy,
+      referredCount: u.referredCount,
+      referralBonusEarned: u.referralBonusEarned,
+      firstOrderBonusPending: Boolean(u.referredBy && !u.firstOrderCompleted)
+    },
+    recentWinners: db.recentWinners.slice(0, 12),
+    rules: db.config.rules,
+    paymentNumbers: db.config.paymentNumbers,
+    support: db.config.support,
+    walletCashbackPercent: db.config.walletCashbackPercent,
+    flashSale: db.config.flashSale,
+    catalog: db.config.catalog || DEFAULT_CATALOG,
+    announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
+    banners: db.config.banners || DEFAULT_BANNERS,
+    leaderboard: buildLeaderboard()
+  };
+}
+
+async function sendTelegram(text) {
+  var token = (db.config.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  var chatId = (db.config.telegramChatId || process.env.TELEGRAM_CHAT_ID || '').trim();
+  if (!token || !chatId) return { ok: false, error: 'Telegram Bot Token বা Chat ID সেট করা নেই।' };
+  try {
+    var r = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' })
+    });
+    var j = await r.json();
+    if (!r.ok || !j.ok) return { ok: false, error: j.description || ('HTTP ' + r.status) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function adminKey() {
+  return (process.env.ADMIN_PASSKEY || 'crazy24admin').trim();
+}
+
+function isAdmin(req) {
+  return (req.header('x-admin-key') || '').trim() === adminKey();
+}
+
+app.get('/api/health', function (req, res) {
+  res.json({ ok: true, todayDate: getTodayBD() });
+});
+
+app.get('/api/public/feed', function (req, res) {
+  res.json({
+    recentWinners: db.recentWinners.slice(0, 12),
+    config: {
+      regularWeights: db.config.regularWeights,
+      goldenWeights: db.config.goldenWeights,
+      rules: db.config.rules
+    },
+    paymentNumbers: db.config.paymentNumbers,
+    support: db.config.support,
+    walletCashbackPercent: db.config.walletCashbackPercent,
+    flashSale: db.config.flashSale,
+    catalog: db.config.catalog || DEFAULT_CATALOG,
+    announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
+    banners: db.config.banners || DEFAULT_BANNERS,
+    leaderboard: buildLeaderboard()
   });
 });
 
-function handle(req, res) {
-  let pathname;
-  try {
-    pathname = decodeURI(req.url.split('?')[0]);
-  } catch (e) {
-    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('400 Bad Request');
+app.post('/api/promo/validate', function (req, res) {
+  var b = req.body || {};
+  var result = evaluatePromoCode(b.code || '', Math.max(10, Number(b.basePrice || 0)));
+  if (!result.ok || !result.promo) {
+    return res.status(400).json({ ok: false, error: result.error || 'INVALID_PROMO' });
   }
+  res.json({
+    ok: true,
+    code: result.promo.code,
+    discountType: result.promo.discountType,
+    value: result.promo.value,
+    minOrderBdt: result.promo.minOrderBdt,
+    maxDiscountBdt: result.promo.maxDiscountBdt,
+    discountSaved: result.discount
+  });
+});
 
-  if (pathname.startsWith('/api/')) {
-    return handleApi(req, res, pathname);
+app.post('/api/auth/session', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !String(b.identifier).trim()) {
+    return res.status(400).json({ error: 'IDENTIFIER_REQUIRED' });
   }
+  var u = getOrCreateUser(b.identifier, b.name, b.referredBy);
+  saveDb(db);
+  res.json(serializeUser(u));
+});
 
-  if (pathname === '/admin' || pathname === '/admin/') {
-    const f = path.join(ROOT_DIR, 'admin.html');
-    return fs.readFile(f, function (err, data) {
-      if (err) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('admin.html পাওয়া যায়নি');
-      }
-      res.writeHead(200, {
-        'Content-Type': MIME_TYPES['.html'],
-        'Cache-Control': 'no-store',
-        'X-Robots-Tag': 'noindex, nofollow',
-        'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'no-referrer'
-      });
-      res.end(data);
+app.get('/api/user/state', function (req, res) {
+  var ident = String(req.query.identifier || '').trim();
+  if (!ident) return res.status(400).json({ error: 'IDENTIFIER_REQUIRED' });
+  var u = getOrCreateUser(ident);
+  saveDb(db);
+  res.json(serializeUser(u));
+});
+
+app.post('/api/wallet/deposit', async function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.senderNumber || !String(b.senderNumber).trim() || !b.trxId || !String(b.trxId).trim()) {
+    return res.status(400).json({ error: 'Please provide Sender Number and TrxID.' });
+  }
+  var trxClean = normalizeTrxId(b.trxId);
+  var dup = findDuplicateTrxId(db, trxClean);
+  if (dup) {
+    logActivity(
+      db,
+      'Duplicate TrxID Blocked',
+      'Wallet deposit by ' + b.identifier + ' rejected — TrxID ' + trxClean + ' already used in ' + (dup.type === 'order' ? 'Order' : 'Deposit') + ' ' + dup.refId,
+      'danger',
+      'Security Guard'
+    );
+    saveDb(db);
+    return res.status(409).json({
+      error: 'Duplicate TrxID! "' + trxClean + '" has already been used in ' + (dup.type === 'order' ? 'Order' : 'Deposit') + ' ' + dup.refId + '.'
     });
   }
+  var amount = Math.max(20, Math.round(Number(b.amountBdt || 0)));
+  var u = getOrCreateUser(b.identifier);
+  var cleanProof = sanitizeScreenshot(b.screenshotUrl);
+  var dep = {
+    id: 'DEP-' + Math.floor(100000 + Math.random() * 900000),
+    userIdentifier: u.identifier,
+    userName: u.name,
+    method: b.method || 'bKash',
+    amountBdt: amount,
+    senderNumber: String(b.senderNumber).trim(),
+    trxId: trxClean,
+    screenshotUrl: cleanProof,
+    status: 'Pending',
+    createdAt: getTodayBD() + ' ' + formatTimeBD()
+  };
+  u.walletRequests = [dep].concat(u.walletRequests || []).slice(0, 15);
+  db.walletDeposits.unshift(dep);
+  db.walletDeposits = db.walletDeposits.slice(0, 100);
+  saveDb(db);
+  await sendTelegram(
+    '💳 <b>New Wallet Add-Money Request!</b>\n' +
+    '🆔 ID: <code>' + dep.id + '</code>\n' +
+    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+    '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
+    '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
+    '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
+    '⏳ Status: Pending Admin Approval'
+  );
+  res.json(Object.assign({ deposit: dep }, serializeUser(u)));
+});
 
-  if (pathname.startsWith('/uploads/')) {
-    const name = pathname.slice('/uploads/'.length);
-    if (!SAFE_FILE.test(name)) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('404 Not Found');
-    }
-    return serveFile(path.join(UPLOAD_DIR, name), res, 'public, max-age=31536000, immutable');
+app.post('/api/watchlist/toggle', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.packageId) return res.status(400).json({ error: 'INVALID_REQUEST' });
+  var u = getOrCreateUser(b.identifier);
+  var list = Array.isArray(u.stockWatchlist) ? u.stockWatchlist.slice() : [];
+  var idx = list.indexOf(b.packageId);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push(b.packageId);
+  u.stockWatchlist = list;
+  saveDb(db);
+  res.json(Object.assign({ stockWatchlist: u.stockWatchlist }, serializeUser(u)));
+});
+
+app.post('/api/orders/support', async function (req, res) {
+  var b = req.body || {};
+  var cleanMsg = String(b.message || '').trim().slice(0, 600);
+  if (!b.identifier || !b.orderId || !cleanMsg) {
+    return res.status(400).json({ error: 'Please enter a message.' });
+  }
+  var u = getOrCreateUser(b.identifier);
+  var uOrd = (u.orders || []).find(function (o) { return o.id === b.orderId; });
+  var logOrd = db.ordersLog.find(function (o) { return o.id === b.orderId && o.userIdentifier === u.identifier; });
+  if (!uOrd && !logOrd) return res.status(404).json({ error: 'Order not found.' });
+  var msgObj = {
+    id: 'MSG-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+    sender: 'user',
+    text: cleanMsg,
+    createdAt: formatTimeBD()
+  };
+  if (uOrd) {
+    uOrd.supportMessages = (uOrd.supportMessages || []).concat([msgObj]).slice(-30);
+  }
+  if (logOrd) {
+    logOrd.supportMessages = (logOrd.supportMessages || []).concat([msgObj]).slice(-30);
+  }
+  saveDb(db);
+  await sendTelegram(
+    '💬 <b>Order Support Message!</b>\n' +
+    '🆔 Order: <code>' + b.orderId + '</code>\n' +
+    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+    '📩 Message: ' + cleanMsg
+  );
+  res.json(Object.assign({ message: msgObj }, serializeUser(u)));
+});
+
+app.post('/api/spin', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier) return res.status(401).json({ error: 'SIGN_IN_REQUIRED' });
+  var u = getOrCreateUser(b.identifier);
+  var today = getTodayBD();
+  var yest = getYesterdayBD();
+
+  if (u.lastSpinDate === today) {
+    return res.status(403).json(Object.assign({ error: 'DAILY_LIMIT_REACHED' }, serializeUser(u)));
   }
 
-  if (pathname === '/' || pathname === '' || pathname === '/index.html' || pathname === '/FFX.html') {
-    return sendHome(req, res);
+  var useGold = Boolean(b.isGolden);
+  if (useGold ? u.goldenSpins <= 0 : u.spins <= 0) {
+    return res.status(400).json({ error: 'NO_SPINS_AVAILABLE' });
   }
 
-  const filePath = path.normalize(path.join(ROOT_DIR, pathname));
-  const rel = path.relative(ROOT_DIR, filePath);
-  const base = path.basename(filePath).toLowerCase();
-  const insideData = filePath === DATA_DIR || filePath.startsWith(DATA_DIR + path.sep);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('403 Forbidden');
-  }
-  if (insideData || BLOCKED_NAMES.has(base) || base.startsWith('.') || rel.split(path.sep).some(function (p) { return p === 'node_modules' || p.startsWith('.'); })) {
-    return sendHome(req, res);
-  }
-
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-
-      return sendHome(req, res);
-    }
-    serveFile(filePath, res, 'public, max-age=3600');
+  var wedges = useGold ? GOLDEN_WEDGES : REGULAR_WEDGES;
+  var wMap = useGold ? db.config.goldenWeights : db.config.regularWeights;
+  var weights = wedges.map(function (w) {
+    var val = Number(wMap[w.id]);
+    return (isFinite(val) && val >= 0) ? val : w.weight;
   });
-}
-
-function serveFile(filePath, res, cache) {
-  const ext = path.extname(filePath).toLowerCase();
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-  const stream = fs.createReadStream(filePath);
-  stream.on('open', () => {
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', cache || 'public, max-age=3600');
-    stream.pipe(res);
-  });
-  stream.on('error', () => {
-    if (!res.headersSent) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('404 Not Found');
-    } else {
-      res.end();
+  var totalW = weights.reduce(function (a, c) { return a + c; }, 0);
+  var winIdx = 0;
+  if (totalW > 0) {
+    var r = Math.random() * totalW;
+    for (var i = 0; i < weights.length; i++) {
+      r -= weights[i];
+      if (r <= 0) { winIdx = i; break; }
     }
-  });
-}
+  }
+  var wedge = wedges[winIdx];
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  if (!ADMIN_PASSWORD) console.log('⚠️  FFX-PASS সেট করা নেই — /admin লগইন বন্ধ থাকবে');
-  console.log(USE_GH ? 'Storage: GitHub (' + (GH_REPO || '?') + ' @ ' + GH_BRANCH + ')' : 'Storage: লোকাল (FFX-G সেট করা নেই)');
+  if (useGold) u.goldenSpins = Math.max(0, u.goldenSpins - 1);
+  else u.spins = Math.max(0, u.spins - 1);
+
+  u.totalSpinsPerformed += 1;
+  u.lastSpinDate = today;
+  u.lastDailyResetDate = today;
+
+  if (u.streakLastDate === yest) u.streakCount = u.streakCount >= 7 ? 1 : u.streakCount + 1;
+  else if (u.streakLastDate !== today) u.streakCount = 1;
+  u.streakLastDate = today;
+
+  var streakUnlocked = false;
+  if (u.streakCount === 7 && u.streakUnlockedDate !== today) {
+    u.streakUnlockedDate = today;
+    u.goldenSpins += 1;
+    u.boxes.unshift({ id: 'box-streak-' + Date.now(), tier: 'Legendary Box', wonAt: formatTimeBD(), opened: false });
+    streakUnlocked = true;
+  }
+
+  var src = useGold ? 'Golden Spin' : 'Spin Wheel';
+  u.spinHistory = [{ id: 'h-' + Date.now(), timestamp: formatTimeBD(), rewardTitle: wedge.title, rewardType: wedge.rewardType, source: src }].concat(u.spinHistory).slice(0, 5);
+
+  var offer = null;
+  var box = null;
+  var scratchGranted = false;
+  if (wedge.rewardType === 'scratcher') {
+    u.scratchers += wedge.value;
+    scratchGranted = true;
+  } else if (wedge.rewardType === 'mystery_box') {
+    var tier = wedge.value >= 3 ? 'Legendary Box' : (wedge.value === 2 ? 'Epic Box' : 'Rare Box');
+    box = { id: 'box-' + Date.now(), tier: tier, wonAt: formatTimeBD(), opened: false };
+    u.boxes.unshift(box);
+  } else {
+    offer = buildOffer({
+      code: genCode(useGold ? 'GOLD' : 'SPIN'),
+      title: wedge.title,
+      description: wedge.description,
+      rewardType: wedge.rewardType,
+      value: wedge.value,
+      source: src
+    });
+    u.offers.unshift(offer);
+  }
+
+  db.recentWinners.unshift({ id: 'win-' + Date.now(), userName: u.name.split(' ')[0] || u.name, rewardTitle: wedge.title, timeLabel: 'Just now' });
+  db.recentWinners = db.recentWinners.slice(0, 14);
+  db.spinsLog.unshift({ id: 'slog-' + Date.now(), userName: u.name, userIdentifier: u.identifier, rewardTitle: wedge.title, code: offer ? offer.code : '', source: src, createdAt: today + ' ' + formatTimeBD() });
+  db.spinsLog = db.spinsLog.slice(0, 100);
+  saveDb(db);
+
+  res.json(Object.assign({ winningIndex: winIdx, wedge: wedge, offer: offer, box: box, scratcherGranted: scratchGranted, streakUnlocked: streakUnlocked }, serializeUser(u)));
+});
+
+app.post('/api/scratch', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.reward) return res.status(400).json({ error: 'INVALID_REQUEST' });
+  var u = getOrCreateUser(b.identifier);
+  if (u.scratchers <= 0) return res.status(400).json({ error: 'NO_SCRATCHERS' });
+  u.scratchers -= 1;
+  var offer = buildOffer({
+    code: genCode('SCRATCH'),
+    title: b.reward.title,
+    description: b.reward.description,
+    rewardType: b.reward.rewardType,
+    value: b.reward.value,
+    source: 'Scratch Card'
+  });
+  u.offers.unshift(offer);
+  db.recentWinners.unshift({ id: 'win-' + Date.now(), userName: u.name.split(' ')[0] || u.name, rewardTitle: offer.title, timeLabel: 'Just now' });
+  db.recentWinners = db.recentWinners.slice(0, 14);
+  db.spinsLog.unshift({ id: 'slog-' + Date.now(), userName: u.name, userIdentifier: u.identifier, rewardTitle: offer.title, code: offer.code, source: 'Scratch Card', createdAt: getTodayBD() + ' ' + formatTimeBD() });
+  saveDb(db);
+  res.json(Object.assign({ offer: offer }, serializeUser(u)));
+});
+
+app.post('/api/box/open', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.boxId) return res.status(400).json({ error: 'INVALID_REQUEST' });
+  var u = getOrCreateUser(b.identifier);
+  var box = u.boxes.find(function (x) { return x.id === b.boxId && !x.opened; });
+  if (!box) return res.status(404).json({ error: 'BOX_NOT_FOUND' });
+
+  var pool = box.tier === 'Legendary Box'
+    ? [{ title: '75% Legendary Box Discount', description: 'Unlocked from Legendary Mystery Box!', rewardType: 'percent_discount', value: 75 },
+       { title: '৳400 Mega Cash Voucher', description: 'Flat ৳400 off any Top-Up package!', rewardType: 'flat_discount', value: 400 }]
+    : box.tier === 'Epic Box'
+    ? [{ title: '45% Epic Box Discount', description: 'Unlocked from Epic Mystery Box!', rewardType: 'percent_discount', value: 45 },
+       { title: '৳250 Epic Cash Voucher', description: 'Flat ৳250 off your next Top-Up!', rewardType: 'flat_discount', value: 250 }]
+    : [{ title: '25% Rare Box Discount', description: 'Unlocked from Rare Mystery Box!', rewardType: 'percent_discount', value: 25 },
+       { title: '+30% Bonus Top-Up', description: '30% extra currency unlocked from Rare Box!', rewardType: 'bonus_percent', value: 30 }];
+
+  var picked = pool[Math.floor(Math.random() * pool.length)];
+  var offer = buildOffer({ code: genCode('BOX'), title: picked.title, description: picked.description, rewardType: picked.rewardType, value: picked.value, source: 'Mystery Box' });
+  box.opened = true;
+  box.rewardTitle = offer.title;
+  u.offers.unshift(offer);
+  db.recentWinners.unshift({ id: 'win-' + Date.now(), userName: u.name.split(' ')[0] || u.name, rewardTitle: offer.title, timeLabel: 'Just now' });
+  db.recentWinners = db.recentWinners.slice(0, 14);
+  db.spinsLog.unshift({ id: 'slog-' + Date.now(), userName: u.name, userIdentifier: u.identifier, rewardTitle: offer.title, code: offer.code, source: box.tier, createdAt: getTodayBD() + ' ' + formatTimeBD() });
+  saveDb(db);
+  res.json(Object.assign({ offer: offer }, serializeUser(u)));
+});
+
+
+app.post('/api/user/profiles', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.gameId || !b.playerUid) {
+    return res.status(400).json({ error: 'অসম্পূর্ণ প্রোফাইল তথ্য।' });
+  }
+  var chk = validatePlayerUid(b.gameId, b.playerUid);
+  if (!chk.ok) return res.status(400).json({ error: chk.error });
+
+  var u = getOrCreateUser(b.identifier);
+  if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
+  var nick = String(b.nickname || '').trim().slice(0, 28) || 'Main ID';
+  var existingIdx = u.savedProfiles.findIndex(function (p) {
+    return p.gameId === b.gameId && p.playerUid === chk.uid;
+  });
+  var prof = {
+    id: existingIdx >= 0 ? u.savedProfiles[existingIdx].id : ('uid-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)),
+    gameId: String(b.gameId),
+    playerUid: chk.uid,
+    nickname: nick,
+    savedAt: formatTimeBD()
+  };
+  if (existingIdx >= 0) u.savedProfiles.splice(existingIdx, 1);
+  u.savedProfiles.unshift(prof);
+  u.savedProfiles = u.savedProfiles.slice(0, 15);
+  saveDb(db);
+  res.json(Object.assign({ profile: prof }, serializeUser(u)));
+});
+
+app.post('/api/user/profiles/delete', function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.profileId) return res.status(400).json({ error: 'INVALID_REQUEST' });
+  var u = getOrCreateUser(b.identifier);
+  u.savedProfiles = (u.savedProfiles || []).filter(function (p) { return p.id !== b.profileId; });
+  saveDb(db);
+  res.json(serializeUser(u));
+});
+
+app.post('/api/orders', async function (req, res) {
+  var b = req.body || {};
+  if (!b.identifier || !b.playerUid || !b.originalPrice) return res.status(400).json({ error: 'INVALID_ORDER' });
+  var method = b.paymentMethod || 'bKash';
+  var isWallet = method === 'Wallet Pay';
+  var trxClean = isWallet ? '' : normalizeTrxId(b.trxId);
+  if (!isWallet && (!b.senderNumber || !String(b.senderNumber).trim() || !trxClean)) {
+    return res.status(400).json({ error: 'Please enter Sender Number and TrxID.' });
+  }
+  if (!isWallet) {
+    var dupOrd = findDuplicateTrxId(db, trxClean);
+    if (dupOrd) {
+      logActivity(
+        db,
+        'Duplicate TrxID Blocked',
+        'Checkout order by ' + b.identifier + ' rejected — TrxID ' + trxClean + ' already used in ' + (dupOrd.type === 'order' ? 'Order' : 'Deposit') + ' ' + dupOrd.refId,
+        'danger',
+        'Security Guard'
+      );
+      saveDb(db);
+      return res.status(409).json({
+        error: 'Duplicate TrxID! "' + trxClean + '" has already been used in ' + (dupOrd.type === 'order' ? 'Order' : 'Deposit') + ' ' + dupOrd.refId + '.'
+      });
+    }
+  }
+
+  var cat = db.config.catalog || DEFAULT_CATALOG;
+  var matchedPkg = b.packageId ? cat.packages.find(function (p) { return p.id === b.packageId; }) : null;
+  var matchedGame = matchedPkg
+    ? cat.games.find(function (g) { return g.id === matchedPkg.gameId; })
+    : (b.gameId ? cat.games.find(function (g) { return g.id === b.gameId; }) : null);
+
+  if (matchedGame && matchedGame.active === false) {
+    return res.status(400).json({ error: matchedGame.name + ' বর্তমানে মেইনটেন্যান্সে আছে।' });
+  }
+  if (matchedPkg && matchedPkg.inStock === false) {
+    return res.status(400).json({ error: matchedPkg.amountLabel + ' প্যাকেজটি বর্তমানে Out of Stock!' });
+  }
+
+  var uidCheck = validatePlayerUid((matchedGame && matchedGame.id) || b.gameId || 'uid-bd', b.playerUid);
+  if (!uidCheck.ok) {
+    return res.status(400).json({ error: uidCheck.error });
+  }
+
+  var u = getOrCreateUser(b.identifier);
+  var basePrice = matchedPkg ? Math.max(10, Number(matchedPkg.priceBdt)) : Math.max(10, Number(b.originalPrice));
+  var offerSaved = 0;
+  var codeUsed = '';
+  var bonusExtra = '';
+
+  if (b.appliedOfferId) {
+    var offer = u.offers.find(function (o) { return o.id === b.appliedOfferId && !o.used; });
+    if (offer && (!offer.expiresAt || Date.now() < offer.expiresAt) && (!offer.minOrderBdt || basePrice >= offer.minOrderBdt)) {
+      if (offer.rewardType === 'percent_discount') {
+        offerSaved = Math.round((basePrice * offer.value) / 100);
+        if (offer.maxDiscountBdt > 0) offerSaved = Math.min(offerSaved, offer.maxDiscountBdt);
+      } else if (offer.rewardType === 'flat_discount') {
+        offerSaved = offer.value;
+        if (offer.maxDiscountBdt > 0) offerSaved = Math.min(offerSaved, offer.maxDiscountBdt);
+      } else {
+        bonusExtra = ' (+' + offer.value + '% Spin Bonus)';
+      }
+      offer.used = true;
+      codeUsed = offer.code;
+    }
+  }
+
+  var flashSaved = 0;
+  var fsCfg = db.config.flashSale;
+  if (fsCfg && fsCfg.active && fsCfg.extraPercent > 0 && (!fsCfg.endsAt || Date.now() < fsCfg.endsAt)) {
+    flashSaved = Math.round((basePrice * fsCfg.extraPercent) / 100);
+  }
+
+  var vipStatus = getVipSpendStatus(u.lifetimeSpendBdt || 0);
+  var vipSaved = vipStatus.discountPercent > 0 ? Math.round((basePrice * vipStatus.discountPercent) / 100) : 0;
+
+  var promoSaved = 0;
+  var promoCodeUsed = '';
+  if (b.promoCode && String(b.promoCode).trim()) {
+    var pEval = evaluatePromoCode(b.promoCode, basePrice);
+    if (pEval.ok && pEval.promo) {
+      promoSaved = pEval.discount;
+      pEval.promo.usedCount += 1;
+      promoCodeUsed = pEval.promo.code;
+    }
+  }
+
+  var totalRaw = offerSaved + flashSaved + vipSaved + promoSaved;
+  var saved = Math.min(Math.max(0, basePrice - 10), totalRaw);
+  var finalPrice = Math.max(10, basePrice - saved);
+
+  var cashbackEarned = 0;
+  if (isWallet) {
+    if ((u.walletBalanceBdt || 0) < finalPrice) {
+      return res.status(400).json({ error: 'ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! অনুগ্রহ করে Add Money করুন।' });
+    }
+    u.walletBalanceBdt = (u.walletBalanceBdt || 0) - finalPrice;
+    var cbPct = Math.max(0, db.config.walletCashbackPercent || 0);
+    cashbackEarned = Math.round((finalPrice * cbPct) / 100);
+    u.walletBalanceBdt += cashbackEarned;
+  }
+
+  u.lifetimeSpendBdt = (u.lifetimeSpendBdt || 0) + finalPrice;
+  u.spins += 1;
+  u.goldenSpins += 1;
+
+  var ord = {
+    id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    userIdentifier: u.identifier,
+    userName: u.name,
+    gameName: b.gameName || 'Top-Up',
+    packageLabel: (b.packageLabel || 'Bundle') + bonusExtra,
+    playerUid: String(b.playerUid).trim(),
+    originalPrice: basePrice,
+    discountSaved: saved,
+    vipDiscountSaved: vipSaved,
+    promoDiscountSaved: promoSaved,
+    flashDiscountSaved: flashSaved,
+    finalPrice: finalPrice,
+    appliedOfferCode: codeUsed || undefined,
+    promoCodeUsed: promoCodeUsed || undefined,
+    paymentMethod: method,
+    senderNumber: isWallet ? undefined : String(b.senderNumber).trim(),
+    trxId: isWallet ? undefined : trxClean,
+    screenshotUrl: isWallet ? undefined : sanitizeScreenshot(b.screenshotUrl),
+    status: isWallet ? 'Processing' : 'Pending',
+    cashbackEarned: cashbackEarned,
+    supportMessages: [],
+    createdAt: formatTimeBD()
+  };
+
+  if (b.saveProfile && matchedGame) {
+    if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
+    var pNick = String(b.profileNickname || '').trim().slice(0, 28) || (matchedGame.name + ' ID');
+    var eIdx = u.savedProfiles.findIndex(function (p) { return p.gameId === matchedGame.id && p.playerUid === uidCheck.uid; });
+    var profObj = {
+      id: eIdx >= 0 ? u.savedProfiles[eIdx].id : ('uid-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)),
+      gameId: matchedGame.id,
+      playerUid: uidCheck.uid,
+      nickname: pNick,
+      savedAt: formatTimeBD()
+    };
+    if (eIdx >= 0) u.savedProfiles.splice(eIdx, 1);
+    u.savedProfiles.unshift(profObj);
+    u.savedProfiles = u.savedProfiles.slice(0, 15);
+  }
+
+  u.orders.unshift(ord);
+  u.orders = u.orders.slice(0, 20);
+
+  var refRewarded = false;
+  if (!u.firstOrderCompleted) {
+    u.firstOrderCompleted = true;
+    if (u.referredBy && db.users[u.referredBy]) {
+      var ref = db.users[u.referredBy];
+      ref.scratchers += 1; ref.goldenSpins += 1; ref.referredCount += 1; ref.referralBonusEarned += 1;
+      u.scratchers += 1; u.goldenSpins += 1; u.referralBonusEarned += 1;
+      refRewarded = true;
+    }
+  }
+
+  db.ordersLog.unshift(ord);
+  db.ordersLog = db.ordersLog.slice(0, 100);
+  saveDb(db);
+
+  var tg = await sendTelegram(
+    '💎 <b>New Crazy_top_up (24) Order!</b>\n' +
+    '🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n' +
+    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+    '🎮 Game: ' + ord.gameName + '\n' +
+    '📦 Package: ' + ord.packageLabel + '\n' +
+    '🎯 UID: <code>' + ord.playerUid + '</code>\n' +
+    '💰 Base: ৳' + ord.originalPrice + '\n' +
+    (codeUsed ? '🎟 Spin Offer: <code>' + codeUsed + '</code>\n' : '') +
+    (promoCodeUsed ? '🏷 Promo Code: <code>' + promoCodeUsed + '</code> (-৳' + promoSaved + ')\n' : '') +
+    (vipSaved > 0 ? '👑 VIP Discount: -৳' + vipSaved + '\n' : '') +
+    '📉 Total Saved: -৳' + ord.discountSaved + '\n' +
+    '✅ <b>Payable: ৳' + ord.finalPrice + '</b>\n' +
+    '💳 Payment: ' + ord.paymentMethod +
+    (ord.trxId ? '\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>' : '') +
+    (cashbackEarned > 0 ? '\n💸 Wallet Cashback: +৳' + cashbackEarned : '')
+  );
+
+  res.json(Object.assign({ order: ord, referralRewarded: refRewarded, telegramSent: tg.ok }, serializeUser(u)));
+});
+
+app.post('/api/admin/login', function (req, res) {
+  if (((req.body || {}).passkey || '').trim() === adminKey()) return res.json({ ok: true });
+  res.status(401).json({ error: 'INVALID_PASSKEY' });
+});
+
+app.get('/api/admin/dashboard', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var usersList = Object.keys(db.users).map(function (k) {
+    var u = db.users[k];
+    return {
+      name: u.name,
+      identifier: u.identifier,
+      totalSpinsPerformed: u.totalSpinsPerformed,
+      walletBalanceBdt: u.walletBalanceBdt || 0,
+      lifetimeSpendBdt: u.lifetimeSpendBdt || 0,
+      vipRank: getVipSpendStatus(u.lifetimeSpendBdt || 0).rank,
+      lastSpinDate: u.lastSpinDate,
+      streakCount: u.streakCount,
+      referralCode: u.referralCode,
+      referredCount: u.referredCount,
+      offersCount: u.offers.length,
+      usedOffersCount: u.offers.filter(function (o) { return o.used; }).length,
+      ordersCount: u.orders.length
+    };
+  });
+  res.json({
+    config: db.config,
+    regularWedges: REGULAR_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.regularWeights[w.id] != null ? db.config.regularWeights[w.id] : w.weight }; }),
+    goldenWedges: GOLDEN_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.goldenWeights[w.id] != null ? db.config.goldenWeights[w.id] : w.weight }; }),
+    stats: {
+      totalUsers: usersList.length,
+      totalSpins: db.spinsLog.length,
+      totalOrders: db.ordersLog.length,
+      totalDiscountGiven: db.ordersLog.reduce(function (a, o) { return a + (o.discountSaved || 0); }, 0),
+      pendingDeposits: db.walletDeposits.filter(function (d) { return d.status === 'Pending'; }).length,
+      duplicateTrxBlockedCount: db.duplicateTrxBlockedCount || 0
+    },
+    users: usersList,
+    spinsLog: db.spinsLog.slice(0, 40),
+    ordersLog: db.ordersLog.slice(0, 50),
+    walletDeposits: db.walletDeposits.slice(0, 50),
+    activityLog: (db.activityLog || []).slice(0, 60)
+  });
+});
+
+app.post('/api/admin/config', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  if (b.regularWeights) db.config.regularWeights = Object.assign({}, db.config.regularWeights, b.regularWeights);
+  if (b.goldenWeights) db.config.goldenWeights = Object.assign({}, db.config.goldenWeights, b.goldenWeights);
+  if (b.rules) db.config.rules = Object.assign({}, db.config.rules, b.rules);
+  if (b.paymentNumbers) db.config.paymentNumbers = Object.assign({}, db.config.paymentNumbers, b.paymentNumbers);
+  if (b.support) db.config.support = Object.assign({}, db.config.support, b.support);
+  if (typeof b.walletCashbackPercent === 'number') {
+    db.config.walletCashbackPercent = Math.max(0, Math.min(25, b.walletCashbackPercent));
+  }
+  if (b.flashSale) db.config.flashSale = Object.assign({}, db.config.flashSale, b.flashSale);
+  if (Array.isArray(b.promoCodes)) db.config.promoCodes = b.promoCodes;
+  if (b.catalog && Array.isArray(b.catalog.games) && Array.isArray(b.catalog.packages)) {
+    db.config.catalog = {
+      games: b.catalog.games.map(function (g) {
+        return {
+          id: String(g.id || '').trim() || ('game-' + Date.now()),
+          name: String(g.name || 'Game').trim(),
+          publisher: String(g.publisher || 'Official').trim(),
+          currencyName: String(g.currencyName || 'Credits').trim(),
+          uidLabel: String(g.uidLabel || 'Player UID').trim(),
+          uidPlaceholder: String(g.uidPlaceholder || 'Enter UID').trim(),
+          accentColor: g.accentColor || '#38bdf8',
+          active: g.active !== false
+        };
+      }),
+      packages: b.catalog.packages.map(function (pk) {
+        return {
+          id: String(pk.id || '').trim() || ('pkg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)),
+          gameId: String(pk.gameId || ''),
+          amountLabel: String(pk.amountLabel || 'Package').trim(),
+          bonusLabel: pk.bonusLabel ? String(pk.bonusLabel).trim() : '',
+          priceBdt: Math.max(10, Math.round(Number(pk.priceBdt) || 100)),
+          popular: Boolean(pk.popular),
+          inStock: pk.inStock !== false
+        };
+      })
+    };
+  }
+  if (b.announcement && typeof b.announcement === 'object') {
+    db.config.announcement = {
+      active: Boolean(b.announcement.active),
+      tagLabel: String(b.announcement.tagLabel || 'NOTICE').trim().slice(0, 20) || 'NOTICE',
+      text: String(b.announcement.text || '').trim().slice(0, 260)
+    };
+  }
+  if (Array.isArray(b.banners)) {
+    db.config.banners = b.banners.slice(0, 8).map(function (sl, idx) {
+      var acc = (sl.accent === 'emerald' || sl.accent === 'sky') ? sl.accent : 'gold';
+      return {
+        id: String(sl.id || '').trim() || ('ban-' + Date.now() + '-' + idx),
+        badge: String(sl.badge || 'OFFER').trim().slice(0, 24),
+        title: String(sl.title || 'Special Offer').trim().slice(0, 90),
+        subtitle: String(sl.subtitle || '').trim().slice(0, 140),
+        ctaLabel: String(sl.ctaLabel || 'Open').trim().slice(0, 24),
+        ctaTarget: String(sl.ctaTarget || 'spin').trim().slice(0, 40),
+        accent: acc,
+        active: sl.active !== false
+      };
+    });
+  }
+  if (typeof b.telegramBotToken === 'string') db.config.telegramBotToken = b.telegramBotToken.trim();
+  if (typeof b.telegramChatId === 'string') db.config.telegramChatId = b.telegramChatId.trim();
+  logActivity(db, 'Config Updated', 'Admin updated store settings / banners / notice / catalog', 'info', 'Admin');
+  saveDb(db);
+  res.json({ ok: true, config: db.config });
+});
+
+app.post('/api/admin/orders/status', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  var allowed = ['Pending', 'Processing', 'Completed', 'Rejected'];
+  if (!b.orderId || allowed.indexOf(b.status) === -1) return res.status(400).json({ error: 'INVALID_STATUS' });
+  var logOrd = db.ordersLog.find(function (o) { return o.id === b.orderId; });
+  if (!logOrd) return res.status(404).json({ error: 'ORDER_NOT_FOUND' });
+  logOrd.status = b.status;
+  var owner = db.users[logOrd.userIdentifier];
+  if (owner) {
+    var uOrd = owner.orders.find(function (o) { return o.id === b.orderId; });
+    if (uOrd) uOrd.status = b.status;
+  }
+  logActivity(db, 'Order ' + b.status, 'Order ' + logOrd.id + ' (' + logOrd.gameName + ') marked ' + b.status, b.status === 'Rejected' ? 'warning' : 'success', 'Admin');
+  saveDb(db);
+  res.json({ ok: true, order: logOrd });
+});
+
+app.post('/api/admin/wallet/action', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  if (!b.depositId || (b.action !== 'Approved' && b.action !== 'Rejected')) {
+    return res.status(400).json({ error: 'INVALID_ACTION' });
+  }
+  var dep = db.walletDeposits.find(function (d) { return d.id === b.depositId; });
+  if (!dep) return res.status(404).json({ error: 'DEPOSIT_NOT_FOUND' });
+  if (dep.status !== 'Pending') return res.status(400).json({ error: 'ALREADY_PROCESSED' });
+  dep.status = b.action;
+  var owner = db.users[dep.userIdentifier];
+  if (owner) {
+    if (b.action === 'Approved') {
+      owner.walletBalanceBdt = (owner.walletBalanceBdt || 0) + dep.amountBdt;
+    }
+    var rItem = (owner.walletRequests || []).find(function (r) { return r.id === b.depositId; });
+    if (rItem) rItem.status = b.action;
+  }
+  logActivity(db, 'Wallet ' + b.action, 'Deposit ' + dep.id + ' (৳' + dep.amountBdt + ' · TrxID ' + dep.trxId + ') ' + b.action, b.action === 'Rejected' ? 'warning' : 'success', 'Admin');
+  saveDb(db);
+  res.json({ ok: true, deposit: dep });
+});
+
+app.post('/api/admin/orders/reply', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  var cleanMsg = String(b.message || '').trim().slice(0, 600);
+  if (!b.orderId || !cleanMsg) return res.status(400).json({ error: 'INVALID_REPLY' });
+  var logOrd = db.ordersLog.find(function (o) { return o.id === b.orderId; });
+  if (!logOrd) return res.status(404).json({ error: 'ORDER_NOT_FOUND' });
+  var msgObj = {
+    id: 'MSG-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+    sender: 'admin',
+    text: cleanMsg,
+    createdAt: formatTimeBD()
+  };
+  logOrd.supportMessages = (logOrd.supportMessages || []).concat([msgObj]).slice(-30);
+  var owner = db.users[logOrd.userIdentifier];
+  if (owner) {
+    var uOrd = (owner.orders || []).find(function (o) { return o.id === b.orderId; });
+    if (uOrd) uOrd.supportMessages = (uOrd.supportMessages || []).concat([msgObj]).slice(-30);
+  }
+  logActivity(db, 'Support Reply Sent', 'Admin replied on Order ' + b.orderId, 'info', 'Admin');
+  saveDb(db);
+  res.json({ ok: true, order: logOrd });
+});
+
+app.post('/api/admin/telegram/test', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var r = await sendTelegram('✅ <b>Crazy_top_up (24) Test Alert</b>\nTelegram Order & Wallet Notification সঠিকভাবে কাজ করছে!');
+  if (!r.ok) return res.status(400).json(r);
+  res.json({ ok: true });
+});
+
+app.use(express.static(__dirname));
+app.get('/', function (req, res) { res.sendFile(path.join(__dirname, 'FFX.html')); });
+
+var PORT = process.env.PORT || 3000;
+app.listen(PORT, function () {
+  console.log('Crazy_top_up (24) server running on port ' + PORT);
 });
