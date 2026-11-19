@@ -1262,8 +1262,17 @@ app.post('/api/admin/telegram/test', async function (req, res) {
   res.json({ ok: true });
 });
 
-app.use(express.static(__dirname));
-app.get('/', function (req, res) { res.sendFile(path.join(__dirname, 'FFX.html')); });
+app.use(express.static(__dirname, {
+  setHeaders: function (res, filePath) {
+    if (/\.(html|js|css|json)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
+app.get('/', function (req, res) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'FFX.html'));
+});
 
 var PORT = process.env.PORT || 3000;
 app.listen(PORT, function () {

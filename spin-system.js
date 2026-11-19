@@ -1682,6 +1682,7 @@
         if (isSpinning) return;
         playClick();
         activeTab = btn.getAttribute('data-sw-tab');
+        showTapArrow = true;
         winResult = null;
         showHistoryPanel = false;
         showNoSpinsModal = false;
@@ -1898,7 +1899,13 @@
   }
 
   function openModal(tab) {
-    if (tab) activeTab = tab;
+    if (tab) {
+      activeTab = tab;
+    } else if (state.spins <= 0 && state.goldenSpins > 0) {
+      activeTab = 'golden';
+    } else {
+      activeTab = 'spin';
+    }
     isModalOpen = true;
     showTapArrow = true;
     winResult = null;
