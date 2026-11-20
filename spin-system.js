@@ -529,6 +529,12 @@
   }
 
   function triggerSiteLogin() {
+    if (typeof window.openGoogleLoginModal === 'function') {
+      showAuthRequiredModal = false;
+      closeModal();
+      window.openGoogleLoginModal();
+      return;
+    }
     if (typeof window.SPIN_LOGIN_URL === 'string' && window.SPIN_LOGIN_URL && window.SPIN_LOGIN_URL !== '#') {
       window.location.href = window.SPIN_LOGIN_URL;
       return;
@@ -1228,7 +1234,7 @@
       return '<span class="sw-ticker-item">🎉 <b>' + esc(w.userName) + '</b> মাত্র <span class="rw">' + esc(w.rewardTitle) + '</span> জিতেছেন <span style="opacity:.45;margin-left:4px;">·</span></span>';
     }).join('');
     var grp = '<div class="sw-ticker-group">' + items + '</div>';
-    return '<div class="sw-ticker-bar' + (modalCompact ? ' modal-sm' : '') + '"><div class="sw-ticker-track">' + grp + grp + '</div></div>';
+    return '<div class="sw-ticker-bar' + (modalCompact ? ' modal-sm' : '') + '"><div class="sw-ticker-track">' + grp + grp + grp + grp + '</div></div>';
   }
 
   function renderTickerDOM() {
@@ -3339,8 +3345,357 @@
     window.addEventListener('online', function () { showPill(true); });
   }
 
+
+  var jsMarqueeStarted = false;
+  function startJsMarqueeLoop() {
+    if (jsMarqueeStarted) return;
+    jsMarqueeStarted = true;
+    var hoveredTracks = new WeakMap();
+    document.addEventListener('pointerover', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      var t = e.target && e.target.closest ? e.target.closest('.sw-ticker-track, .sw-notice-track') : null;
+      if (t) hoveredTracks.set(t, true);
+    }, { passive: true });
+    document.addEventListener('pointerout', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      var t = e.target && e.target.closest ? e.target.closest('.sw-ticker-track, .sw-notice-track') : null;
+      if (t && (!e.relatedTarget || !t.contains(e.relatedTarget))) hoveredTracks.set(t, false);
+    }, { passive: true });
+
+    var trackOffsets = new WeakMap();
+    var lastTs = 0;
+    var lastBulbToggle = 0;
+    var bulbFlip = false;
+
+    function tick(now) {
+      if (!lastTs) lastTs = now;
+      var dt = Math.min((now - lastTs) / 1000, 0.08);
+      lastTs = now;
+
+      if (!lastBulbToggle || now - lastBulbToggle >= 450) {
+        lastBulbToggle = now;
+        bulbFlip = !bulbFlip;
+        var bulbContainers = document.querySelectorAll('.sw-bulbs');
+        for (var b = 0; b < bulbContainers.length; b++) {
+          bulbContainers[b].classList.toggle('sw-bulbs-flip', bulbFlip);
+        }
+      }
+
+      var arrows = document.querySelectorAll('.sw-arrow-poke-wrap');
+      if (arrows.length) {
+        var arrowX = (-5.5 + Math.sin(now * 0.006) * 5.5).toFixed(2);
+        for (var a = 0; a < arrows.length; a++) {
+          arrows[a].style.transform = 'translate3d(' + arrowX + 'px, 0, 0)';
+        }
+      }
+
+      var tracks = document.querySelectorAll('.sw-ticker-track, .sw-notice-track');
+      for (var i = 0; i < tracks.length; i++) {
+        var track = tracks[i];
+        if (hoveredTracks.get(track)) continue;
+        var firstChild = track.firstElementChild;
+        if (!firstChild) continue;
+        var loopWidth = firstChild.getBoundingClientRect().width || firstChild.offsetWidth || 0;
+        if (loopWidth <= 10) continue;
+        var speed = track.classList.contains('sw-notice-track') ? 38 : 42;
+        var prev = trackOffsets.get(track) || 0;
+        var next = (prev + speed * dt) % loopWidth;
+        trackOffsets.set(track, next);
+        track.style.transform = 'translate3d(' + (-next.toFixed(2)) + 'px, 0, 0)';
+      }
+
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+
+  /* -------------------- V13: Google / Gmail Auth Engine -------------------- */
+  var AUTH_STORAGE_KEY = 'crazy_topup_auth_v1';
+  var fbSdkPromise = null;
+
+  function loadScriptOnce(src) {
+    return new Promise(function (resolve, reject) {
+      var existing = document.querySelector('script[src="' + src + '"]');
+      if (existing) {
+        if (existing.dataset.loaded === '1') { resolve(); return; }
+        existing.addEventListener('load', resolve);
+        existing.addEventListener('error', reject);
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = function () { s.dataset.loaded = '1'; resolve(); };
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensureFirebaseAuth() {
+    if (fbSdkPromise) return fbSdkPromise;
+    fbSdkPromise = Promise.all([
+      loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js')
+    ]).then(function () {
+      return loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+    }).then(function () {
+      var cfg = window.__CRAZY_FIREBASE_CONFIG__;
+      if (!cfg || !cfg.apiKey) throw new Error('Missing Firebase config');
+      if (!window.firebase.apps || !window.firebase.apps.length) {
+        window.firebase.initializeApp(cfg);
+      }
+      return window.firebase.auth();
+    });
+    return fbSdkPromise;
+  }
+
+  function makeSupportPin(seed) {
+    var hash = 0;
+    var str = String(seed || 'guest');
+    for (var i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return String(1000000 + (Math.abs(hash) % 8999999));
+  }
+
+  function applyCrazyAuthUser(userObj, skipPersist) {
+    var clean = userObj && userObj.loggedIn && userObj.email ? {
+      loggedIn: true,
+      name: String(userObj.name || userObj.email.split('@')[0] || 'Player').trim(),
+      email: String(userObj.email).trim(),
+      avatar: userObj.avatar ? String(userObj.avatar) : '',
+      uid: userObj.uid ? String(userObj.uid) : '',
+      supportPin: userObj.supportPin || makeSupportPin(userObj.email),
+      provider: userObj.provider || 'google'
+    } : {
+      loggedIn: false,
+      name: '',
+      email: '',
+      avatar: '',
+      uid: '',
+      supportPin: '',
+      provider: ''
+    };
+
+    if (!skipPersist) {
+      try {
+        if (clean.loggedIn) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(clean));
+        else localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch (e) {}
+    }
+
+    window.__CRAZY_USER__ = clean;
+    window.SPIN_USER_LOGGED_IN = clean.loggedIn;
+    window.SPIN_USER_NAME = clean.loggedIn ? clean.name : '';
+    window.SPIN_USER_ID = clean.loggedIn ? clean.email : '';
+    forceLoggedIn = clean.loggedIn;
+    if (clean.loggedIn) showAuthRequiredModal = false;
+
+    if (typeof window.setProfile === 'function') {
+      window.setProfile({
+        loggedIn: clean.loggedIn,
+        name: clean.loggedIn ? clean.name : 'Guest',
+        email: clean.loggedIn ? clean.email : '',
+        avatar: clean.avatar || '',
+        verified: clean.loggedIn,
+        supportPin: clean.supportPin || '',
+        balance: Number(state.walletBalanceBdt || 0),
+        orders: Array.isArray(state.orders) ? state.orders.length : 0,
+        codes: Array.isArray(state.offers) ? state.offers.filter(function (o) { return !o.used; }).length : 0
+      });
+    }
+    if (typeof window.__renderDrawerUser === 'function') {
+      window.__renderDrawerUser();
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('crazy-auth-change', { detail: clean }));
+    } catch (e) {}
+
+    syncAllUI();
+    if (isModalOpen) renderModal();
+    if (clean.loggedIn) {
+      lastSyncedUserKey = '';
+      syncSessionWithServer();
+    }
+  }
+
+  function showSiteToast(msg) {
+    var t = document.getElementById('toast');
+    if (t) {
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function () { t.classList.remove('show'); }, 2600);
+    }
+  }
+
+  window.crazyLogout = function () {
+    applyCrazyAuthUser({ loggedIn: false });
+    if (window.firebase && window.firebase.auth) {
+      try { window.firebase.auth().signOut(); } catch (e) {}
+    }
+    var small = document.querySelector('#avBtn .av-inner');
+    if (small) small.innerHTML = '<svg class="i"><use href="#user"/></svg>';
+    var acAv = document.getElementById('acAvatar');
+    if (acAv) acAv.innerHTML = '<svg class="i"><use href="#user"/></svg>';
+    showSiteToast('লগআউট সম্পন্ন হয়েছে');
+  };
+
+  window.openGoogleLoginModal = function () {
+    var accPanel = document.getElementById('accPanel');
+    if (accPanel && accPanel.classList.contains('show')) {
+      accPanel.classList.remove('show');
+      accPanel.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+    var overlay = document.getElementById('swGoogleAuthOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'swGoogleAuthOverlay';
+      overlay.className = 'sw-gauth-overlay';
+      overlay.innerHTML =
+        '<div class="sw-gauth-card" role="dialog" aria-modal="true" aria-labelledby="swGAuthTitle">' +
+          '<button type="button" class="sw-gauth-close" id="swGAuthClose" aria-label="Close">×</button>' +
+          '<div class="sw-gauth-hd">' +
+            '<div class="sw-gauth-badge">🎮</div>' +
+            '<div>' +
+              '<h3 class="sw-gauth-title" id="swGAuthTitle">Crazy_top_up (24) Login</h3>' +
+              '<p class="sw-gauth-sub">আপনার Gmail দিয়ে ১ ক্লিকে লগইন করুন — অর্ডার, ওয়ালেট ও স্পিন সুরক্ষিত থাকবে।</p>' +
+            '</div>' +
+          '</div>' +
+          '<button type="button" class="sw-gauth-google-btn" id="swGAuthGoogleBtn">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">' +
+              '<path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>' +
+              '<path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>' +
+              '<path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>' +
+              '<path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>' +
+            '</svg>' +
+            '<span id="swGAuthBtnTxt">Continue with Google (Gmail)</span>' +
+          '</button>' +
+          '<div class="sw-gauth-div"><span>অথবা Gmail ও নাম দিন</span></div>' +
+          '<form id="swGAuthForm">' +
+            '<label class="sw-gauth-lbl" for="swGAuthName">আপনার নাম</label>' +
+            '<input class="sw-gauth-inp" id="swGAuthName" type="text" placeholder="যেমন: Sakib Ahmed" autocomplete="name" />' +
+            '<label class="sw-gauth-lbl" for="swGAuthMail">আপনার Gmail / মোবাইল নম্বর</label>' +
+            '<input class="sw-gauth-inp" id="swGAuthMail" type="text" placeholder="example@gmail.com বা 017XXXXXXXX" autocomplete="email" />' +
+            '<div class="sw-gauth-err" id="swGAuthErr" style="display:none;"></div>' +
+            '<button type="submit" class="sw-gauth-submit">লগইন সম্পন্ন করুন</button>' +
+          '</form>' +
+          '<div class="sw-gauth-note">🔒 আপনার Gmail অ্যাকাউন্টের সাথে ব্যালেন্স ও স্পিন সিঙ্ক থাকবে</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      var closeFn = function () { overlay.classList.remove('show'); };
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) closeFn(); });
+      document.getElementById('swGAuthClose').onclick = closeFn;
+
+      var errBox = document.getElementById('swGAuthErr');
+      var gBtn = document.getElementById('swGAuthGoogleBtn');
+      var gTxt = document.getElementById('swGAuthBtnTxt');
+
+      gBtn.onclick = function () {
+        errBox.style.display = 'none';
+        gBtn.disabled = true;
+        gTxt.textContent = 'Google কানেক্ট হচ্ছে...';
+        ensureFirebaseAuth().then(function (fbAuth) {
+          var provider = new window.firebase.auth.GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          return fbAuth.signInWithPopup(provider);
+        }).then(function (res) {
+          var u = res && res.user;
+          if (!u || !u.email) throw new Error('Gmail পাওয়া যায়নি');
+          applyCrazyAuthUser({
+            loggedIn: true,
+            name: u.displayName || u.email.split('@')[0],
+            email: u.email,
+            avatar: u.photoURL || '',
+            uid: u.uid || '',
+            provider: 'google'
+          });
+          closeFn();
+          showSiteToast('স্বাগতম, ' + (u.displayName || u.email) + '!');
+        }).catch(function (err) {
+          var code = (err && err.code) || '';
+          if (code === 'auth/popup-blocked') {
+            errBox.textContent = 'ব্রাউজার পপ-আপ ব্লক করেছে। পপ-আপ Allow করুন অথবা নিচে Gmail দিয়ে লগইন করুন।';
+          } else if (code === 'auth/unauthorized-domain') {
+            errBox.innerHTML = 'এই ডোমেইনটি (<b>' + esc(location.hostname) + '</b>) Firebase Console → Authentication → Settings → Authorized domains-এ Add করতে হবে। আপাতত নিচে নাম ও Gmail দিয়ে লগইন করুন।';
+          } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+            errBox.textContent = 'Google পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করুন।';
+          } else {
+            errBox.textContent = 'Google লগইন ব্যর্থ হয়েছে (' + (code || 'error') + ')। নিচে Gmail দিয়ে লগইন করতে পারেন।';
+          }
+          errBox.style.display = 'block';
+        }).finally(function () {
+          gBtn.disabled = false;
+          gTxt.textContent = 'Continue with Google (Gmail)';
+        });
+      };
+
+      document.getElementById('swGAuthForm').onsubmit = function (e) {
+        e.preventDefault();
+        var nm = (document.getElementById('swGAuthName').value || '').trim();
+        var em = (document.getElementById('swGAuthMail').value || '').trim();
+        if (nm.length < 2) {
+          errBox.textContent = 'দয়া করে কমপক্ষে ২ অক্ষরের নাম লিখুন।';
+          errBox.style.display = 'block';
+          return;
+        }
+        if (em.length < 5) {
+          errBox.textContent = 'সঠিক Gmail (যেমন: name@gmail.com) অথবা মোবাইল নম্বর দিন।';
+          errBox.style.display = 'block';
+          return;
+        }
+        errBox.style.display = 'none';
+        applyCrazyAuthUser({
+          loggedIn: true,
+          name: nm,
+          email: em,
+          avatar: '',
+          provider: 'manual'
+        });
+        closeFn();
+        showSiteToast('লগইন সফল হয়েছে, ' + nm + '!');
+      };
+    }
+    var errEl = document.getElementById('swGAuthErr');
+    if (errEl) errEl.style.display = 'none';
+    overlay.classList.add('show');
+  };
+
+  function initGoogleAuthSession() {
+    try {
+      var raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.loggedIn && parsed.email) {
+          applyCrazyAuthUser(parsed, true);
+        }
+      }
+    } catch (e) {}
+
+    if (window.__CRAZY_FIREBASE_CONFIG__ && window.__CRAZY_FIREBASE_CONFIG__.apiKey) {
+      ensureFirebaseAuth().then(function (fbAuth) {
+        fbAuth.onAuthStateChanged(function (fbUser) {
+          if (fbUser && fbUser.email) {
+            applyCrazyAuthUser({
+              loggedIn: true,
+              name: fbUser.displayName || fbUser.email.split('@')[0],
+              email: fbUser.email,
+              avatar: fbUser.photoURL || '',
+              uid: fbUser.uid || '',
+              provider: 'google'
+            });
+          }
+        });
+      }).catch(function () {});
+    }
+  }
+
   function init() {
     setupOfflineIndicator();
+    startJsMarqueeLoop();
+    initGoogleAuthSession();
     if (!bannerTimerStarted) {
       bannerTimerStarted = true;
       setInterval(function () {

@@ -791,7 +791,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CrazyTopUp24">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="spin-system.css?v=11">
+<link rel="stylesheet" href="spin-system.css?v=13">
 </head>
 <body>
 
@@ -2014,11 +2014,15 @@ setInterval(fetchFreshAccountConfig, 15000);
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এখানে ইউজারের তথ্য বসান
   var USER = {
-    loggedIn: false,          // লগইন থাকলে true
-    name: '',                 // যেমন: 'MD EACIN 69'
-    email: '',                // যেমন: 'eacin69x@gmail.com'
-    avatar: ''                // প্রোফাইল ছবির লিংক (ফাঁকা থাকলে ডিফল্ট আইকন)
+    loggedIn: false,
+    name: '',
+    email: '',
+    avatar: '',
+    uid: '',
+    supportPin: ''
   };
+  window.__CRAZY_USER__ = USER;
+  window.__CRAZY_FIREBASE_CONFIG__ = {"apiKey": "AIzaSyBszcTDmkHa3rpbk9-qf3TdeT8qBhfCmz4", "authDomain": "groovy-kaleidoscope-nds98.firebaseapp.com", "projectId": "groovy-kaleidoscope-nds98", "storageBucket": "groovy-kaleidoscope-nds98.firebasestorage.app", "messagingSenderId": "85848861949", "appId": "1:85848861949:web:dda2e58a5b159457a9a294"};
   var LOGIN_URL = '#';
   var LOGOUT_URL = '#';
 
@@ -2026,25 +2030,34 @@ setInterval(fetchFreshAccountConfig, 15000);
   var navLinks = [].slice.call(document.querySelectorAll('nav.nav a'));
   var navHome = navLinks[0], navAcc = navLinks[4];
 
-  // ইউজার তথ্য বসানো
-  (function render(){
-    var n = USER.name ? USER.name.trim() : '';
-    document.getElementById('accName').textContent = USER.loggedIn && n ? 'Hi, ' + n : 'Hi, Guest';
-    document.getElementById('accMail').textContent = USER.loggedIn && USER.email ? USER.email : 'লগইন করে অর্ডার করুন';
-    if (USER.avatar) {
-      var box = document.getElementById('accAv');
+  function renderDrawerUser(){
+    var u = window.__CRAZY_USER__ || USER;
+    var n = u.name ? String(u.name).trim() : '';
+    document.getElementById('accName').textContent = u.loggedIn && n ? 'Hi, ' + n : 'Hi, Guest';
+    document.getElementById('accMail').textContent = u.loggedIn && u.email ? u.email : 'গুগল (Gmail) দিয়ে লগইন করে অর্ডার করুন';
+    var box = document.getElementById('accAv');
+    if (u.loggedIn && u.avatar) {
       box.innerHTML = '';
-      var im = document.createElement('img'); im.src = USER.avatar; im.alt = 'Profile';
+      var im = document.createElement('img');
+      im.src = u.avatar; im.alt = 'Profile'; im.referrerPolicy = 'no-referrer';
       box.appendChild(im);
+    } else if (!u.loggedIn) {
+      box.innerHTML = '<svg class="i"><use href="#user"/></svg>';
     }
     var lo = document.getElementById('accLo');
-    lo.querySelector('span').textContent = USER.loggedIn ? 'Logout' : 'Login';
-    lo.querySelector('use').setAttribute('href', USER.loggedIn ? '#a-power' : '#a-in');
+    lo.querySelector('span').textContent = u.loggedIn ? 'Logout' : 'Login with Google';
+    lo.querySelector('use').setAttribute('href', u.loggedIn ? '#a-power' : '#a-in');
     lo.onclick = function(){
-      var u = USER.loggedIn ? LOGOUT_URL : LOGIN_URL;
-      if (u && u !== '#') location.href = u;
+      if ((window.__CRAZY_USER__ || USER).loggedIn) {
+        if (typeof window.crazyLogout === 'function') window.crazyLogout();
+      } else {
+        if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+      }
     };
-  })();
+  }
+  window.__renderDrawerUser = renderDrawerUser;
+  renderDrawerUser();
+  window.addEventListener('crazy-auth-change', renderDrawerUser);
 
   function setNav(open){
     if (!navHome || !navAcc) return;
@@ -2101,7 +2114,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var home=document.getElementById('homeView'), ff=document.getElementById('ffView'), foot=document.getElementById('siteFooter');
@@ -2159,7 +2172,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=document.getElementById('uid').value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2167,6 +2180,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 
@@ -2175,7 +2189,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var BALANCE=0;          // ইউজারের ওয়ালেট ব্যালেন্স (ব্যাকএন্ড থেকে বসান)
@@ -2243,7 +2257,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2251,6 +2265,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 // ==========================================
@@ -2258,7 +2273,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var BALANCE=0;          // ইউজারের ওয়ালেট ব্যালেন্স (ব্যাকএন্ড থেকে বসান)
@@ -2326,7 +2341,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2334,6 +2349,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 // ==========================================
@@ -2341,7 +2357,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var BALANCE=0;          // ইউজারের ওয়ালেট ব্যালেন্স (ব্যাকএন্ড থেকে বসান)
@@ -2409,7 +2425,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2417,6 +2433,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 // ==========================================
@@ -2424,7 +2441,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var BALANCE=0;          // ইউজারের ওয়ালেট ব্যালেন্স (ব্যাকএন্ড থেকে বসান)
@@ -2492,7 +2509,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2500,6 +2517,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 // ==========================================
@@ -2507,7 +2525,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 // ==========================================
 (function(){
   // লগইন সিস্টেম যুক্ত করলে এটা true করে দিন
-  var isLoggedIn=false;
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
   var LOGIN_URL='#';
 
   var BALANCE=0;          // ইউজারের ওয়ালেট ব্যালেন্স (ব্যাকএন্ড থেকে বসান)
@@ -2575,7 +2593,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     pn.innerHTML='<svg class="i"><use href="#chk"/></svg>আইডি: '+uid;
   };
   buy.addEventListener('click',function(e){
-    if(!isLoggedIn){ if(LOGIN_URL==='#')e.preventDefault(); return; }
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
     e.preventDefault();
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
@@ -2583,6 +2601,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     // TODO: অর্ডার সাবমিট লজিক এখানে বসান
     toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
   });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
 </script>
@@ -3065,6 +3084,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=11"></script>
+<script src="spin-system.js?v=13"></script>
 </body>
 </html>

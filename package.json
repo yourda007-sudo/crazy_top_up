@@ -1,17 +1,14 @@
-
 {
-  "name": "ff-topup",
+  "name": "crazy-topup-24",
   "version": "1.0.0",
-  "description": "Free Fire Topup Website",
+  "private": true,
+  "description": "Crazy_top_up (24) Full-Stack Top-Up Store & Spin System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "express": "^4.21.2"
-  },
-  "engines": {
-    "node": ">=16.0.0"
   }
 }
-
