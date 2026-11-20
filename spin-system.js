@@ -335,6 +335,9 @@
   function applyServerPayload(data, markAvailable) {
     if (!data) return;
     if (markAvailable) apiAvailable = true;
+    if (Array.isArray(data.recentOrders) && data.recentOrders.length) {
+      liveRecentOrders = data.recentOrders;
+    }
     if (Array.isArray(data.recentWinners) && data.recentWinners.length) {
       recentWinners = data.recentWinners;
     }
@@ -421,6 +424,8 @@
         }
       }
       renderTickerDOM();
+    renderMyAccountRankView();
+    renderRecentOrdersLive();
       if (location.hash === '#spin-checkout') renderCheckoutView();
       if (isModalOpen) renderModal();
     } catch (e) {
@@ -3739,6 +3744,195 @@
     }
   }
 
+
+  var ACCOUNT_RANKS = [
+    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "linear-gradient(135deg,#8e5627 0%,#a86c39 48%,#734016 100%)", fill: "#9a5b25", rim: "#f6ad55", core: "#fff7ed" },
+    { level: 2, name: "Silver", min: 101, max: 1000, range: "101 - 1,000 Tk", sub: "Silver members unlock priority delivery.", grad: "linear-gradient(135deg,#475569 0%,#64748b 50%,#334155 100%)", fill: "#64748b", rim: "#e2e8f0", core: "#f8fafc" },
+    { level: 3, name: "Gold", min: 1001, max: 5000, range: "1,001 - 5,000 Tk", sub: "Gold tier boosts your spin luck and savings.", grad: "linear-gradient(135deg,#b45309 0%,#d97706 50%,#78350f 100%)", fill: "#d97706", rim: "#fde047", core: "#fef9c3" },
+    { level: 4, name: "Platinum", min: 5001, max: 10000, range: "5,001 - 10,000 Tk", sub: "Platinum unlocks special top-up rates.", grad: "linear-gradient(135deg,#0369a1 0%,#0284c7 50%,#1e3a8a 100%)", fill: "#0284c7", rim: "#7dd3fc", core: "#f0f9ff" },
+    { level: 5, name: "Diamond", min: 10001, max: 25000, range: "10,001 - 25,000 Tk", sub: "Diamond members enjoy VIP discounts & perks.", grad: "linear-gradient(135deg,#6d28d9 0%,#9333ea 50%,#4c1d95 100%)", fill: "#7c3aed", rim: "#d8b4fe", core: "#faf5ff" },
+    { level: 6, name: "Heroic", min: 25001, max: 50000, range: "25,001 - 50,000 Tk", sub: "Heroic champions get elite priority access.", grad: "linear-gradient(135deg,#b91c1c 0%,#dc2626 50%,#7f1d1d 100%)", fill: "#dc2626", rim: "#fca5a5", core: "#fef2f2" },
+    { level: 7, name: "Master", min: 50001, max: 100000, range: "50,001 - 100,000 Tk", sub: "Master rank commands top store privileges.", grad: "linear-gradient(135deg,#c2410c 0%,#ea580c 50%,#7c2d12 100%)", fill: "#ea580c", rim: "#fdba74", core: "#fff7ed" },
+    { level: 8, name: "Grand Master", min: 100001, max: null, range: "100,000+ Tk", sub: "Grand Master — supreme Crazy_Top_Up (24) legend!", grad: "linear-gradient(135deg,#b45309 0%,#dc2626 52%,#581c87 100%)", fill: "#b91c1c", rim: "#facc15", core: "#fef08a" }
+  ];
+  function rankShieldSvg(r, sz) {
+    return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 44 44\" aria-hidden=\"true\">" +
+      "<path d=\"M22 4l13 5.2v10.6c0 9.4-5.7 16.5-13 19.7-7.3-3.2-13-10.3-13-19.7V9.2L22 4z\" fill=\"" + r.fill + "\" stroke=\"" + r.rim + "\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
+      "<path d=\"M22 13l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7-3.4-3.3 4.7-.7L22 13z\" fill=\"" + r.core + "\"/>" +
+    "</svg>";
+  }
+  function computePin6(seed) {
+    var s = String(seed || "guest").toLowerCase();
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return String(100000 + (Math.abs(h) % 899999));
+  }
+
+  var RECENT_ORDERS_SEED = [
+    { id: "ro-1", customerName: "Shsbj", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+    { id: "ro-2", customerName: "asadul islam", packageLabel: "Weekly", finalPrice: 158, status: "Done" },
+    { id: "ro-3", customerName: "MR RADUWAN FF RX", packageLabel: "25 Diamond", finalPrice: 22, status: "Done" },
+    { id: "ro-4", customerName: "Sp Ff", packageLabel: "505 Diamond", finalPrice: 336, status: "Done" },
+    { id: "ro-5", customerName: "Md Sohel Rana", packageLabel: "50 Diamond", finalPrice: 37, status: "Done" },
+    { id: "ro-6", customerName: "nayeem Ahmed", packageLabel: "Level Up Package - Level 6", finalPrice: 40, status: "In Progress" },
+    { id: "ro-7", customerName: "Shamim Khan", packageLabel: "850 Diamond", finalPrice: 558, status: "Done" },
+    { id: "ro-8", customerName: "Bdudu Hdudud", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+    { id: "ro-9", customerName: "Borno Hasan", packageLabel: "Level Up Package - Level 25", finalPrice: 75, status: "In Progress" },
+    { id: "ro-10", customerName: "Sajjad Vai", packageLabel: "240 Diamond", finalPrice: 158, status: "Done" }
+  ];
+  var liveRecentOrders = RECENT_ORDERS_SEED.slice();
+  var RO_COLORS = ["#e11d74", "#4f46e5", "#0f766e", "#0284c7", "#854d0e", "#7c3aed", "#16a34a", "#d97706"];
+  function renderRecentOrdersLive() {
+    var box = document.getElementById("roList");
+    if (!box) return;
+    box.innerHTML = liveRecentOrders.map(function (o, i) {
+      var nm = String(o.customerName || "Player");
+      var ini = (nm.trim().charAt(0) || "P").toUpperCase();
+      var col = RO_COLORS[i % RO_COLORS.length];
+      var isDone = o.status === "Done" || o.status === "Completed";
+      var pill = isDone
+        ? "<span class=\"ro-pill done\">✓ Done</span>"
+        : "<span class=\"ro-pill prog\">⏳ In Progress</span>";
+      return "<div class=\"ro-item\">" +
+        "<div class=\"ro-left\">" +
+          "<div class=\"ro-av\" style=\"background:" + col + ";\">" + esc(ini) + "</div>" +
+          "<div class=\"ro-txt\"><b>" + esc(nm) + "</b><small>" + esc(o.packageLabel || "") + " - ৳" + Number(o.finalPrice || 0) + "</small></div>" +
+        "</div>" +
+        pill +
+      "</div>";
+    }).join("");
+  }
+  function initRecentOrdersSection() {
+    renderRecentOrdersLive();
+    var rf = document.getElementById("roRefreshBtn");
+    if (rf && !rf.dataset.wired) {
+      rf.dataset.wired = "1";
+      rf.onclick = function () {
+        rf.classList.remove("spin");
+        void rf.offsetWidth;
+        rf.classList.add("spin");
+        fetchPublicFeed();
+      };
+    }
+    var appBtn = document.getElementById("roAppBtn");
+    if (appBtn && !appBtn.dataset.wired) {
+      appBtn.dataset.wired = "1";
+      appBtn.onclick = function () {
+        var topPwa = document.getElementById("pwaInstallBtn") || document.querySelector("[data-pwa-install]");
+        if (topPwa) topPwa.click();
+        else showSiteToast("Browser মেনু থেকে Add to Home screen চাপুন অ্যাপ ইনস্টল করতে!");
+      };
+    }
+  }
+
+  function renderMyAccountRankView() {
+    var acView = document.getElementById("acView");
+    if (!acView) return;
+    var ordersArr = Array.isArray(state.orders) ? state.orders : [];
+    var orderSum = ordersArr.reduce(function (acc, o) {
+      return (o && o.status !== "Rejected") ? acc + Number(o.finalPrice || 0) : acc;
+    }, 0);
+    var totalSpend = Math.max(Math.round(Number(state.lifetimeSpendBdt || 0)), Math.round(orderSum));
+    var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var weeklySpend = ordersArr.reduce(function (acc, o) {
+      if (!o || o.status === "Rejected") return acc;
+      var t = new Date(o.createdAt || 0).getTime();
+      return t >= weekAgo ? acc + Number(o.finalPrice || 0) : acc;
+    }, 0);
+    var cur = ACCOUNT_RANKS[0];
+    for (var i = ACCOUNT_RANKS.length - 1; i >= 0; i--) {
+      if (totalSpend >= ACCOUNT_RANKS[i].min) { cur = ACCOUNT_RANKS[i]; break; }
+    }
+    var next = null;
+    for (var j = 0; j < ACCOUNT_RANKS.length; j++) {
+      if (ACCOUNT_RANKS[j].level === cur.level + 1) { next = ACCOUNT_RANKS[j]; break; }
+    }
+    var pct = 100, need = 0;
+    if (next) {
+      var span = Math.max(1, next.min - cur.min);
+      pct = Math.max(1, Math.min(99, Math.round((Math.max(0, totalSpend - cur.min) / span) * 100)));
+      if (totalSpend === 0) pct = 1;
+      need = Math.max(0, next.min - totalSpend);
+    }
+    var nameEl = document.getElementById("acName");
+    var nm = (nameEl && nameEl.textContent) || "Guest";
+    var mailEl = document.getElementById("acMail");
+    var mailTxt = (mailEl && mailEl.textContent) || "";
+    var avEl = document.getElementById("acAvatar");
+    if (avEl && !avEl.querySelector("img")) {
+      avEl.textContent = (nm.trim().charAt(0) || "G").toUpperCase();
+    }
+    var pin = computePin6(mailTxt && mailTxt.indexOf("লগইন") === -1 ? mailTxt : nm);
+    var pinEl = document.getElementById("acPin");
+    if (pinEl && !pinEl.textContent.trim()) pinEl.textContent = pin;
+    var infoUid = document.getElementById("acInfoUid");
+    if (infoUid) infoUid.textContent = (pinEl && pinEl.textContent) || pin;
+    var infoNm = document.getElementById("acInfoName");
+    if (infoNm) infoNm.textContent = nm;
+    var infoPh = document.getElementById("acInfoPhone");
+    if (infoPh) infoPh.textContent = /^\+?\d{7,15}$/.test(mailTxt.trim()) ? mailTxt.trim() : "Not added";
+    var accBadge = document.getElementById("acAccBadge");
+    if (accBadge) accBadge.textContent = isUserSignedIn() ? "★ Verified Account" : "★ Guest Session";
+
+    var chipShield = document.getElementById("acChipShield");
+    if (chipShield) chipShield.innerHTML = rankShieldSvg(cur, 22);
+    var chipTitle = document.getElementById("acChipTitle");
+    if (chipTitle) chipTitle.textContent = cur.name + " Member";
+    var chipSub = document.getElementById("acChipSub");
+    if (chipSub) chipSub.textContent = "Level " + cur.level + " / Current Rank";
+
+    var rh = document.getElementById("acRankHero");
+    if (rh) rh.style.background = cur.grad;
+    var hs = document.getElementById("acHeroShield");
+    if (hs) hs.innerHTML = rankShieldSvg(cur, 38);
+    var hl = document.getElementById("acHeroLvl");
+    if (hl) hl.textContent = "Level " + cur.level;
+    var hn = document.getElementById("acHeroName");
+    if (hn) hn.textContent = cur.name;
+    var hsub = document.getElementById("acHeroSub");
+    if (hsub) hsub.textContent = cur.sub;
+    var hr = document.getElementById("acHeroRange");
+    if (hr) hr.textContent = cur.range;
+    var hp = document.getElementById("acHeroPct");
+    if (hp) hp.textContent = pct + "%";
+    var hf = document.getElementById("acHeroFill");
+    if (hf) hf.style.width = pct + "%";
+    var hdot = document.getElementById("acHeroDot");
+    if (hdot) hdot.style.left = "calc(" + Math.min(96, Math.max(2, pct)) + "% - 6px)";
+    var hneed = document.getElementById("acHeroNeed");
+    if (hneed) hneed.innerHTML = next ? ("Need only <b>" + need + " Tk</b> to unlock <b>" + next.name + "</b>") : "<b>Grand Master maximum rank unlocked!</b>";
+
+    var ordEl = document.getElementById("acOrders");
+    if (ordEl) ordEl.textContent = String(ordersArr.length || Number(ordEl.textContent || 0));
+    var ordMini = document.getElementById("acOrdersMini");
+    if (ordMini && ordEl) ordMini.textContent = ordEl.textContent;
+    var tsEl = document.getElementById("acTotalSpend");
+    if (tsEl) tsEl.textContent = totalSpend + " Tk";
+    var wsEl = document.getElementById("acWeeklySpend");
+    if (wsEl) wsEl.textContent = Math.round(weeklySpend) + " Tk";
+    var srEl = document.getElementById("acStatRank");
+    if (srEl) srEl.textContent = cur.name;
+    var pcEl = document.getElementById("acPathCount");
+    if (pcEl) pcEl.textContent = cur.level + "/8";
+
+    var listEl = document.getElementById("acRankList");
+    if (listEl) {
+      listEl.innerHTML = ACCOUNT_RANKS.map(function (r) {
+        var isCur = r.level === cur.level;
+        var isUnl = r.level < cur.level;
+        var badgeCls = isCur ? "cur" : (isUnl ? "unl" : "");
+        var badgeTxt = isCur ? "✓ Current" : (isUnl ? "✓ Unlocked" : "🔒 Locked");
+        return "<div class=\"ac2-j-item" + (isCur ? " is-cur" : "") + "\">" +
+          "<div class=\"ac2-j-left\">" +
+            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, 24) + "</div>" +
+            "<div><b>" + r.name + "</b><small>" + r.range + "</small></div>" +
+          "</div>" +
+          "<span class=\"ac2-j-pill " + badgeCls + "\">" + badgeTxt + "</span>" +
+        "</div>";
+      }).join("");
+    }
+  }
+
   function initAddMoneyPage() {
     var view = document.getElementById('amView');
     if (!view || view.dataset.wired === '1') return;
@@ -3748,6 +3942,7 @@
     var step2 = document.getElementById('amStep2');
     var step3Qr = document.getElementById('amStep3Qr');
     var step3Mfs = document.getElementById('amStep3Mfs');
+    var step3Eps = document.getElementById('amStep3Eps');
     var hero = view.querySelector('.am-hero');
     var amtInp = document.getElementById('amAmtInput');
     var err1 = document.getElementById('amErr1');
@@ -3768,6 +3963,7 @@
       step2.hidden = (mode !== 2);
       if (step3Qr) step3Qr.hidden = (mode !== 'qr');
       if (step3Mfs) step3Mfs.hidden = (mode !== 'mfs');
+      if (step3Eps) step3Eps.hidden = (mode !== 'eps');
     }
 
     function getActiveNumber(m) {
@@ -3800,6 +3996,136 @@
         if (qrSecs > 0) qrSecs--;
         updateClock();
       }, 1000);
+    }
+
+
+    var epsTab = "MFS";
+    var epsChannel = "bKash";
+    var EPS_CHANNELS = {
+      MFS: [
+        { id: "bKash", name: "bKash", sub: "বিকাশ", col: "#e2136e" },
+        { id: "নগদ", name: "নগদ", sub: "Nagad", col: "#ea580c" },
+        { id: "উপায়", name: "উপায়", sub: "Upay", col: "#1e3a8a" },
+        { id: "OK Wallet", name: "OK Wallet", sub: "One Bank", col: "#0f172a" },
+        { id: "mCash", name: "এম ক্যাশ", sub: "Islami Bank", col: "#15803d" },
+        { id: "Islamic Wallet", name: "Islamic Wallet", sub: "Al-Arafah", col: "#047857" },
+        { id: "Meghna Pay", name: "meghna pay", sub: "Meghna Bank", col: "#475569" }
+      ],
+      CARD: [
+        { id: "VISA", name: "VISA", sub: "Debit/Credit", col: "#1d4ed8" },
+        { id: "Mastercard", name: "Mastercard", sub: "Debit/Credit", col: "#dc2626" },
+        { id: "AMEX", name: "AMEX", sub: "Card", col: "#0284c7" }
+      ],
+      BANK: [
+        { id: "Citytouch", name: "Citytouch", sub: "City Bank", col: "#dc2626" },
+        { id: "IBBL iBanking", name: "IBBL", sub: "Islami Bank", col: "#15803d" },
+        { id: "EBL Skybanking", name: "EBL Sky", sub: "Eastern Bank", col: "#0f4eb8" }
+      ]
+    };
+    function renderEpsGrid() {
+      var grid = document.getElementById("epsGrid");
+      if (!grid) return;
+      var items = EPS_CHANNELS[epsTab] || EPS_CHANNELS.MFS;
+      grid.innerHTML = items.map(function (it) {
+        return "<button type=\"button\" class=\"eps-ch" + (epsChannel === it.id ? " on" : "") + "\" data-ch=\"" + esc(it.id) + "\">" +
+          "<b style=\"color:" + it.col + ";\">" + esc(it.name) + "</b>" +
+          "<small>" + esc(it.sub) + "</small>" +
+        "</button>";
+      }).join("");
+      grid.querySelectorAll(".eps-ch").forEach(function (b) {
+        b.onclick = function () {
+          epsChannel = b.getAttribute("data-ch") || "bKash";
+          document.getElementById("epsChLbl").textContent = epsChannel;
+          document.getElementById("epsNumLbl").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
+          renderEpsGrid();
+        };
+      });
+    }
+    function openEpsStep(amt) {
+      epsTab = "MFS"; epsChannel = "bKash";
+      document.getElementById("epsPayAmt").textContent = amt + ".00";
+      document.getElementById("epsTrxBox").style.display = "none";
+      document.getElementById("epsErr").style.display = "none";
+      document.getElementById("epsOk").style.display = "none";
+      document.getElementById("epsChLbl").textContent = epsChannel;
+      document.getElementById("epsNumLbl").textContent = getActiveNumber("bKash");
+      document.querySelectorAll("#amStep3Eps .eps-tabs button").forEach(function (tb) {
+        tb.classList.toggle("on", tb.getAttribute("data-epstab") === "MFS");
+      });
+      renderEpsGrid();
+      showAmStep("eps");
+    }
+    if (step3Eps) {
+      step3Eps.querySelectorAll(".eps-tabs button").forEach(function (tb) {
+        tb.onclick = function () {
+          epsTab = tb.getAttribute("data-epstab") || "MFS";
+          step3Eps.querySelectorAll(".eps-tabs button").forEach(function (x) { x.classList.toggle("on", x === tb); });
+          var first = (EPS_CHANNELS[epsTab] || [])[0];
+          if (first) epsChannel = first.id;
+          renderEpsGrid();
+        };
+      });
+      step3Eps.querySelectorAll(".eps-lang button").forEach(function (lb) {
+        lb.onclick = function () {
+          step3Eps.querySelectorAll(".eps-lang button").forEach(function (x) { x.classList.toggle("on", x === lb); });
+        };
+      });
+      document.getElementById("epsCloseBtn").onclick = function () { showAmStep(2); };
+      document.getElementById("epsLogBtn").onclick = function () { showAmStep(2); };
+      document.getElementById("epsSupBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "হেল্পলাইন: " + getActiveNumber("bKash") + " (bKash) / " + getActiveNumber("Nagad") + " (Nagad)";
+        ok.style.display = "block";
+      };
+      document.getElementById("epsFaqBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "ওয়ালেট সিলেক্ট করে PAY বাটনে চাপুন, টাকা পাঠিয়ে TrxID দিয়ে Verify করুন।";
+        ok.style.display = "block";
+      };
+      document.getElementById("epsOffBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "Crazy_Top_Up (24) অ্যাড মানিতে ৩% ক্যাশব্যাক ও স্পিন অফার চালু আছে!";
+        ok.style.display = "block";
+      };
+      document.getElementById("epsPayBtn").onclick = function () {
+        document.getElementById("epsChLbl").textContent = epsChannel;
+        document.getElementById("epsNumLbl").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
+        document.getElementById("epsTrxBox").style.display = "block";
+      };
+      document.getElementById("epsCopyBtn").onclick = function () {
+        var num = document.getElementById("epsNumLbl").textContent;
+        if (navigator.clipboard && num) navigator.clipboard.writeText(num).then(function () { showSiteToast("কপি হয়েছে: " + num); }).catch(function () {});
+      };
+      document.getElementById("epsVerifyBtn").onclick = function () {
+        var trx = (document.getElementById("epsTrxInp").value || "").trim().toUpperCase();
+        var err = document.getElementById("epsErr");
+        var ok = document.getElementById("epsOk");
+        if (trx.length < 4) { err.textContent = "সঠিক ট্রানজেকশন আইডি দিন।"; err.style.display = "block"; return; }
+        err.style.display = "none"; ok.style.display = "none";
+        var btn = document.getElementById("epsVerifyBtn");
+        btn.disabled = true; btn.textContent = "...";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        fetch("/api/wallet/deposit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identifier: getUserKey(),
+            method: "EPS (" + epsChannel + ")",
+            amountBdt: amt,
+            senderNumber: "EPS " + epsChannel,
+            trxId: trx
+          })
+        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+          .then(function (res) {
+            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
+            applyServerPayload(res.data, true);
+            document.getElementById("epsTrxInp").value = "";
+            ok.textContent = "✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " ভেরিফাইয়ের জন্য জমা হয়েছে!";
+            ok.style.display = "block";
+          }).catch(function () {
+            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
+          }).finally(function () { btn.disabled = false; btn.textContent = "Verify"; });
+      };
     }
 
     function openMfsStep(m, amt) {
@@ -3865,6 +4191,7 @@
         selectedMethod = btn.getAttribute('data-method') || 'bKash';
         var amt = Math.round(Number(amtInp.value)) || 50;
         if (selectedMethod === 'bKash') openQrStep(amt);
+        else if (selectedMethod === 'EPS') openEpsStep(amt);
         else openMfsStep(selectedMethod, amt);
       };
     });
@@ -3959,6 +4286,8 @@
     startJsMarqueeLoop();
     initGoogleAuthSession();
     initAddMoneyPage();
+    initRecentOrdersSection();
+    renderMyAccountRankView();
     if (!bannerTimerStarted) {
       bannerTimerStarted = true;
       setInterval(function () {

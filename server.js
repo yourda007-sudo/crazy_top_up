@@ -469,6 +469,41 @@ function buildLeaderboard() {
   };
 }
 
+
+var SEED_PUBLIC_ORDERS = [
+  { id: "ro-seed-1", customerName: "Shsbj", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+  { id: "ro-seed-2", customerName: "asadul islam", packageLabel: "Weekly", finalPrice: 158, status: "Done" },
+  { id: "ro-seed-3", customerName: "MR RADUWAN FF RX", packageLabel: "25 Diamond", finalPrice: 22, status: "Done" },
+  { id: "ro-seed-4", customerName: "Sp Ff", packageLabel: "505 Diamond", finalPrice: 336, status: "Done" },
+  { id: "ro-seed-5", customerName: "Md Sohel Rana", packageLabel: "50 Diamond", finalPrice: 37, status: "Done" },
+  { id: "ro-seed-6", customerName: "nayeem Ahmed", packageLabel: "Level Up Package - Level 6", finalPrice: 40, status: "In Progress" },
+  { id: "ro-seed-7", customerName: "Shamim Khan", packageLabel: "850 Diamond", finalPrice: 558, status: "Done" },
+  { id: "ro-seed-8", customerName: "Bdudu Hdudud", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+  { id: "ro-seed-9", customerName: "Borno Hasan", packageLabel: "Level Up Package - Level 25", finalPrice: 75, status: "In Progress" },
+  { id: "ro-seed-10", customerName: "Sajjad Vai", packageLabel: "240 Diamond", finalPrice: 158, status: "Done" }
+];
+function buildRecentPublicOrders() {
+  var real = [];
+  Object.keys(db.users).forEach(function (k) {
+    var u = db.users[k];
+    (u.orders || []).forEach(function (o) {
+      if (!o || o.status === "Rejected") return;
+      real.push({
+        id: o.id,
+        customerName: u.name || "Player",
+        packageLabel: o.packageLabel,
+        finalPrice: o.finalPrice,
+        status: o.status === "Completed" ? "Done" : "In Progress",
+        createdAt: o.createdAt
+      });
+    });
+  });
+  real.sort(function (a, b) {
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+  return real.concat(SEED_PUBLIC_ORDERS).slice(0, 10);
+}
+
 function evaluatePromoCode(codeRaw, basePrice) {
   var clean = String(codeRaw || '').trim().toUpperCase();
   if (!clean) return { ok: false, discount: 0, error: 'প্রোমো কোড লিখুন।' };
@@ -524,6 +559,7 @@ function serializeUser(u) {
       firstOrderBonusPending: Boolean(u.referredBy && !u.firstOrderCompleted)
     },
     recentWinners: db.recentWinners.slice(0, 12),
+    recentOrders: buildRecentPublicOrders(),
     rules: db.config.rules,
     paymentNumbers: db.config.paymentNumbers,
     support: db.config.support,
@@ -569,6 +605,7 @@ app.get('/api/health', function (req, res) {
 app.get('/api/public/feed', function (req, res) {
   res.json({
     recentWinners: db.recentWinners.slice(0, 12),
+    recentOrders: buildRecentPublicOrders(),
     config: {
       regularWeights: db.config.regularWeights,
       goldenWeights: db.config.goldenWeights,

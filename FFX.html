@@ -791,7 +791,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CrazyTopUp24">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="spin-system.css?v=17">
+<link rel="stylesheet" href="spin-system.css?v=20">
 </head>
 <body>
 
@@ -870,6 +870,48 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     <a class="card" href="#uid-checker" data-open="uid-checker"><div class="thumb ph"><img src="uid checker.jpg" alt="UID Checker" loading="lazy" decoding="async"></div><p>UID Checker</p></a>
   </div>
 
+
+  <section class="ro-wrap" id="recentOrdersSec">
+    <div class="ro-card">
+      <div class="ro-hd">
+        <div class="ro-hd-left">
+          <div class="ro-ico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M9 14l2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h3 class="ro-title">Recent Orders</h3>
+            <div class="ro-live">
+              <span class="ro-live-dot"></span>
+              <span>Live</span>
+              <svg width="24" height="12" viewBox="0 0 32 14" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 7h6l2.5-5 3.5 10 3-7 2 2h13"/></svg>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="ro-rf-btn" id="roRefreshBtn" aria-label="Refresh Recent Orders">↻</button>
+      </div>
+      <div class="ro-bar"></div>
+      <div class="ro-list" id="roList"></div>
+    </div>
+
+    <div class="ro-promo-row">
+      <button type="button" class="ro-promo-card" id="roAppBtn">
+        <span class="ro-play-ico" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 3l14 9-14 9V3z" fill="#06b6d4"/><path d="M4 3l9 9-9 9" fill="#22c55e"/><path d="M13 12l5-3-14-6 9 9z" fill="#facc15"/></svg>
+        </span>
+        <div>
+          <small>Download Our Mobile App</small>
+          <b>Click Here →</b>
+        </div>
+      </button>
+      <a href="#" data-link="telegram-channel" class="ro-promo-card ro-promo-tg">
+        <span class="ro-tg-ico" aria-hidden="true">✈</span>
+        <div>
+          <small>Giveway &amp; Offer Update</small>
+          <b style="color:#229ED9;">Join Telegram</b>
+        </div>
+      </a>
+    </div>
+  </section>
 </main>
 
 <main class="wrap" id="ffView" hidden>
@@ -1469,38 +1511,170 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
   </section>
 </main>
 
-<!-- MY ACCOUNT PAGE -->
-<main class="wrap" id="acView" hidden>
-  <section class="ac-hero">
-    <div class="ac-cover"></div>
-    <div class="ac-body">
-      <div class="ac-av"><div class="in" id="acAvatar"><svg class="i"><use href="#user"/></svg></div><span class="dot"></span></div>
-      <div class="ac-nm"><h1 id="acName">Guest</h1><span class="ac-vf" id="acVf" style="display:none"><svg class="i"><use href="#chk"/></svg>Verified</span></div>
-      <p class="ac-mail" id="acMail">লগইন করে অর্ডার করুন</p>
-      <div class="ac-pin" id="acPinBox" style="display:none"><svg class="i"><use href="#shield"/></svg>Support PIN <b id="acPin"></b><button class="ac-cp" type="button" id="acCopy" aria-label="Copy PIN"><svg class="i"><use href="#doc"/></svg></button></div>
+<!-- MY ACCOUNT PAGE (Crazy_Top_Up (24) Rank System v18) --><main class="wrap ac2-wrap" id="acView" hidden>
+  <!-- 1. Profile + Wallet Balance Card -->
+  <section class="ac2-card ac2-prof-card">
+    <div class="ac2-prof-row">
+      <div class="ac2-av-wrap">
+        <div class="ac2-av" id="acAvatar">G</div>
+        <span class="ac2-dot"></span>
+      </div>
+      <div class="ac2-prof-info">
+        <div class="ac2-name-row">
+          <h1 id="acName">Guest</h1>
+          <span class="ac2-vf" id="acVf" style="display:none"><i class="ac2-vdot"></i>Verified</span>
+        </div>
+        <div class="ac2-meta-row">
+          <button type="button" class="ac2-pin-btn" id="acCopy" aria-label="Copy Support PIN">
+            <span id="acPinBox" style="display:inline-flex;align-items:center;gap:4px;">🛡 Support PIN: <b id="acPin">193995</b></span>
+          </button>
+          <span class="ac2-vstar" id="acAccBadge">★ Verified Account</span>
+        </div>
+        <div class="ac2-rank-chip">
+          <span class="ac2-chip-ico" id="acChipShield"></span>
+          <div>
+            <b id="acChipTitle">Bronze Member</b>
+            <small id="acChipSub">Level 1 / Current Rank</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ac2-wal-box">
+      <div class="ac2-wal-hd">
+        <span>Wallet Balance</span>
+        <button type="button" class="ac2-rf-btn" id="acRf" aria-label="Refresh Balance">↻</button>
+      </div>
+      <div class="ac2-wal-amt"><small>Tk</small><b id="acBal">0</b></div>
+      <button type="button" class="ac2-add-btn" id="acAdd">Add Money</button>
     </div>
   </section>
 
-  <section class="ac-wal">
-    <div class="ac-wh"><span><svg class="i"><use href="#wal"/></svg>Wallet Balance</span><button class="ac-rf" type="button" id="acRf" aria-label="Refresh"><svg class="i"><use href="#refresh"/></svg></button></div>
-    <div class="ac-bal"><small>৳</small><b id="acBal">0</b></div>
-    <button class="ac-add" type="button" id="acAdd"><svg class="i"><use href="#plus"/></svg>Add Money</button>
+  <!-- 2. Current Rank Hero Gradient Card -->
+  <section class="ac2-rank-hero" id="acRankHero">
+    <div class="ac2-rh-top">
+      <div class="ac2-rh-ring" id="acHeroShield"></div>
+      <span class="ac2-rh-lvl" id="acHeroLvl">Level 1</span>
+    </div>
+    <div class="ac2-rh-lbl">CURRENT RANK</div>
+    <h2 class="ac2-rh-name" id="acHeroName">Bronze</h2>
+    <p class="ac2-rh-sub" id="acHeroSub">Start your journey from Bronze.</p>
+
+    <div class="ac2-prog-hd">
+      <span id="acHeroRange">0 - 100 Tk</span>
+      <b id="acHeroPct">1%</b>
+    </div>
+    <div class="ac2-prog-track">
+      <div class="ac2-prog-fill" id="acHeroFill" style="width:1%;"></div>
+      <span class="ac2-prog-dot" id="acHeroDot" style="left:calc(2% - 6px);"></span>
+    </div>
+    <p class="ac2-rh-need" id="acHeroNeed">Need only <b>101 Tk</b> to unlock <b>Silver</b></p>
+
+    <div class="ac2-unlock-box">
+      <div class="ac2-unlock-ico">✨</div>
+      <div>
+        <b>Unlock More Premium Products</b>
+        <p>Top up more to increase your Total Spend and Rank, then unlock premium products, low-rate topups, verified profile icons, and future VIP benefits.</p>
+      </div>
+    </div>
   </section>
 
-  <div class="ac-stats">
-    <div class="ac-st"><b id="acOrders">0</b><span>Total Orders</span></div>
-    <div class="ac-st"><b id="acCodes">0</b><span>Total Codes</span></div>
-  </div>
+  <!-- 3. 2x2 Stats Grid -->
+  <section class="ac2-stats-grid">
+    <div class="ac2-stat-card">
+      <div class="ac2-stat-ico st-blue">📋</div>
+      <div><small>ORDERS</small><b id="acOrders">0</b></div>
+    </div>
+    <div class="ac2-stat-card">
+      <div class="ac2-stat-ico st-gold">$</div>
+      <div><small>TOTAL SPEND</small><b id="acTotalSpend">0 Tk</b></div>
+    </div>
+    <div class="ac2-stat-card">
+      <div class="ac2-stat-ico st-red">📅</div>
+      <div><small>WEEKLY SPEND</small><b id="acWeeklySpend">0 Tk</b></div>
+    </div>
+    <div class="ac2-stat-card">
+      <div class="ac2-stat-ico st-green">✦</div>
+      <div><small>RANK</small><b id="acStatRank">Bronze</b></div>
+    </div>
+  </section>
 
-  <nav class="ac-menu">
-    <button class="ac-mi" type="button" data-to="my-orders"><span class="mi"><svg class="i"><use href="#a-mark"/></svg></span>My Orders<svg class="i go"><use href="#arr"/></svg></button>
-    <button class="ac-mi" type="button" data-to="my-codes"><span class="mi"><svg class="i"><use href="#a-grid"/></svg></span>My Codes<svg class="i go"><use href="#arr"/></svg></button>
-    <a class="ac-mi" href="#" data-link="telegram-channel"><span class="mi"><svg class="i"><use href="#head"/></svg></span>Support<svg class="i go"><use href="#arr"/></svg></a>
-    <button class="ac-mi out" type="button" id="acLogout"><span class="mi"><svg class="i"><use href="#a-in"/></svg></span><span id="acLoTx">Login</span><svg class="i go"><use href="#arr"/></svg></button>
-  </nav>
-</main>
+  <!-- 4. Rank Journey: Your Path (1/8) -->
+  <section class="ac2-card ac2-journey-card">
+    <div class="ac2-j-hd">
+      <div>
+        <span class="ac2-eyebrow">RANK JOURNEY</span>
+        <h3>Your Path</h3>
+      </div>
+      <b class="ac2-j-count" id="acPathCount">1/8</b>
+    </div>
+    <div class="ac2-j-list" id="acRankList"></div>
+  </section>
 
-<!-- ADD MONEY PAGE (Crazy_Top_Up (24)) -->
+  <!-- 5. Account User Information -->
+  <section class="ac2-card ac2-info-card">
+    <span class="ac2-eyebrow">ACCOUNT</span>
+    <h3 class="ac2-info-title">User Information</h3>
+    <div class="ac2-info-grid">
+      <div class="ac2-info-item">
+        <div class="ac2-info-ico">👤</div>
+        <div class="ac2-info-txt"><small>NAME</small><b id="acInfoName">Guest</b></div>
+      </div>
+      <div class="ac2-info-item">
+        <div class="ac2-info-ico">📞</div>
+        <div class="ac2-info-txt"><small>PHONE</small><b id="acInfoPhone">Not added</b></div>
+      </div>
+      <div class="ac2-info-item">
+        <div class="ac2-info-ico">✉</div>
+        <div class="ac2-info-txt"><small>EMAIL</small><b id="acMail">লগইন করে অর্ডার করুন</b></div>
+      </div>
+      <div class="ac2-info-item">
+        <div class="ac2-info-ico">📄</div>
+        <div class="ac2-info-txt"><small>USER ID</small><b id="acInfoUid">193995</b></div>
+      </div>
+    </div>
+
+    <div class="ac2-quick-row">
+      <button class="ac-mi" type="button" data-to="my-orders"><span class="mi"><svg class="i"><use href="#a-mark"/></svg></span>My Orders (<span id="acOrdersMini">0</span>)</button>
+      <button class="ac-mi" type="button" data-to="my-codes"><span class="mi"><svg class="i"><use href="#a-grid"/></svg></span>My Codes (<span id="acCodes">0</span>)</button>
+    </div>
+    <button class="ac2-logout-btn" type="button" id="acLogout">
+      <svg class="i"><use href="#a-in"/></svg>
+      <span id="acLoTx">Login</span>
+    </button>
+  </section>
+
+  <!-- 6. Crazy_Top_Up (24) Footer & Contact Us -->
+  <section class="ac2-footer-sec">
+    <div class="ac2-f-brand">
+      <img src="Main logo.jpg" alt="Crazy_Top_Up (24)">
+      <span>Crazy_Top_Up (24)</span>
+    </div>
+    <p class="ac2-f-tag">Crazy_Top_Up (24) | Trusted by Gamers, Loved by Everyone.</p>
+    <p class="ac2-f-note"><b>নোটিশ:</b> কোন সমস্যায় পড়লে Telegram এ যোগাযোগ করবেন। তাহলে দ্রুত সমাধান পেয়ে যাবেন।</p>
+    <div class="ac2-f-social">
+      <a href="#" data-link="youtube-channel" class="ac2-f-btn"><span>▶</span> YouTube</a>
+      <a href="#" data-link="telegram-channel" class="ac2-f-btn"><span>✈</span> Telegram</a>
+    </div>
+    <div class="ac2-f-contact">
+      <h4>Contact Us</h4>
+      <a href="#" data-link="telegram-channel" class="ac2-tg-card">
+        <span class="ac2-tg-ico">✈</span>
+        <div>
+          <b>Telegram HelpLine <i class="ac2-tg-chk">✓</i></b>
+          <small>সকাল ৮টা থেকে রাত ১২টা</small>
+        </div>
+      </a>
+    </div>
+    <div class="ac2-f-links">
+      <a href="#contact-us">About Us</a>
+      <a href="#contact-us">Terms &amp; Conditions</a>
+      <a href="#contact-us">Privacy Policy</a>
+      <a href="#contact-us">Refund &amp; Return Policy</a>
+    </div>
+    <div class="ac2-f-copy">All Rights Reserved | <b>Crazy_Top_Up (24)</b></div>
+  </section>
+</main><!-- ADD MONEY PAGE (Crazy_Top_Up (24)) -->
 <main class="wrap" id="amView" hidden>
   <section class="am-hero">
     <div class="am-hero-glow1"></div>
@@ -1776,6 +1950,73 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 
     <button type="button" class="am-mfs-submit" id="amMfsVerifyBtn">ভেরিফাই</button>
   </section>
+  <!-- Step 3C: EPS Payment Gateway -->
+  <section class="eps-wrap" id="amStep3Eps" hidden>
+    <div class="eps-shell">
+      <div class="eps-hd">
+        <div class="eps-hd-l">
+          <div class="eps-logo"><img src="Main logo.jpg" alt="Crazy_Top_Up (24)"></div>
+          <div>
+            <b class="eps-mname">Crazy_Top_Up (24)</b>
+            <small class="eps-mid">MID: CTU24910450515D21</small>
+          </div>
+        </div>
+        <div class="eps-hd-r">
+          <div class="eps-lang">
+            <button type="button" class="on" data-lang="En">En</button>
+            <button type="button" data-lang="Bn">Bn</button>
+          </div>
+          <button type="button" class="eps-x" id="epsCloseBtn" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="eps-nav4">
+        <button type="button" id="epsSupBtn"><span>🎧</span>Support</button>
+        <button type="button" id="epsFaqBtn"><span>ⓘ</span>FAQ</button>
+        <button type="button" id="epsOffBtn"><span>🎁</span>Offers</button>
+        <button type="button" id="epsLogBtn"><span>👤</span>Login</button>
+      </div>
+
+      <div class="eps-box">
+        <div class="eps-tabs">
+          <button type="button" data-epstab="CARD">CARD</button>
+          <button type="button" class="on" data-epstab="MFS">MFS/WALLET</button>
+          <button type="button" data-epstab="BANK">INTERNET BANK</button>
+        </div>
+        <div class="eps-grid-wrap">
+          <div class="eps-wm" aria-hidden="true">EPS</div>
+          <div class="eps-grid" id="epsGrid"></div>
+        </div>
+      </div>
+
+      <div class="eps-trx-box" id="epsTrxBox" style="display:none;">
+        <div class="eps-trx-top">
+          <span><b id="epsChLbl">bKash</b> নম্বর: <strong id="epsNumLbl">01700-000000</strong></span>
+          <button type="button" id="epsCopyBtn">Copy</button>
+        </div>
+        <div class="eps-trx-row">
+          <input id="epsTrxInp" type="text" placeholder="ট্রানজেকশন আইডি (TrxID) লিখুন" style="text-transform:uppercase;">
+          <button type="button" id="epsVerifyBtn">Verify</button>
+        </div>
+      </div>
+
+      <div class="am-err" id="epsErr" style="display:none;"></div>
+      <div class="am-ok" id="epsOk" style="display:none;"></div>
+
+      <button type="button" class="eps-pay-btn" id="epsPayBtn">👆 PAY BDT <span id="epsPayAmt">50.00</span></button>
+
+      <p class="eps-terms">By clicking this pay button you agree our terms and conditions which is limited to facilitating your payment to the merchant mentioned above <a>Terms of Service</a></p>
+
+      <div class="eps-foot">
+        <div class="eps-badges">
+          <span class="eps-b-pso">PSO LICENSED</span>
+          <span class="eps-b-pci">PCI DSS COMPLIANT</span>
+        </div>
+        <div class="eps-ver">Verified by <b>≡EPS</b></div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <div class="toast" id="toast"></div>
@@ -3367,6 +3608,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=17"></script>
+<script src="spin-system.js?v=20"></script>
 </body>
 </html>
