@@ -791,7 +791,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CrazyTopUp24">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="spin-system.css?v=13">
+<link rel="stylesheet" href="spin-system.css?v=15">
 </head>
 <body>
 
@@ -1500,6 +1500,196 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
   </nav>
 </main>
 
+<!-- ADD MONEY PAGE (Crazy_Top_Up (24)) -->
+<main class="wrap" id="amView" hidden>
+  <section class="am-hero">
+    <div class="am-hero-glow1"></div>
+    <div class="am-hero-glow2"></div>
+    <div class="am-hero-row">
+      <div class="am-hero-left">
+        <div class="am-badge">⚡ INSTANT &amp; SECURE</div>
+        <h1 class="am-title">Add Money to<br><span>Crazy_Top_Up (24)</span></h1>
+        <p class="am-sub">Fast, protected wallet recharge for uninterrupted top-ups.</p>
+        <div class="am-bal-pill">💳 Wallet Balance: <b id="amBalVal">৳0</b></div>
+      </div>
+      <div class="am-wallet-art" aria-hidden="true">
+        <div class="am-wallet-card"><span>৳</span></div>
+        <div class="am-wallet-plus">+</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="am-card" id="amStep1">
+    <div class="am-card-hd">
+      <div class="am-card-ico">💳</div>
+      <div>
+        <h2>Enter Amount</h2>
+        <p>Type the amount you want to add.</p>
+      </div>
+    </div>
+
+    <label class="am-lbl" for="amAmtInput">AMOUNT</label>
+    <div class="am-inp-wrap">
+      <span class="am-taka">৳</span>
+      <input id="amAmtInput" type="number" min="20" value="50" inputmode="numeric" placeholder="50">
+      <button type="button" class="am-clear" id="amClearAmt" aria-label="Clear amount">×</button>
+    </div>
+    <div class="am-hint"><span class="am-chk">✓</span> Amount will be added to your <b>Crazy_Top_Up (24)</b> wallet</div>
+
+    <div class="am-presets">
+      <button type="button" class="am-pre" data-am="50">৳50</button>
+      <button type="button" class="am-pre" data-am="100">৳100</button>
+      <button type="button" class="am-pre" data-am="500">৳500</button>
+      <button type="button" class="am-pre" data-am="1000">৳1000</button>
+    </div>
+
+    <div class="am-err" id="amErr1" style="display:none;"></div>
+
+    <button type="button" class="am-cta" id="amNextBtn">
+      <span>💳</span>
+      <span>Add Money Securely</span>
+      <span>→</span>
+    </button>
+
+    <div class="am-trust-grid">
+      <div class="am-trust-it">
+        <div class="am-trust-ico">⚡</div>
+        <b>Instant</b>
+        <span>Quick balance update</span>
+      </div>
+      <div class="am-trust-it">
+        <div class="am-trust-ico">🔒</div>
+        <b>Secure</b>
+        <span>Protected payment</span>
+      </div>
+      <div class="am-trust-it">
+        <div class="am-trust-ico">🎧</div>
+        <b>Support</b>
+        <span>Help when needed</span>
+      </div>
+    </div>
+
+    <div class="am-safe-box">
+      <div class="am-safe-ico">🛡️</div>
+      <div>
+        <b>100% Safe &amp; Secure</b>
+        <p>Your payment is encrypted and handled through trusted payment partners.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 2: Payment Method Gateway (Crazy_Top_Up (24)) -->
+  <section class="am-gw-wrap" id="amStep2" hidden>
+    <div class="am-gw-topbar">
+      <button type="button" class="am-gw-icobtn" id="amGwHome" aria-label="Home">🏠</button>
+      <span class="am-amt-pill" id="amChosenAmt">Amount: ৳50</span>
+      <button type="button" class="am-gw-icobtn" id="amGwClose" aria-label="Close">×</button>
+    </div>
+
+    <div class="am-gw-brand">
+      <div class="am-gw-logo">
+        <img src="Main logo.jpg" alt="Crazy_Top_Up (24)">
+      </div>
+      <h2>Crazy_Top_Up (24)</h2>
+    </div>
+
+    <div class="am-gw-bar">Payment Method</div>
+
+    <div class="am-gw-grid">
+      <button type="button" class="am-gw-card" data-method="Nagad" aria-label="Nagad">
+        <div class="am-m-nagad">
+          <svg width="32" height="32" viewBox="0 0 40 40" aria-hidden="true">
+            <circle cx="20" cy="20" r="18" fill="#FFF3E0" stroke="#EA580C" stroke-width="2.5"/>
+            <path d="M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z" fill="#DC2626"/>
+          </svg>
+          <span>নগদ</span>
+        </div>
+      </button>
+
+      <button type="button" class="am-gw-card" data-method="Rocket" aria-label="Rocket">
+        <div class="am-m-rocket">
+          <small>ROCKET 🚀</small>
+          <b>রকেট</b>
+        </div>
+      </button>
+
+      <button type="button" class="am-gw-card" data-method="Upay" aria-label="Upay">
+        <div class="am-m-upay">
+          <svg width="32" height="22" viewBox="0 0 48 32" aria-hidden="true">
+            <path d="M8 6c0 12 6 20 16 20s16-8 16-20h-7c0 8-3.5 13-9 13s-9-5-9-13H8Z" fill="#FACC15"/>
+            <circle cx="15" cy="6" r="3.5" fill="#1E3A8A"/>
+            <circle cx="33" cy="6" r="3.5" fill="#1E3A8A"/>
+          </svg>
+          <span>উপায়</span>
+        </div>
+      </button>
+
+      <button type="button" class="am-gw-card" data-method="EPS" aria-label="EPS">
+        <div class="am-m-eps">
+          <div class="am-m-eps-top"><small>PAY WITH</small> <b>≡EPS</b></div>
+          <div class="am-m-eps-bot"><span style="color:#E11D48">bKash</span> <span style="color:#EA580C">নগদ</span> <span style="color:#7C3AED">রকেট</span></div>
+        </div>
+      </button>
+
+      <button type="button" class="am-gw-card" data-method="bKash" aria-label="bKash">
+        <div class="am-m-bkash">
+          <span class="am-m-qr">⊞</span>
+          <b>bKash</b>
+          <span class="am-m-bird">🕊️</span>
+        </div>
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 3: Payment Verification Details -->
+  <section class="am-card" id="amStep3" hidden>
+    <div class="am-step2-top">
+      <button type="button" class="am-back-btn" id="amBackBtn">← Payment Methods</button>
+      <span class="am-amt-pill" id="amChosenAmt3">৳50 · bKash</span>
+    </div>
+
+    <div class="am-pay-num-box">
+      <div>
+        <div class="am-pay-lbl">Send Money to <b id="amMethodLbl">bKash</b>:</div>
+        <div class="am-pay-num" id="amMethodNum">01700-000000</div>
+      </div>
+      <button type="button" class="am-copy-btn" id="amCopyNum">Copy</button>
+    </div>
+
+    <div class="am-field-grid">
+      <div>
+        <label class="am-lbl" for="amSenderInp">SENDER NUMBER</label>
+        <input id="amSenderInp" class="am-txt-inp" type="text" placeholder="017XXXXXXXX">
+      </div>
+      <div>
+        <label class="am-lbl" for="amTrxInp">TRANSACTION ID (TRXID)</label>
+        <input id="amTrxInp" class="am-txt-inp" type="text" placeholder="e.g. BL78K291M" style="text-transform:uppercase;">
+      </div>
+    </div>
+
+    <div class="am-ss-box">
+      <div>
+        <b id="amSsLbl">Payment Screenshot (Optional)</b>
+        <span>Upload payment proof</span>
+      </div>
+      <label class="am-ss-btn">
+        Upload
+        <input id="amSsInput" type="file" accept="image/*" hidden>
+      </label>
+    </div>
+
+    <div class="am-err" id="amErr2" style="display:none;"></div>
+    <div class="am-ok" id="amOk2" style="display:none;"></div>
+
+    <button type="button" class="am-cta" id="amSubmitBtn">Verify &amp; Submit Payment</button>
+  </section>
+
+  <section class="am-card" id="amHistWrap" style="margin-top:14px;display:none;">
+    <div class="am-lbl" style="margin-bottom:8px;">RECENT ADD-MONEY HISTORY</div>
+    <div id="amHistList" class="am-hist-list"></div>
+  </section>
+</main>
+
 <div class="toast" id="toast"></div>
 
 <footer id="siteFooter">
@@ -2102,11 +2292,16 @@ setInterval(fetchFreshAccountConfig, 15000);
     });
   });
 
-  // ফুটারের "Add Money" নেভ বাটন
-  if (navLinks[2]) navLinks[2].addEventListener('click', function(e){
-    e.preventDefault();
-    if (PAGES.addmoney && PAGES.addmoney !== '#') location.href = PAGES.addmoney;
-  });
+  function goAddMoney(e){
+    if(e){ e.preventDefault(); e.stopImmediatePropagation(); }
+    closeAcc();
+    location.hash = 'add-money';
+  }
+  if (navLinks[2]) navLinks[2].addEventListener('click', goAddMoney, true);
+  var amSideLink = document.querySelector('.acc-it[data-go="addmoney"]');
+  if (amSideLink) amSideLink.addEventListener('click', goAddMoney, true);
+  var walTop = document.querySelector('a.wallet');
+  if (walTop) walTop.addEventListener('click', goAddMoney, true);
 })();
 
 // ==========================================
@@ -2122,8 +2317,9 @@ setInterval(fetchFreshAccountConfig, 15000);
   var toastEl=document.getElementById('toast'), tt;
   function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2400)}
   function route(){
-    var onFF=location.hash==='#ff-likes', onUid=location.hash==='#uid-topup', onWm=location.hash==='#weekly-monthly', onWl=location.hash==='#weekly-lite', onLu=location.hash==='#level-up-pass', onIn=location.hash==='#indonesia-server', onOr=location.hash==='#my-orders', onCd=location.hash==='#my-codes', onAc=location.hash==='#account', onTr=location.hash==='#my-transaction', onCt=location.hash==='#contact-us', onUc=location.hash==='#uid-checker';
-    home.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc; foot.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc;
+    var onFF=location.hash==='#ff-likes', onUid=location.hash==='#uid-topup', onWm=location.hash==='#weekly-monthly', onWl=location.hash==='#weekly-lite', onLu=location.hash==='#level-up-pass', onIn=location.hash==='#indonesia-server', onOr=location.hash==='#my-orders', onCd=location.hash==='#my-codes', onAc=location.hash==='#account', onTr=location.hash==='#my-transaction', onCt=location.hash==='#contact-us', onUc=location.hash==='#uid-checker', onAm=location.hash==='#add-money';
+    home.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm; foot.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm;
+    var amv=document.getElementById('amView'); if(amv) amv.hidden=!onAm;
     var tv=document.getElementById('trView'); if(tv) tv.hidden=!onTr;
     var ctv=document.getElementById('ctView'); if(ctv) ctv.hidden=!onCt;
     var ucv=document.getElementById('ucView'); if(ucv) ucv.hidden=!onUc;
@@ -2666,7 +2862,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     if(on){ closePanel(); }
     if(navOrders) navOrders.classList.toggle('on',on);
     if(on){ if(navHome) navHome.classList.remove('on'); if(navAcc) navAcc.classList.remove('on'); }
-    else if(navHome && !panel.classList.contains('show') && !/^#(ff-likes|uid-topup|weekly-monthly|weekly-lite|level-up-pass|indonesia-server|my-codes|my-transaction|contact-us|uid-checker)$/.test(location.hash)) navHome.classList.add('on');
+    else if(navHome && !panel.classList.contains('show') && !/^#(ff-likes|uid-topup|weekly-monthly|weekly-lite|level-up-pass|indonesia-server|my-codes|my-transaction|contact-us|uid-checker|add-money)$/.test(location.hash)) navHome.classList.add('on');
   }
   function go(e){ e.preventDefault(); e.stopImmediatePropagation(); location.hash='my-orders'; sync(); }
   if(navOrders) navOrders.addEventListener('click',go);
@@ -2761,8 +2957,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     if(typeof window.onRefreshBalance==='function') window.onRefreshBalance(); // ব্যাকএন্ড থেকে ব্যালেন্স এনে setProfile কল করুন
   };
   $('acAdd').onclick=function(){
-    if(ADD_MONEY_URL && ADD_MONEY_URL!=='#'){ location.href=ADD_MONEY_URL; return; }
-    toast('Add Money পেজ শীঘ্রই আসছে');
+    location.hash='add-money';
   };
   $('acCopy').onclick=function(){
     var v=$('acPin').textContent;
@@ -3084,6 +3279,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=13"></script>
+<script src="spin-system.js?v=15"></script>
 </body>
 </html>

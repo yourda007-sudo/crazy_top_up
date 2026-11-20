@@ -3289,6 +3289,8 @@
     renderTickerDOM();
     syncAllProductViews();
     if (location.hash === '#spin-checkout') renderCheckoutView();
+    var amBalEl = document.getElementById('amBalVal');
+    if (amBalEl) amBalEl.textContent = '৳' + Number(state.walletBalanceBdt || 0);
     if (isUserSignedIn() && getUserKey() !== '__default__' && getUserKey() !== lastSyncedUserKey) {
       syncSessionWithServer();
     }
@@ -3692,10 +3694,211 @@
     }
   }
 
+
+  /* -------------------- V14: Add Money to Crazy_Top_Up (24) View -------------------- */
+  function initAddMoneyPage() {
+    var view = document.getElementById('amView');
+    if (!view || view.dataset.wired === '1') return;
+    view.dataset.wired = '1';
+
+    var step1 = document.getElementById('amStep1');
+    var step2 = document.getElementById('amStep2');
+    var step3 = document.getElementById('amStep3');
+    var hero = view.querySelector('.am-hero');
+    var amtInp = document.getElementById('amAmtInput');
+    var err1 = document.getElementById('amErr1');
+    var err2 = document.getElementById('amErr2');
+    var ok2 = document.getElementById('amOk2');
+    var balVal = document.getElementById('amBalVal');
+    var chosenAmt = document.getElementById('amChosenAmt');
+    var chosenAmt3 = document.getElementById('amChosenAmt3');
+    var methodLbl = document.getElementById('amMethodLbl');
+    var methodNum = document.getElementById('amMethodNum');
+    var ssInput = document.getElementById('amSsInput');
+    var ssLbl = document.getElementById('amSsLbl');
+    var submitBtn = document.getElementById('amSubmitBtn');
+    var histWrap = document.getElementById('amHistWrap');
+    var histList = document.getElementById('amHistList');
+
+    var selectedMethod = 'bKash';
+    var uploadedSs = '';
+
+    function showAmStep(num) {
+      if (hero) hero.hidden = (num === 2);
+      step1.hidden = (num !== 1);
+      step2.hidden = (num !== 2);
+      if (step3) step3.hidden = (num !== 3);
+    }
+
+    function refreshAmData() {
+      if (balVal) balVal.textContent = '৳' + Number(state.walletBalanceBdt || 0);
+      var bkNum = (paymentNumbers && paymentNumbers.bkash) || '01700-000000';
+      var ngNum = (paymentNumbers && paymentNumbers.nagad) || '01800-000000';
+      var rkNum = (paymentNumbers && paymentNumbers.rocket) || '01900-000000';
+      var numMap = { bKash: bkNum, Nagad: ngNum, Rocket: rkNum, Upay: bkNum, EPS: bkNum };
+      if (methodLbl) methodLbl.textContent = selectedMethod;
+      if (methodNum) methodNum.textContent = numMap[selectedMethod] || bkNum;
+      if (chosenAmt3) chosenAmt3.textContent = '৳' + Math.round(Number(amtInp.value) || 0) + ' · ' + selectedMethod;
+
+      var reqs = Array.isArray(state.walletRequests) ? state.walletRequests : [];
+      if (histWrap && histList) {
+        if (reqs.length > 0) {
+          histWrap.style.display = 'block';
+          histList.innerHTML = reqs.slice(0, 6).map(function (r) {
+            return '<div class="am-hist-it">' +
+              '<div><b>' + esc(r.method) + ' · ৳' + esc(r.amountBdt) + '</b><div style="font-size:10.5px;color:#64748b;">' + esc(r.trxId) + ' · ' + esc(r.createdAt || '') + '</div></div>' +
+              '<span class="am-hist-st ' + esc(r.status || 'Pending') + '">' + esc(r.status || 'Pending') + '</span>' +
+            '</div>';
+          }).join('');
+        } else {
+          histWrap.style.display = 'none';
+        }
+      }
+    }
+
+    document.getElementById('amClearAmt').onclick = function () {
+      amtInp.value = '';
+      amtInp.focus();
+      err1.style.display = 'none';
+    };
+
+    view.querySelectorAll('.am-pre').forEach(function (btn) {
+      btn.onclick = function () {
+        amtInp.value = btn.getAttribute('data-am') || '50';
+        view.querySelectorAll('.am-pre').forEach(function (b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+        err1.style.display = 'none';
+      };
+    });
+
+    document.getElementById('amNextBtn').onclick = function () {
+      var amt = Math.round(Number(amtInp.value));
+      if (!isFinite(amt) || amt < 20) {
+        err1.textContent = 'সর্বনিম্ন ৳২০ টাকা Add Money করতে পারবেন।';
+        err1.style.display = 'block';
+        return;
+      }
+      if (!isUserSignedIn()) {
+        if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+        return;
+      }
+      err1.style.display = 'none';
+      err2.style.display = 'none';
+      ok2.style.display = 'none';
+      chosenAmt.textContent = 'Amount: ৳' + amt;
+      refreshAmData();
+      showAmStep(2);
+    };
+
+    var gwHome = document.getElementById('amGwHome');
+    if (gwHome) gwHome.onclick = function () { showAmStep(1); };
+    var gwClose = document.getElementById('amGwClose');
+    if (gwClose) gwClose.onclick = function () { showAmStep(1); location.hash = ''; };
+
+    document.getElementById('amBackBtn').onclick = function () {
+      err2.style.display = 'none';
+      ok2.style.display = 'none';
+      showAmStep(2);
+    };
+
+    view.querySelectorAll('.am-gw-card').forEach(function (btn) {
+      btn.onclick = function () {
+        selectedMethod = btn.getAttribute('data-method') || 'bKash';
+        refreshAmData();
+        showAmStep(3);
+      };
+    });
+
+    document.getElementById('amCopyNum').onclick = function () {
+      var num = (methodNum && methodNum.textContent) || '';
+      if (navigator.clipboard && num) {
+        navigator.clipboard.writeText(num).then(function () { showSiteToast('নম্বর কপি হয়েছে: ' + num); }).catch(function () {});
+      }
+    };
+
+    if (ssInput) {
+      ssInput.onchange = function (e) {
+        var f = e.target && e.target.files && e.target.files[0];
+        if (!f) return;
+        compressImageFile(f).then(function (dataUrl) {
+          uploadedSs = dataUrl;
+          if (ssLbl) ssLbl.textContent = '✓ Screenshot Attached';
+        }).catch(function () {
+          err2.textContent = 'স্ক্রিনশট আপলোড হয়নি, সঠিক ছবি দিন।';
+          err2.style.display = 'block';
+        });
+      };
+    }
+
+    submitBtn.onclick = function () {
+      if (!isUserSignedIn()) {
+        if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+        return;
+      }
+      var amt = Math.round(Number(amtInp.value));
+      var sender = (document.getElementById('amSenderInp').value || '').trim();
+      var trx = (document.getElementById('amTrxInp').value || '').trim().toUpperCase();
+      if (!isFinite(amt) || amt < 20) {
+        err2.textContent = 'সর্বনিম্ন ৳২০ টাকা দিন।'; err2.style.display = 'block'; return;
+      }
+      if (sender.length < 6 || trx.length < 4) {
+        err2.textContent = 'সঠিক Sender Number এবং Transaction ID (TrxID) লিখুন।';
+        err2.style.display = 'block';
+        return;
+      }
+      err2.style.display = 'none';
+      ok2.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting Request...';
+      fetch('/api/wallet/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: getUserKey(),
+          method: selectedMethod,
+          amountBdt: amt,
+          senderNumber: sender,
+          trxId: trx,
+          screenshotUrl: uploadedSs || undefined
+        })
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+      }).then(function (res) {
+        if (!res.ok) {
+          err2.textContent = (res.data && res.data.error) || 'রিকোয়েস্ট পাঠানো যায়নি।';
+          err2.style.display = 'block';
+          return;
+        }
+        applyServerPayload(res.data, true);
+        document.getElementById('amTrxInp').value = '';
+        uploadedSs = '';
+        if (ssLbl) ssLbl.textContent = 'Payment Screenshot (Optional)';
+        ok2.textContent = '✅ ৳' + amt + ' Add-Money রিকোয়েস্ট পাঠানো হয়েছে! অ্যাডমিন TrxID যাচাই করে Crazy_Top_Up (24) ওয়ালেটে ব্যালেন্স যোগ করবেন।';
+        ok2.style.display = 'block';
+        refreshAmData();
+      }).catch(function () {
+        err2.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';
+        err2.style.display = 'block';
+      }).finally(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Add-Money Request';
+      });
+    };
+
+    window.addEventListener('hashchange', function () {
+      if (location.hash === '#add-money') {
+        refreshAmData();
+      }
+    });
+    window.addEventListener('crazy-auth-change', refreshAmData);
+    refreshAmData();
+  }
+
   function init() {
     setupOfflineIndicator();
     startJsMarqueeLoop();
     initGoogleAuthSession();
+    initAddMoneyPage();
     if (!bannerTimerStarted) {
       bannerTimerStarted = true;
       setInterval(function () {
