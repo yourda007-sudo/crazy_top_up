@@ -791,7 +791,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CrazyTopUp24">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="spin-system.css?v=15">
+<link rel="stylesheet" href="spin-system.css?v=17">
 </head>
 <body>
 
@@ -1507,21 +1507,27 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     <div class="am-hero-glow2"></div>
     <div class="am-hero-row">
       <div class="am-hero-left">
-        <div class="am-badge">⚡ INSTANT &amp; SECURE</div>
+        <div class="am-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+          <span>INSTANT &amp; SECURE</span>
+        </div>
         <h1 class="am-title">Add Money to<br><span>Crazy_Top_Up (24)</span></h1>
         <p class="am-sub">Fast, protected wallet recharge for uninterrupted top-ups.</p>
-        <div class="am-bal-pill">💳 Wallet Balance: <b id="amBalVal">৳0</b></div>
       </div>
       <div class="am-wallet-art" aria-hidden="true">
         <div class="am-wallet-card"><span>৳</span></div>
-        <div class="am-wallet-plus">+</div>
+        <div class="am-wallet-plus">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="am-card" id="amStep1">
     <div class="am-card-hd">
-      <div class="am-card-ico">💳</div>
+      <div class="am-card-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M16 14h.01"/></svg>
+      </div>
       <div>
         <h2>Enter Amount</h2>
         <p>Type the amount you want to add.</p>
@@ -1532,45 +1538,53 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     <div class="am-inp-wrap">
       <span class="am-taka">৳</span>
       <input id="amAmtInput" type="number" min="20" value="50" inputmode="numeric" placeholder="50">
-      <button type="button" class="am-clear" id="amClearAmt" aria-label="Clear amount">×</button>
+      <button type="button" class="am-clear" id="amClearAmt" aria-label="Clear amount">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
-    <div class="am-hint"><span class="am-chk">✓</span> Amount will be added to your <b>Crazy_Top_Up (24)</b> wallet</div>
-
-    <div class="am-presets">
-      <button type="button" class="am-pre" data-am="50">৳50</button>
-      <button type="button" class="am-pre" data-am="100">৳100</button>
-      <button type="button" class="am-pre" data-am="500">৳500</button>
-      <button type="button" class="am-pre" data-am="1000">৳1000</button>
+    <div class="am-hint">
+      <span class="am-chk" aria-hidden="true">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <span>Amount will be added to your Crazy_Top_Up (24) wallet</span>
     </div>
 
     <div class="am-err" id="amErr1" style="display:none;"></div>
 
     <button type="button" class="am-cta" id="amNextBtn">
-      <span>💳</span>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M16 14h.01"/></svg>
       <span>Add Money Securely</span>
-      <span>→</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </button>
 
     <div class="am-trust-grid">
       <div class="am-trust-it">
-        <div class="am-trust-ico">⚡</div>
+        <div class="am-trust-ico">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#1565d8"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+        </div>
         <b>Instant</b>
         <span>Quick balance update</span>
       </div>
       <div class="am-trust-it">
-        <div class="am-trust-ico">🔒</div>
+        <div class="am-trust-ico">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1565d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </div>
         <b>Secure</b>
         <span>Protected payment</span>
       </div>
       <div class="am-trust-it">
-        <div class="am-trust-ico">🎧</div>
+        <div class="am-trust-ico">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1565d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </div>
         <b>Support</b>
         <span>Help when needed</span>
       </div>
     </div>
 
     <div class="am-safe-box">
-      <div class="am-safe-ico">🛡️</div>
+      <div class="am-safe-ico" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>
+      </div>
       <div>
         <b>100% Safe &amp; Secure</b>
         <p>Your payment is encrypted and handled through trusted payment partners.</p>
@@ -1581,9 +1595,13 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
   <!-- Step 2: Payment Method Gateway (Crazy_Top_Up (24)) -->
   <section class="am-gw-wrap" id="amStep2" hidden>
     <div class="am-gw-topbar">
-      <button type="button" class="am-gw-icobtn" id="amGwHome" aria-label="Home">🏠</button>
-      <span class="am-amt-pill" id="amChosenAmt">Amount: ৳50</span>
-      <button type="button" class="am-gw-icobtn" id="amGwClose" aria-label="Close">×</button>
+      <button type="button" class="am-gw-icobtn" id="amGwHome" aria-label="Home">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10z"/></svg>
+      </button>
+      <span id="amChosenAmt" style="display:none;">Amount: ৳50</span>
+      <button type="button" class="am-gw-icobtn" id="amGwClose" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
 
     <div class="am-gw-brand">
@@ -1599,7 +1617,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
       <button type="button" class="am-gw-card" data-method="Nagad" aria-label="Nagad">
         <div class="am-m-nagad">
           <svg width="32" height="32" viewBox="0 0 40 40" aria-hidden="true">
-            <circle cx="20" cy="20" r="18" fill="#FFF3E0" stroke="#EA580C" stroke-width="2.5"/>
+            <circle cx="20" cy="20" r="17" fill="#FFF7ED" stroke="#EA580C" stroke-width="2.4"/>
             <path d="M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z" fill="#DC2626"/>
           </svg>
           <span>নগদ</span>
@@ -1608,7 +1626,10 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 
       <button type="button" class="am-gw-card" data-method="Rocket" aria-label="Rocket">
         <div class="am-m-rocket">
-          <small>ROCKET 🚀</small>
+          <div style="display:flex;align-items:center;gap:3px;">
+            <small>ROCKET</small>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#7C3AED" aria-hidden="true"><path d="M14 2c3.5 0 6.5 1 8 2.5-1.5 1.5-3 4.5-3 8l-5 5-4-4 4-11.5ZM7 13l4 4-3 3H4v-4l3-3Z"/></svg>
+          </div>
           <b>রকেট</b>
         </div>
       </button>
@@ -1633,60 +1654,127 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 
       <button type="button" class="am-gw-card" data-method="bKash" aria-label="bKash">
         <div class="am-m-bkash">
-          <span class="am-m-qr">⊞</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#0f172a" aria-hidden="true"><rect x="1" y="1" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="10" y="1" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="1" y="10" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="10" y="10" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/></svg>
           <b>bKash</b>
-          <span class="am-m-bird">🕊️</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#E11D48" aria-hidden="true"><path d="M3 10l9-6 3 6 6 2-7 5-5 4-1-6-5-5Z"/></svg>
         </div>
       </button>
     </div>
   </section>
 
-  <!-- Step 3: Payment Verification Details -->
-  <section class="am-card" id="amStep3" hidden>
-    <div class="am-step2-top">
-      <button type="button" class="am-back-btn" id="amBackBtn">← Payment Methods</button>
-      <span class="am-amt-pill" id="amChosenAmt3">৳50 · bKash</span>
-    </div>
-
-    <div class="am-pay-num-box">
-      <div>
-        <div class="am-pay-lbl">Send Money to <b id="amMethodLbl">bKash</b>:</div>
-        <div class="am-pay-num" id="amMethodNum">01700-000000</div>
+  <!-- Step 3A: Bangla QR (bKash) Checkout Screen -->
+  <section class="am-qr-wrap" id="amStep3Qr" hidden>
+    <div class="am-qr-card">
+      <div class="am-qr-hd">
+        <div class="am-qr-hd-left">
+          <button type="button" class="am-qr-back" id="amQrBack" aria-label="Back">←</button>
+          <div class="am-qr-avatar">C</div>
+          <div>
+            <div class="am-qr-sub">Payment recipient</div>
+            <div class="am-qr-rec">Crazy_Top_Up (24)</div>
+          </div>
+        </div>
+        <div class="am-qr-hd-right">
+          <div class="am-qr-sub">Total to be paid</div>
+          <div class="am-qr-total" id="amQrTotal">50.00 BDT</div>
+        </div>
       </div>
-      <button type="button" class="am-copy-btn" id="amCopyNum">Copy</button>
-    </div>
 
-    <div class="am-field-grid">
-      <div>
-        <label class="am-lbl" for="amSenderInp">SENDER NUMBER</label>
-        <input id="amSenderInp" class="am-txt-inp" type="text" placeholder="017XXXXXXXX">
+      <div class="am-qr-strip">
+        <div class="am-m-bkash">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#0f172a" aria-hidden="true"><rect x="1" y="1" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="10" y="1" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="1" y="10" width="5" height="5" fill="none" stroke="#0f172a" stroke-width="1.5"/><rect x="10" y="10" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/></svg>
+          <b>bKash</b>
+        </div>
+        <span>Bangla QR</span>
       </div>
-      <div>
-        <label class="am-lbl" for="amTrxInp">TRANSACTION ID (TRXID)</label>
-        <input id="amTrxInp" class="am-txt-inp" type="text" placeholder="e.g. BL78K291M" style="text-transform:uppercase;">
+
+      <div class="am-qr-body">
+        <div class="am-qr-guide">
+          <div class="am-qr-guide-top">
+            <span class="am-qr-guide-bk">বিকাশ</span>
+            <div><b>বিকাশ পেমেন্ট করুন</b><small>মাত্র কয়েকটি ধাপে!</small></div>
+          </div>
+          <div class="am-qr-guide-steps">
+            <div><span>১</span>QR স্ক্যান বা ডাউনলোড করুন</div>
+            <div><span>২</span>পেমেন্ট অপশন সিলেক্ট করুন</div>
+            <div><span>৩</span>সঠিক টাকা সেন্ড করুন</div>
+            <div><span style="background:#16a34a;">৪</span>শেষ ৪ ডিজিট দিয়ে ভেরিফাই করুন</div>
+          </div>
+        </div>
+
+        <h3 class="am-qr-h3">Pay easily with bank or MFS app</h3>
+        <div class="am-qr-3steps">
+          <span>Open the app.</span>
+          <i>›</i>
+          <span>Scan QR</span>
+          <i>›</i>
+          <span>Confirm payment.</span>
+        </div>
+
+        <div class="am-qr-box">
+          <div class="am-qr-bk-title">bKash</div>
+          <div class="am-qr-pill">BANGLA QR PAYMENT</div>
+          <div class="am-qr-canvas-wrap">
+            <canvas id="amQrCanvas" width="164" height="164"></canvas>
+          </div>
+          <div class="am-qr-pill" style="margin-top:8px;">CRAZY_TOP_UP (24)</div>
+          <div class="am-qr-num" id="amQrNumLbl">Number: 01700-000000</div>
+          <button type="button" class="am-qr-dl" id="amQrDlBtn" aria-label="Download QR">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+        </div>
+
+        <p class="am-qr-note">Send exactly <b id="amQrExactAmt">50.00 BDT</b> . Verify the recipient's name in the app after scanning the QR code.</p>
+
+        <div class="am-qr-timer">
+          <div class="am-qr-timer-l"><span class="am-dot"></span>Waiting for payment confirmation...</div>
+          <b id="amQrClock">15m 00s বাকি</b>
+        </div>
+
+        <div class="am-qr-verify-box">
+          <label for="amQrDigits">Enter the last 4 digits of your number.</label>
+          <div class="am-qr-verify-row">
+            <input id="amQrDigits" type="text" inputmode="numeric" maxlength="4" placeholder="Last 4 digits">
+            <button type="button" id="amQrVerifyBtn">Verify</button>
+          </div>
+          <div class="am-err" id="amQrErr" style="display:none;"></div>
+          <div class="am-ok" id="amQrOk" style="display:none;"></div>
+        </div>
+
+        <div class="am-qr-apps-lbl">Supported apps:</div>
+        <div class="am-qr-apps">
+          <span>bKash</span><span>নগদ</span><span>রকেট</span><span>City Bank</span><span>IBBL</span>
+        </div>
       </div>
     </div>
-
-    <div class="am-ss-box">
-      <div>
-        <b id="amSsLbl">Payment Screenshot (Optional)</b>
-        <span>Upload payment proof</span>
-      </div>
-      <label class="am-ss-btn">
-        Upload
-        <input id="amSsInput" type="file" accept="image/*" hidden>
-      </label>
-    </div>
-
-    <div class="am-err" id="amErr2" style="display:none;"></div>
-    <div class="am-ok" id="amOk2" style="display:none;"></div>
-
-    <button type="button" class="am-cta" id="amSubmitBtn">Verify &amp; Submit Payment</button>
   </section>
 
-  <section class="am-card" id="amHistWrap" style="margin-top:14px;display:none;">
-    <div class="am-lbl" style="margin-bottom:8px;">RECENT ADD-MONEY HISTORY</div>
-    <div id="amHistList" class="am-hist-list"></div>
+  <!-- Step 3B: Mobile Bank Send Money (Nagad / Rocket / Upay / EPS) -->
+  <section class="am-gw-wrap" id="amStep3Mfs" hidden>
+    <div class="am-gw-topbar" style="margin-bottom:12px;">
+      <button type="button" class="am-gw-icobtn" id="amMfsBack" aria-label="Back">‹</button>
+      <button type="button" class="am-gw-icobtn" id="amMfsClose" aria-label="Close">×</button>
+    </div>
+
+    <div class="am-mfs-method-card" id="amMfsMethodLogo"></div>
+
+    <div class="am-mfs-merchant">
+      <img src="Main logo.jpg" alt="Crazy_Top_Up (24)">
+      <b>Crazy_Top_Up (24)</b>
+    </div>
+
+    <div class="am-mfs-amt" id="amMfsAmtVal">৳ 50</div>
+
+    <div class="am-mfs-panel" id="amMfsPanel">
+      <div class="am-mfs-panel-hd">ট্রানজেকশন আইডি দিন</div>
+      <input id="amMfsTrxInp" class="am-mfs-inp" type="text" placeholder="ট্রানজেকশন আইডি দিন" style="text-transform:uppercase;">
+      <ul class="am-mfs-list" id="amMfsList"></ul>
+    </div>
+
+    <div class="am-err" id="amMfsErr" style="display:none;"></div>
+    <div class="am-ok" id="amMfsOk" style="display:none;"></div>
+
+    <button type="button" class="am-mfs-submit" id="amMfsVerifyBtn">ভেরিফাই</button>
   </section>
 </main>
 
@@ -3279,6 +3367,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=15"></script>
+<script src="spin-system.js?v=17"></script>
 </body>
 </html>

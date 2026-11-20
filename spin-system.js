@@ -3695,7 +3695,50 @@
   }
 
 
-  /* -------------------- V14: Add Money to Crazy_Top_Up (24) View -------------------- */
+  /* -------------------- V17: Add Money + Payment Gateway + Bangla QR + MFS -------------------- */
+  function drawBanglaQrCanvas(canvas, seedText) {
+    if (!canvas || !canvas.getContext) return;
+    var size = 25;
+    var grid = [];
+    for (var r = 0; r < size; r++) {
+      grid[r] = [];
+      for (var c = 0; c < size; c++) grid[r][c] = false;
+    }
+    function finder(r0, c0) {
+      for (var r = 0; r < 7; r++) {
+        for (var c = 0; c < 7; c++) {
+          grid[r0 + r][c0 + c] = (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
+        }
+      }
+    }
+    finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+    var h = 2166136261;
+    for (var i = 0; i < seedText.length; i++) {
+      h ^= seedText.charCodeAt(i);
+      h = Math.imul ? Math.imul(h, 16777619) : ((h * 16777619) | 0);
+    }
+    for (var rr = 0; rr < size; rr++) {
+      for (var cc = 0; cc < size; cc++) {
+        if ((rr < 8 && cc < 8) || (rr < 8 && cc >= size - 8) || (rr >= size - 8 && cc < 8)) continue;
+        if (rr === 6 || cc === 6) { grid[rr][cc] = (rr + cc) % 2 === 0; continue; }
+        h ^= ((rr * 31 + cc * 17) & 255);
+        h = Math.imul ? Math.imul(h, 16777619) : ((h * 16777619) | 0);
+        grid[rr][cc] = ((h >>> 16) & 1) === 1;
+      }
+    }
+    var ctx = canvas.getContext('2d');
+    var pad = 8;
+    var cell = Math.floor((canvas.width - pad * 2) / size);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0f172a';
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        if (grid[y][x]) ctx.fillRect(pad + x * cell, pad + y * cell, cell, cell);
+      }
+    }
+  }
+
   function initAddMoneyPage() {
     var view = document.getElementById('amView');
     if (!view || view.dataset.wired === '1') return;
@@ -3703,73 +3746,98 @@
 
     var step1 = document.getElementById('amStep1');
     var step2 = document.getElementById('amStep2');
-    var step3 = document.getElementById('amStep3');
+    var step3Qr = document.getElementById('amStep3Qr');
+    var step3Mfs = document.getElementById('amStep3Mfs');
     var hero = view.querySelector('.am-hero');
     var amtInp = document.getElementById('amAmtInput');
     var err1 = document.getElementById('amErr1');
-    var err2 = document.getElementById('amErr2');
-    var ok2 = document.getElementById('amOk2');
-    var balVal = document.getElementById('amBalVal');
     var chosenAmt = document.getElementById('amChosenAmt');
-    var chosenAmt3 = document.getElementById('amChosenAmt3');
-    var methodLbl = document.getElementById('amMethodLbl');
-    var methodNum = document.getElementById('amMethodNum');
-    var ssInput = document.getElementById('amSsInput');
-    var ssLbl = document.getElementById('amSsLbl');
-    var submitBtn = document.getElementById('amSubmitBtn');
-    var histWrap = document.getElementById('amHistWrap');
-    var histList = document.getElementById('amHistList');
 
     var selectedMethod = 'bKash';
-    var uploadedSs = '';
+    var qrTimerId = null;
+    var qrSecs = 900;
 
-    function showAmStep(num) {
-      if (hero) hero.hidden = (num === 2);
-      step1.hidden = (num !== 1);
-      step2.hidden = (num !== 2);
-      if (step3) step3.hidden = (num !== 3);
+    function stopQrTimer() {
+      if (qrTimerId) { clearInterval(qrTimerId); qrTimerId = null; }
     }
 
-    function refreshAmData() {
-      if (balVal) balVal.textContent = '৳' + Number(state.walletBalanceBdt || 0);
+    function showAmStep(mode) {
+      stopQrTimer();
+      if (hero) hero.hidden = (mode !== 1);
+      step1.hidden = (mode !== 1);
+      step2.hidden = (mode !== 2);
+      if (step3Qr) step3Qr.hidden = (mode !== 'qr');
+      if (step3Mfs) step3Mfs.hidden = (mode !== 'mfs');
+    }
+
+    function getActiveNumber(m) {
       var bkNum = (paymentNumbers && paymentNumbers.bkash) || '01700-000000';
       var ngNum = (paymentNumbers && paymentNumbers.nagad) || '01800-000000';
       var rkNum = (paymentNumbers && paymentNumbers.rocket) || '01900-000000';
-      var numMap = { bKash: bkNum, Nagad: ngNum, Rocket: rkNum, Upay: bkNum, EPS: bkNum };
-      if (methodLbl) methodLbl.textContent = selectedMethod;
-      if (methodNum) methodNum.textContent = numMap[selectedMethod] || bkNum;
-      if (chosenAmt3) chosenAmt3.textContent = '৳' + Math.round(Number(amtInp.value) || 0) + ' · ' + selectedMethod;
+      if (m === 'Nagad') return ngNum;
+      if (m === 'Rocket') return rkNum;
+      return bkNum;
+    }
 
-      var reqs = Array.isArray(state.walletRequests) ? state.walletRequests : [];
-      if (histWrap && histList) {
-        if (reqs.length > 0) {
-          histWrap.style.display = 'block';
-          histList.innerHTML = reqs.slice(0, 6).map(function (r) {
-            return '<div class="am-hist-it">' +
-              '<div><b>' + esc(r.method) + ' · ৳' + esc(r.amountBdt) + '</b><div style="font-size:10.5px;color:#64748b;">' + esc(r.trxId) + ' · ' + esc(r.createdAt || '') + '</div></div>' +
-              '<span class="am-hist-st ' + esc(r.status || 'Pending') + '">' + esc(r.status || 'Pending') + '</span>' +
-            '</div>';
-          }).join('');
-        } else {
-          histWrap.style.display = 'none';
-        }
+    function openQrStep(amt) {
+      var bkNum = getActiveNumber('bKash');
+      document.getElementById('amQrTotal').textContent = amt + '.00 BDT';
+      document.getElementById('amQrExactAmt').textContent = amt + '.00 BDT';
+      document.getElementById('amQrNumLbl').textContent = 'Number: ' + bkNum;
+      document.getElementById('amQrErr').style.display = 'none';
+      document.getElementById('amQrOk').style.display = 'none';
+      drawBanglaQrCanvas(document.getElementById('amQrCanvas'), 'CRAZY_TOP_UP_24|' + bkNum + '|' + amt);
+      showAmStep('qr');
+      qrSecs = 15 * 60;
+      var clock = document.getElementById('amQrClock');
+      function updateClock() {
+        var m = Math.floor(qrSecs / 60);
+        var s = String(qrSecs % 60).padStart(2, '0');
+        if (clock) clock.textContent = m + 'm ' + s + 's বাকি';
       }
+      updateClock();
+      qrTimerId = setInterval(function () {
+        if (qrSecs > 0) qrSecs--;
+        updateClock();
+      }, 1000);
+    }
+
+    function openMfsStep(m, amt) {
+      var num = getActiveNumber(m);
+      var cfg = {
+        Nagad: { ussd: '*167#', app: 'NAGAD', bg: '#d81b27', btn: '#b90e1c', logo: '<div class="am-m-nagad"><svg width="28" height="28" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#FFF7ED" stroke="#EA580C" stroke-width="2.4"/><path d="M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z" fill="#DC2626"/></svg><span>নগদ</span></div>' },
+        Rocket: { ussd: '*322#', app: 'ROCKET', bg: '#7c3aed', btn: '#5b21b6', logo: '<div class="am-m-rocket"><small>ROCKET 🚀</small><b>রকেট</b></div>' },
+        Upay: { ussd: '*268#', app: 'UPAY', bg: '#0f4eb8', btn: '#0b3a8c', logo: '<div class="am-m-upay"><b style="color:#1E3A8A;font-size:15px;">উপায় (Upay)</b></div>' },
+        EPS: { ussd: '*247# / *167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<div class="am-m-eps"><div class="am-m-eps-top"><small>PAY WITH</small> <b>≡EPS</b></div></div>' }
+      }[m] || { ussd: '*167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<b>' + esc(m) + '</b>' };
+
+      document.getElementById('amMfsMethodLogo').innerHTML = cfg.logo;
+      document.getElementById('amMfsAmtVal').textContent = '৳ ' + amt;
+      document.getElementById('amMfsPanel').style.background = cfg.bg;
+      document.getElementById('amMfsVerifyBtn').style.background = cfg.btn;
+      document.getElementById('amMfsErr').style.display = 'none';
+      document.getElementById('amMfsOk').style.display = 'none';
+      document.getElementById('amMfsList').innerHTML =
+        '<li>• ' + cfg.ussd + ' ডায়াল করে আপনার ' + cfg.app + ' মোবাইল মেনুতে যান অথবা ' + cfg.app + ' অ্যাপে যান।</li>' +
+        '<li>• Send Money -এ ক্লিক করুন।</li>' +
+        '<li>• এই নম্বরে টাকা পাঠান <b style="color:#fde047;">' + esc(num) + '</b> <button type="button" class="am-mfs-copy" id="amMfsCopyBtn">কপি</button></li>' +
+        '<li>• টাকার পরিমাণঃ <b style="color:#fde047;">' + amt + '</b></li>' +
+        '<li>• নিশ্চিত করে এখন আপনার ' + cfg.app + ' মোবাইল মেনু PIN লিখুন।</li>' +
+        '<li>• টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</li>' +
+        '<li>• ট্রানজ্যাকশন আইডি লিখে ভেরিফাই চাপুন।</li>';
+
+      var cp = document.getElementById('amMfsCopyBtn');
+      if (cp) cp.onclick = function () {
+        if (navigator.clipboard && num) {
+          navigator.clipboard.writeText(num).then(function () { showSiteToast('নম্বর কপি হয়েছে: ' + num); }).catch(function () {});
+        }
+      };
+      showAmStep('mfs');
     }
 
     document.getElementById('amClearAmt').onclick = function () {
-      amtInp.value = '';
-      amtInp.focus();
-      err1.style.display = 'none';
+      amtInp.value = ''; amtInp.focus(); err1.style.display = 'none';
     };
-
-    view.querySelectorAll('.am-pre').forEach(function (btn) {
-      btn.onclick = function () {
-        amtInp.value = btn.getAttribute('data-am') || '50';
-        view.querySelectorAll('.am-pre').forEach(function (b) { b.classList.remove('on'); });
-        btn.classList.add('on');
-        err1.style.display = 'none';
-      };
-    });
 
     document.getElementById('amNextBtn').onclick = function () {
       var amt = Math.round(Number(amtInp.value));
@@ -3783,10 +3851,7 @@
         return;
       }
       err1.style.display = 'none';
-      err2.style.display = 'none';
-      ok2.style.display = 'none';
-      chosenAmt.textContent = 'Amount: ৳' + amt;
-      refreshAmData();
+      if (chosenAmt) chosenAmt.textContent = 'Amount: ৳' + amt;
       showAmStep(2);
     };
 
@@ -3795,61 +3860,77 @@
     var gwClose = document.getElementById('amGwClose');
     if (gwClose) gwClose.onclick = function () { showAmStep(1); location.hash = ''; };
 
-    document.getElementById('amBackBtn').onclick = function () {
-      err2.style.display = 'none';
-      ok2.style.display = 'none';
-      showAmStep(2);
-    };
-
     view.querySelectorAll('.am-gw-card').forEach(function (btn) {
       btn.onclick = function () {
         selectedMethod = btn.getAttribute('data-method') || 'bKash';
-        refreshAmData();
-        showAmStep(3);
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        if (selectedMethod === 'bKash') openQrStep(amt);
+        else openMfsStep(selectedMethod, amt);
       };
     });
 
-    document.getElementById('amCopyNum').onclick = function () {
-      var num = (methodNum && methodNum.textContent) || '';
-      if (navigator.clipboard && num) {
-        navigator.clipboard.writeText(num).then(function () { showSiteToast('নম্বর কপি হয়েছে: ' + num); }).catch(function () {});
-      }
+    document.getElementById('amQrBack').onclick = function () { showAmStep(2); };
+    document.getElementById('amMfsBack').onclick = function () { showAmStep(2); };
+    document.getElementById('amMfsClose').onclick = function () { showAmStep(1); location.hash = ''; };
+
+    document.getElementById('amQrDlBtn').onclick = function () {
+      var c = document.getElementById('amQrCanvas');
+      if (!c) return;
+      var a = document.createElement('a');
+      a.href = c.toDataURL('image/png');
+      a.download = 'Crazy_Top_Up_24_QR.png';
+      a.click();
     };
 
-    if (ssInput) {
-      ssInput.onchange = function (e) {
-        var f = e.target && e.target.files && e.target.files[0];
-        if (!f) return;
-        compressImageFile(f).then(function (dataUrl) {
-          uploadedSs = dataUrl;
-          if (ssLbl) ssLbl.textContent = '✓ Screenshot Attached';
+    document.getElementById('amQrVerifyBtn').onclick = function () {
+      var d = (document.getElementById('amQrDigits').value || '').replace(/\D/g, '');
+      var err = document.getElementById('amQrErr');
+      var ok = document.getElementById('amQrOk');
+      if (d.length !== 4) {
+        err.textContent = 'আপনার নম্বরের শেষ ৪টি সংখ্যা (4 digits) লিখুন।';
+        err.style.display = 'block';
+        return;
+      }
+      err.style.display = 'none'; ok.style.display = 'none';
+      var btn = document.getElementById('amQrVerifyBtn');
+      btn.disabled = true; btn.textContent = '...';
+      var amt = Math.round(Number(amtInp.value)) || 50;
+      var uniqueTrx = 'QR-' + d + '-' + Date.now().toString(36).slice(-4).toUpperCase();
+      fetch('/api/wallet/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: getUserKey(),
+          method: 'bKash (Bangla QR)',
+          amountBdt: amt,
+          senderNumber: 'Last4: ' + d,
+          trxId: uniqueTrx
+        })
+      }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+        .then(function (res) {
+          if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
+          applyServerPayload(res.data, true);
+          document.getElementById('amQrDigits').value = '';
+          ok.textContent = '✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!';
+          ok.style.display = 'block';
         }).catch(function () {
-          err2.textContent = 'স্ক্রিনশট আপলোড হয়নি, সঠিক ছবি দিন।';
-          err2.style.display = 'block';
-        });
-      };
-    }
+          err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
+        }).finally(function () { btn.disabled = false; btn.textContent = 'Verify'; });
+    };
 
-    submitBtn.onclick = function () {
-      if (!isUserSignedIn()) {
-        if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+    document.getElementById('amMfsVerifyBtn').onclick = function () {
+      var trx = (document.getElementById('amMfsTrxInp').value || '').trim().toUpperCase();
+      var err = document.getElementById('amMfsErr');
+      var ok = document.getElementById('amMfsOk');
+      if (trx.length < 4) {
+        err.textContent = 'সঠিক ট্রানজেকশন আইডি (Transaction ID) দিন।';
+        err.style.display = 'block';
         return;
       }
-      var amt = Math.round(Number(amtInp.value));
-      var sender = (document.getElementById('amSenderInp').value || '').trim();
-      var trx = (document.getElementById('amTrxInp').value || '').trim().toUpperCase();
-      if (!isFinite(amt) || amt < 20) {
-        err2.textContent = 'সর্বনিম্ন ৳২০ টাকা দিন।'; err2.style.display = 'block'; return;
-      }
-      if (sender.length < 6 || trx.length < 4) {
-        err2.textContent = 'সঠিক Sender Number এবং Transaction ID (TrxID) লিখুন।';
-        err2.style.display = 'block';
-        return;
-      }
-      err2.style.display = 'none';
-      ok2.style.display = 'none';
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Submitting Request...';
+      err.style.display = 'none'; ok.style.display = 'none';
+      var btn = document.getElementById('amMfsVerifyBtn');
+      btn.disabled = true; btn.textContent = 'ভেরিফাই হচ্ছে...';
+      var amt = Math.round(Number(amtInp.value)) || 50;
       fetch('/api/wallet/deposit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3857,41 +3938,20 @@
           identifier: getUserKey(),
           method: selectedMethod,
           amountBdt: amt,
-          senderNumber: sender,
-          trxId: trx,
-          screenshotUrl: uploadedSs || undefined
+          senderNumber: selectedMethod + ' MFS',
+          trxId: trx
         })
-      }).then(function (r) {
-        return r.json().then(function (d) { return { ok: r.ok, data: d }; });
-      }).then(function (res) {
-        if (!res.ok) {
-          err2.textContent = (res.data && res.data.error) || 'রিকোয়েস্ট পাঠানো যায়নি।';
-          err2.style.display = 'block';
-          return;
-        }
-        applyServerPayload(res.data, true);
-        document.getElementById('amTrxInp').value = '';
-        uploadedSs = '';
-        if (ssLbl) ssLbl.textContent = 'Payment Screenshot (Optional)';
-        ok2.textContent = '✅ ৳' + amt + ' Add-Money রিকোয়েস্ট পাঠানো হয়েছে! অ্যাডমিন TrxID যাচাই করে Crazy_Top_Up (24) ওয়ালেটে ব্যালেন্স যোগ করবেন।';
-        ok2.style.display = 'block';
-        refreshAmData();
-      }).catch(function () {
-        err2.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';
-        err2.style.display = 'block';
-      }).finally(function () {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Add-Money Request';
-      });
+      }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+        .then(function (res) {
+          if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
+          applyServerPayload(res.data, true);
+          document.getElementById('amMfsTrxInp').value = '';
+          ok.textContent = '✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!';
+          ok.style.display = 'block';
+        }).catch(function () {
+          err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
+        }).finally(function () { btn.disabled = false; btn.textContent = 'ভেরিফাই'; });
     };
-
-    window.addEventListener('hashchange', function () {
-      if (location.hash === '#add-money') {
-        refreshAmData();
-      }
-    });
-    window.addEventListener('crazy-auth-change', refreshAmData);
-    refreshAmData();
   }
 
   function init() {
