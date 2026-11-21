@@ -3791,8 +3791,8 @@
       var col = RO_COLORS[i % RO_COLORS.length];
       var isDone = o.status === "Done" || o.status === "Completed";
       var pill = isDone
-        ? "<span class=\"ro-pill done\">✓ Done</span>"
-        : "<span class=\"ro-pill prog\">⏳ In Progress</span>";
+        ? "<span class=\"ro-pill done\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"#16a34a\"/><polyline points=\"8 12.5 11 15.5 16.5 9.5\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span>Done</span></span>"
+        : "<span class=\"ro-pill prog\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#d97706\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2\"/></svg><span>In Progress</span></span>";
       return "<div class=\"ro-item\">" +
         "<div class=\"ro-left\">" +
           "<div class=\"ro-av\" style=\"background:" + col + ";\">" + esc(ini) + "</div>" +
@@ -3872,7 +3872,7 @@
     var infoPh = document.getElementById("acInfoPhone");
     if (infoPh) infoPh.textContent = /^\+?\d{7,15}$/.test(mailTxt.trim()) ? mailTxt.trim() : "Not added";
     var accBadge = document.getElementById("acAccBadge");
-    if (accBadge) accBadge.textContent = isUserSignedIn() ? "★ Verified Account" : "★ Guest Session";
+    if (accBadge) accBadge.innerHTML = "<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"#94a3b8\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg><span>" + (isUserSignedIn() ? "Verified Account" : "Guest Session") + "</span>";
 
     var chipShield = document.getElementById("acChipShield");
     if (chipShield) chipShield.innerHTML = rankShieldSvg(cur, 22);
@@ -3921,7 +3921,9 @@
         var isCur = r.level === cur.level;
         var isUnl = r.level < cur.level;
         var badgeCls = isCur ? "cur" : (isUnl ? "unl" : "");
-        var badgeTxt = isCur ? "✓ Current" : (isUnl ? "✓ Unlocked" : "🔒 Locked");
+        var chkIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><polyline points=\"20 6 9 17 4 12\"/></svg>";
+        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>";
+        var badgeTxt = isCur ? (chkIco + "Current") : (isUnl ? (chkIco + "Unlocked") : (lockIco + "Locked"));
         return "<div class=\"ac2-j-item" + (isCur ? " is-cur" : "") + "\">" +
           "<div class=\"ac2-j-left\">" +
             "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, 24) + "</div>" +
@@ -3999,42 +4001,133 @@
     }
 
 
-    var epsTab = "MFS";
-    var epsChannel = "bKash";
+    var epsTab = "WALLET";
+    var epsChannel = "";
     var EPS_CHANNELS = {
-      MFS: [
-        { id: "bKash", name: "bKash", sub: "বিকাশ", col: "#e2136e" },
-        { id: "নগদ", name: "নগদ", sub: "Nagad", col: "#ea580c" },
-        { id: "উপায়", name: "উপায়", sub: "Upay", col: "#1e3a8a" },
-        { id: "OK Wallet", name: "OK Wallet", sub: "One Bank", col: "#0f172a" },
-        { id: "mCash", name: "এম ক্যাশ", sub: "Islami Bank", col: "#15803d" },
-        { id: "Islamic Wallet", name: "Islamic Wallet", sub: "Al-Arafah", col: "#047857" },
-        { id: "Meghna Pay", name: "meghna pay", sub: "Meghna Bank", col: "#475569" }
-      ],
-      CARD: [
-        { id: "VISA", name: "VISA", sub: "Debit/Credit", col: "#1d4ed8" },
-        { id: "Mastercard", name: "Mastercard", sub: "Debit/Credit", col: "#dc2626" },
-        { id: "AMEX", name: "AMEX", sub: "Card", col: "#0284c7" }
+      WALLET: [
+        {
+          id: "bKash",
+          render: function (on) {
+            var c = on ? "#e2136e" : "#475569";
+            return "<div style=\"display:flex;align-items:center;gap:4px;color:" + c + ";\">" +
+              "<span style=\"font-size:12.5px;font-weight:700;letter-spacing:-0.02em;\">bKash</span>" +
+              "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"" + c + "\"><path d=\"M3 10l9-6 3 6 6 2-7 5-5 4-1-6-5-5Z\"/></svg></div>";
+          }
+        },
+        {
+          id: "নগদ",
+          render: function (on) {
+            var ring = on ? "#f59e0b" : "#64748b";
+            var flame = on ? "#dc2626" : "#64748b";
+            var bg = on ? "#fef3c7" : "none";
+            var sub = on ? "<div style=\"font-size:5.5px;font-weight:700;color:#dc2626;margin-top:1px;white-space:nowrap;\">ডাক বিভাগের ডিজিটাল লেনদেন</div>" : "";
+            return "<div style=\"display:flex;align-items:center;gap:5px;\">" +
+              "<svg width=\"22\" height=\"22\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"" + bg + "\" stroke=\"" + ring + "\" stroke-width=\"2.8\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"" + flame + "\"/></svg>" +
+              "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:13.5px;font-weight:900;color:" + flame + ";\">নগদ</div>" + sub + "</div></div>";
+          }
+        },
+        {
+          id: "উপায়",
+          render: function (on) {
+            var bowl = on ? "#facc15" : "#94a3b8";
+            var dot = on ? "#1e3a8a" : "#475569";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;color:" + dot + ";\">" +
+              "<svg width=\"24\" height=\"16\" viewBox=\"0 0 48 32\"><path d=\"M8 6c0 12 6 20 16 20s16-8 16-20h-7c0 8-3.5 13-9 13s-9-5-9-13H8Z\" fill=\"" + bowl + "\"/><circle cx=\"15\" cy=\"6\" r=\"3.5\" fill=\"" + dot + "\"/><circle cx=\"33\" cy=\"6\" r=\"3.5\" fill=\"" + dot + "\"/></svg>" +
+              "<span style=\"font-size:10px;font-weight:900;margin-top:2px;\">উপায়</span></div>";
+          }
+        },
+        {
+          id: "OK Wallet",
+          render: function (on) {
+            var c = on ? "#d97706" : "#334155";
+            return "<div style=\"display:flex;align-items:center;gap:3px;color:" + c + ";font-weight:900;font-size:13px;\">" +
+              "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9.5\"/><circle cx=\"9\" cy=\"10\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"15\" cy=\"10\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M8.5 14.5c1 1.6 2.2 2.2 3.5 2.2s2.5-.6 3.5-2.2\"/></svg><span>OK</span></div>";
+          }
+        },
+        {
+          id: "mCash",
+          render: function (on) {
+            var c = on ? "#007b40" : "#475569";
+            return "<div style=\"display:flex;align-items:center;gap:4px;color:" + c + ";\">" +
+              "<span style=\"width:19px;height:22px;background:" + c + ";color:#fff;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border-radius:2px;\">M</span>" +
+              "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:10px;font-weight:900;\">এম</div><div style=\"font-size:9px;font-weight:700;\">ক্যাশ</div></div></div>";
+          }
+        },
+        {
+          id: "Islamic Wallet",
+          render: function (on) {
+            var c1 = on ? "#00875a" : "#475569";
+            var c2 = on ? "#059669" : "#94a3b8";
+            return "<div style=\"text-align:center;line-height:1;\"><div style=\"font-size:11.5px;font-weight:900;font-style:italic;color:" + c1 + ";\">Islamic</div><div style=\"font-size:9px;font-weight:700;color:" + c2 + ";\">Wallet</div></div>";
+          }
+        },
+        {
+          id: "Meghna Pay",
+          render: function (on) {
+            var c1 = on ? "#0284c7" : "#475569";
+            var c2 = on ? "#0369a1" : "#475569";
+            return "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:9px;font-weight:700;font-style:italic;color:" + c1 + ";\">meghna</div><div style=\"font-size:14px;font-weight:900;font-style:italic;margin-top:-1px;color:" + c2 + ";\">pay</div></div>";
+          }
+        }
       ],
       BANK: [
-        { id: "Citytouch", name: "Citytouch", sub: "City Bank", col: "#dc2626" },
-        { id: "IBBL iBanking", name: "IBBL", sub: "Islami Bank", col: "#15803d" },
-        { id: "EBL Skybanking", name: "EBL Sky", sub: "Eastern Bank", col: "#0f4eb8" }
+        {
+          id: "Islami Bank Bangladesh",
+          render: function (on) {
+            var ring = on ? "#007b40" : "#475569";
+            var core = on ? "#007b40" : "#64748b";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;\">" +
+              "<svg width=\"54\" height=\"36\" viewBox=\"0 0 80 46\"><ellipse cx=\"40\" cy=\"23\" rx=\"32\" ry=\"17\" fill=\"none\" stroke=\"" + ring + "\" stroke-width=\"2.4\" stroke-dasharray=\"4 2\"/><circle cx=\"40\" cy=\"23\" r=\"11\" fill=\"" + core + "\"/><path d=\"M35 27v-7l5-4 5 4v7h-10Z\" fill=\"#ffffff\"/></svg></div>";
+          }
+        },
+        {
+          id: "Southeast Bank PLC",
+          render: function (on) {
+            var sCol = on ? "#1e3a8a" : "#475569";
+            var bCol = on ? "#dc2626" : "#475569";
+            var tCol = on ? "#0f172a" : "#475569";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;\">" +
+              "<div style=\"font-size:18px;font-weight:900;letter-spacing:-0.04em;\"><span style=\"color:" + sCol + ";\">S</span><span style=\"color:" + bCol + ";\">B</span></div>" +
+              "<div style=\"font-size:7.5px;font-weight:800;margin-top:2px;white-space:nowrap;color:" + tCol + ";\">Southeast Bank PLC</div></div>";
+          }
+        },
+        {
+          id: "Citytouch",
+          render: function (on) {
+            var c1 = on ? "#dc2626" : "#475569";
+            var c2 = on ? "#b91c1c" : "#94a3b8";
+            return "<div style=\"text-align:center;line-height:1.1;\"><div style=\"font-size:11.5px;font-weight:900;color:" + c1 + ";\">Citytouch</div><div style=\"font-size:8px;font-weight:700;color:" + c2 + ";\">City Bank</div></div>";
+          }
+        }
       ]
     };
+    var CHK_BADGE_HTML = "<span class=\"eps-ch-chk\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg></span>";
     function renderEpsGrid() {
       var grid = document.getElementById("epsGrid");
       if (!grid) return;
-      var items = EPS_CHANNELS[epsTab] || EPS_CHANNELS.MFS;
+      if (epsTab === "CARD") {
+        grid.className = "eps-card-form";
+        grid.innerHTML =
+          "<div class=\"eps-card-top\"><span class=\"eps-visa\">VISA</span><span class=\"eps-mc\"><i></i><i></i></span><span class=\"eps-other-cards\">Other Cards</span></div>" +
+          "<input class=\"eps-card-inp\" type=\"text\" placeholder=\"Enter Card Number\">" +
+          "<div class=\"eps-card-row2\"><input class=\"eps-card-inp\" type=\"text\" placeholder=\"MM/YY\"><input class=\"eps-card-inp\" type=\"text\" placeholder=\"CVC/CVV\"></div>" +
+          "<input class=\"eps-card-inp\" type=\"text\" placeholder=\"Card Holder Name\">" +
+          "<label class=\"eps-card-save\"><input type=\"checkbox\" style=\"accent-color:#006a4e;\"><span>Save &amp; remember me</span></label>";
+        return;
+      }
+      grid.className = "eps-grid";
+      var items = EPS_CHANNELS[epsTab] || EPS_CHANNELS.WALLET;
       grid.innerHTML = items.map(function (it) {
-        return "<button type=\"button\" class=\"eps-ch" + (epsChannel === it.id ? " on" : "") + "\" data-ch=\"" + esc(it.id) + "\">" +
-          "<b style=\"color:" + it.col + ";\">" + esc(it.name) + "</b>" +
-          "<small>" + esc(it.sub) + "</small>" +
+        var isOn = epsChannel === it.id;
+        return "<button type=\"button\" class=\"eps-ch" + (isOn ? " on" : "") + "\" data-ch=\"" + esc(it.id) + "\">" +
+          (isOn ? CHK_BADGE_HTML : "") +
+          it.render(isOn) +
         "</button>";
       }).join("");
       grid.querySelectorAll(".eps-ch").forEach(function (b) {
         b.onclick = function () {
-          epsChannel = b.getAttribute("data-ch") || "bKash";
+          epsChannel = b.getAttribute("data-ch") || "";
+          document.getElementById("epsErr").style.display = "none";
           document.getElementById("epsChLbl").textContent = epsChannel;
           document.getElementById("epsNumLbl").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
           renderEpsGrid();
@@ -4042,15 +4135,15 @@
       });
     }
     function openEpsStep(amt) {
-      epsTab = "MFS"; epsChannel = "bKash";
+      epsTab = "WALLET"; epsChannel = "";
       document.getElementById("epsPayAmt").textContent = amt + ".00";
       document.getElementById("epsTrxBox").style.display = "none";
       document.getElementById("epsErr").style.display = "none";
       document.getElementById("epsOk").style.display = "none";
-      document.getElementById("epsChLbl").textContent = epsChannel;
+      document.getElementById("epsChLbl").textContent = "bKash";
       document.getElementById("epsNumLbl").textContent = getActiveNumber("bKash");
       document.querySelectorAll("#amStep3Eps .eps-tabs button").forEach(function (tb) {
-        tb.classList.toggle("on", tb.getAttribute("data-epstab") === "MFS");
+        tb.classList.toggle("on", tb.getAttribute("data-epstab") === "WALLET");
       });
       renderEpsGrid();
       showAmStep("eps");
@@ -4058,10 +4151,11 @@
     if (step3Eps) {
       step3Eps.querySelectorAll(".eps-tabs button").forEach(function (tb) {
         tb.onclick = function () {
-          epsTab = tb.getAttribute("data-epstab") || "MFS";
+          epsTab = tb.getAttribute("data-epstab") || "WALLET";
           step3Eps.querySelectorAll(".eps-tabs button").forEach(function (x) { x.classList.toggle("on", x === tb); });
-          var first = (EPS_CHANNELS[epsTab] || [])[0];
-          if (first) epsChannel = first.id;
+          epsChannel = epsTab === "CARD" ? "VISA/Mastercard" : "";
+          document.getElementById("epsTrxBox").style.display = "none";
+          document.getElementById("epsErr").style.display = "none";
           renderEpsGrid();
         };
       });
@@ -4087,10 +4181,147 @@
         ok.textContent = "Crazy_Top_Up (24) অ্যাড মানিতে ৩% ক্যাশব্যাক ও স্পিন অফার চালু আছে!";
         ok.style.display = "block";
       };
+      var epsConnTimer = null;
+      var epsEasyLang = "en";
+      function buildEpsSegInputs() {
+        var row = document.getElementById("epsSegRow");
+        if (!row) return;
+        var out = "";
+        for (var k = 0; k < 11; k++) {
+          if (k === 3 || k === 7) out += "<span>-</span>";
+          out += "<input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" class=\"eps-seg-inp\" data-sidx=\"" + k + "\">";
+        }
+        row.innerHTML = out;
+        var inputs = row.querySelectorAll(".eps-seg-inp");
+        inputs.forEach(function (inp, idx) {
+          inp.oninput = function () {
+            inp.value = inp.value.replace(/\D/g, "").slice(-1);
+            document.getElementById("epsEasyErr").style.display = "none";
+            if (inp.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+          };
+          inp.onkeydown = function (e) {
+            if (e.key === "Backspace" && !inp.value && idx > 0) inputs[idx - 1].focus();
+          };
+          inp.onpaste = function (e) {
+            var txt = (e.clipboardData && e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 11);
+            if (!txt) return;
+            e.preventDefault();
+            for (var p = 0; p < inputs.length; p++) inputs[p].value = txt[p] || "";
+          };
+        });
+      }
+      function getEasyBg(ch) {
+        if (ch === "bKash") return "radial-gradient(circle at 50% 45%, #e11d74 0%, #9b0b48 75%, #750735 100%)";
+        if (ch === "উপায়" || ch === "Meghna Pay") return "radial-gradient(circle at 50% 45%, #1d4ed8 0%, #1e3a8a 75%, #172554 100%)";
+        if (String(ch).indexOf("Bank") !== -1 || ch === "mCash" || ch === "Islamic Wallet") return "radial-gradient(circle at 50% 45%, #007b40 0%, #00553e 75%, #003828 100%)";
+        return "radial-gradient(circle at 50% 45%, #dc2626 0%, #991b1b 72%, #780f0f 100%)";
+      }
+      function updateEasyTexts() {
+        var chLbl = epsChannel === "নগদ" ? "Nagad" : epsChannel;
+        document.getElementById("epsEasyHeadTitle").textContent = epsEasyLang === "bn" ? "ইজি পেমেন্ট সিস্টেম" : "Easy Payment System";
+        document.getElementById("epsEasyAccLbl").textContent = epsEasyLang === "bn"
+          ? ("আপনার " + epsChannel + " অ্যাকাউন্ট নম্বর")
+          : ("Your " + chLbl + " Account Number");
+      }
+      document.querySelectorAll("#epsEasyOv .eps-easy-lang button").forEach(function (lb) {
+        lb.onclick = function () {
+          epsEasyLang = lb.getAttribute("data-elang") || "en";
+          document.querySelectorAll("#epsEasyOv .eps-easy-lang button").forEach(function (x) { x.classList.toggle("on", x === lb); });
+          updateEasyTexts();
+        };
+      });
+      document.getElementById("epsEasyClose").onclick = function () {
+        document.getElementById("epsEasyOv").style.display = "none";
+      };
+      document.getElementById("epsEasyProceed").onclick = function () {
+        var num = "";
+        document.querySelectorAll("#epsSegRow .eps-seg-inp").forEach(function (i) { num += i.value; });
+        var err = document.getElementById("epsEasyErr");
+        if (num.length < 11) {
+          err.textContent = "সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন।";
+          err.style.display = "block";
+          return;
+        }
+        err.style.display = "none";
+        document.getElementById("epsEasyChTxt").textContent = epsChannel;
+        document.getElementById("epsEasyNumTxt").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
+        document.getElementById("epsEasyTrxErr").style.display = "none";
+        document.getElementById("epsEasyTrxOk").style.display = "none";
+        document.getElementById("epsEasyPhoneStep").style.display = "none";
+        document.getElementById("epsEasyTrxStep").style.display = "block";
+      };
+      document.getElementById("epsEasyBack").onclick = function () {
+        document.getElementById("epsEasyTrxStep").style.display = "none";
+        document.getElementById("epsEasyPhoneStep").style.display = "block";
+      };
+      document.getElementById("epsEasyCopyBtn").onclick = function () {
+        var t = document.getElementById("epsEasyNumTxt").textContent;
+        if (navigator.clipboard && t) navigator.clipboard.writeText(t).then(function () { showSiteToast("কপি হয়েছে: " + t); }).catch(function () {});
+      };
+      document.getElementById("epsEasyConfirm").onclick = function () {
+        var trx = (document.getElementById("epsEasyTrxInp").value || "").trim().toUpperCase();
+        var err = document.getElementById("epsEasyTrxErr");
+        var ok = document.getElementById("epsEasyTrxOk");
+        if (trx.length < 4) { err.textContent = "সঠিক ট্রানজেকশন আইডি দিন।"; err.style.display = "block"; return; }
+        err.style.display = "none"; ok.style.display = "none";
+        var sender = "";
+        document.querySelectorAll("#epsSegRow .eps-seg-inp").forEach(function (i) { sender += i.value; });
+        var btn = document.getElementById("epsEasyConfirm");
+        btn.disabled = true; btn.textContent = "...";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        fetch("/api/wallet/deposit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identifier: getUserKey(),
+            method: "EPS (" + epsChannel + ")",
+            amountBdt: amt,
+            senderNumber: sender || ("EPS " + epsChannel),
+            trxId: trx
+          })
+        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+          .then(function (res) {
+            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
+            applyServerPayload(res.data, true);
+            document.getElementById("epsEasyTrxInp").value = "";
+            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " সফলভাবে জমা হয়েছে!");
+            ok.style.display = "block";
+          }).catch(function () {
+            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
+          }).finally(function () { btn.disabled = false; btn.textContent = "Confirm"; });
+      };
       document.getElementById("epsPayBtn").onclick = function () {
-        document.getElementById("epsChLbl").textContent = epsChannel;
-        document.getElementById("epsNumLbl").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
-        document.getElementById("epsTrxBox").style.display = "block";
+        var err = document.getElementById("epsErr");
+        if (!epsChannel) {
+          err.textContent = "দয়া করে আগে একটি ওয়ালেট বা ব্যাংক সিলেক্ট করুন।";
+          err.style.display = "block";
+          return;
+        }
+        err.style.display = "none";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        var chLbl = epsChannel === "নগদ" ? "Nagad" : epsChannel;
+        var connLogo = document.getElementById("epsConnLogo");
+        connLogo.innerHTML = epsChannel === "নগদ"
+          ? "<div style=\"display:flex;align-items:center;gap:5px;\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"#fef3c7\" stroke=\"#f59e0b\" stroke-width=\"2.8\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"#dc2626\"/></svg><div style=\"text-align:left;line-height:1;\"><div style=\"font-size:15px;font-weight:900;color:#dc2626;\">নগদ</div><div style=\"font-size:5.5px;font-weight:700;color:#dc2626;\">ডাক বিভাগের ডিজিটাল লেনদেন</div></div></div>"
+          : ("<b style=\"font-size:13px;color:#006a4e;\">" + esc(epsChannel) + "</b>");
+        document.getElementById("epsConnTitle").textContent = "Connecting to " + chLbl;
+        document.getElementById("epsConnOv").style.display = "flex";
+        if (epsConnTimer) clearTimeout(epsConnTimer);
+        epsConnTimer = setTimeout(function () {
+          document.getElementById("epsConnOv").style.display = "none";
+          document.getElementById("epsEasyCard").style.background = getEasyBg(epsChannel);
+          document.getElementById("epsEasyInv").textContent = "261120" + String(Date.now()).slice(-6) + "TW";
+          document.getElementById("epsEasyAmt").textContent = "BDT " + amt + ".00";
+          document.getElementById("epsEasyPhoneStep").style.display = "block";
+          document.getElementById("epsEasyTrxStep").style.display = "none";
+          document.getElementById("epsEasyErr").style.display = "none";
+          buildEpsSegInputs();
+          updateEasyTexts();
+          document.getElementById("epsEasyFoot").innerHTML =
+            "<svg width=\"26\" height=\"26\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"#ffffff\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"#dc2626\"/></svg>" +
+            "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:16px;font-weight:900;color:#ffffff;\">" + esc(epsChannel) + "</div><div style=\"font-size:5.5px;color:rgba(255,255,255,0.85);\">ডাক বিভাগের ডিজিটাল লেনদেন</div></div>";
+          document.getElementById("epsEasyOv").style.display = "flex";
+        }, 1600);
       };
       document.getElementById("epsCopyBtn").onclick = function () {
         var num = document.getElementById("epsNumLbl").textContent;
@@ -4120,7 +4351,7 @@
             if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
             applyServerPayload(res.data, true);
             document.getElementById("epsTrxInp").value = "";
-            ok.textContent = "✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " ভেরিফাইয়ের জন্য জমা হয়েছে!";
+            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " ভেরিফাইয়ের জন্য জমা হয়েছে!");
             ok.style.display = "block";
           }).catch(function () {
             err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
@@ -4132,7 +4363,7 @@
       var num = getActiveNumber(m);
       var cfg = {
         Nagad: { ussd: '*167#', app: 'NAGAD', bg: '#d81b27', btn: '#b90e1c', logo: '<div class="am-m-nagad"><svg width="28" height="28" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#FFF7ED" stroke="#EA580C" stroke-width="2.4"/><path d="M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z" fill="#DC2626"/></svg><span>নগদ</span></div>' },
-        Rocket: { ussd: '*322#', app: 'ROCKET', bg: '#7c3aed', btn: '#5b21b6', logo: '<div class="am-m-rocket"><small>ROCKET 🚀</small><b>রকেট</b></div>' },
+        Rocket: { ussd: '*322#', app: 'ROCKET', bg: '#7c3aed', btn: '#5b21b6', logo: '<div class="am-m-rocket"><small style="display:inline-flex;align-items:center;gap:3px;">ROCKET <svg width="13" height="13" viewBox="0 0 24 24" fill="#7C3AED"><path d="M14 2c3.5 0 6.5 1 8 2.5-1.5 1.5-3 4.5-3 8l-5 5-4-4 4-11.5ZM7 13l4 4-3 3H4v-4l3-3Z"/></svg></small><b>রকেট</b></div>' },
         Upay: { ussd: '*268#', app: 'UPAY', bg: '#0f4eb8', btn: '#0b3a8c', logo: '<div class="am-m-upay"><b style="color:#1E3A8A;font-size:15px;">উপায় (Upay)</b></div>' },
         EPS: { ussd: '*247# / *167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<div class="am-m-eps"><div class="am-m-eps-top"><small>PAY WITH</small> <b>≡EPS</b></div></div>' }
       }[m] || { ussd: '*167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<b>' + esc(m) + '</b>' };
@@ -4146,7 +4377,7 @@
       document.getElementById('amMfsList').innerHTML =
         '<li>• ' + cfg.ussd + ' ডায়াল করে আপনার ' + cfg.app + ' মোবাইল মেনুতে যান অথবা ' + cfg.app + ' অ্যাপে যান।</li>' +
         '<li>• Send Money -এ ক্লিক করুন।</li>' +
-        '<li>• এই নম্বরে টাকা পাঠান <b style="color:#fde047;">' + esc(num) + '</b> <button type="button" class="am-mfs-copy" id="amMfsCopyBtn">কপি</button></li>' +
+        '<li>• এই নম্বরে টাকা পাঠান <b style="color:#fde047;">' + esc(num) + '</b> <button type="button" class="am-mfs-copy" id="amMfsCopyBtn" style="display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>কপি</span></button></li>' +
         '<li>• টাকার পরিমাণঃ <b style="color:#fde047;">' + amt + '</b></li>' +
         '<li>• নিশ্চিত করে এখন আপনার ' + cfg.app + ' মোবাইল মেনু PIN লিখুন।</li>' +
         '<li>• টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</li>' +
@@ -4238,7 +4469,7 @@
           if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
           applyServerPayload(res.data, true);
           document.getElementById('amQrDigits').value = '';
-          ok.textContent = '✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!';
+          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + '.00 BDT সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!');
           ok.style.display = 'block';
         }).catch(function () {
           err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
@@ -4273,7 +4504,7 @@
           if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
           applyServerPayload(res.data, true);
           document.getElementById('amMfsTrxInp').value = '';
-          ok.textContent = '✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!';
+          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!');
           ok.style.display = 'block';
         }).catch(function () {
           err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';

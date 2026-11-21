@@ -1,5 +1,6 @@
 // Crazy_top_up (24) — Full-Stack Server (Spin Lock, Wallet, TrxID Orders, Promo Codes, Flash Sale, VIP Tiers, Leaderboard, Telegram Alerts)
 try { require('dotenv').config(); } catch (e) {}
+var crypto = require('crypto');
 var fs = require('fs');
 var path = require('path');
 var express = require('express');
@@ -231,6 +232,163 @@ function findDuplicateTrxId(d, trxRaw) {
   return null;
 }
 
+
+function getSmsWebhookSecret(d) {
+  var envSec = String(process.env.SMS_WEBHOOK_SECRET || '').trim();
+  if (envSec.length >= 8) return envSec;
+  return String((d && d.config && d.config.smsWebhookSecret) || '').trim();
+}
+
+function timingSafeEqualsStr(a, b) {
+  if (!a || !b) return false;
+  var ha = crypto.createHash('sha256').update(String(a)).digest();
+  var hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+function verifySmsWebhookSecret(req, d) {
+  var expected = getSmsWebhookSecret(d);
+  if (!expected) return false;
+  var authHdr = String((req.headers && req.headers.authorization) || '');
+  var bearer = authHdr.toLowerCase().indexOf('bearer ') === 0 ? authHdr.slice(7).trim() : '';
+  var bodySecret = (req.body && typeof req.body.secret === 'string') ? req.body.secret.trim() : '';
+  var hdrKey = String((req.headers && req.headers['x-webhook-key']) || '').trim();
+  var candidate = (hdrKey || bearer || bodySecret || '').trim();
+  return timingSafeEqualsStr(candidate, expected);
+}
+
+function parseMobileBankingSms(payload) {
+  payload = payload || {};
+  var rawSender = String(payload.sender || '').trim().slice(0, 64);
+  var rawText = String(payload.text != null ? payload.text : (payload.message != null ? payload.message : (payload.body != null ? payload.body : ''))).trim().slice(0, 1000);
+  var combined = (rawSender + ' ' + rawText).toLowerCase();
+  var explicitProv = String(payload.provider || '').trim().toLowerCase();
+  var provider = 'Unknown';
+  if (explicitProv.indexOf('bkash') >= 0 || combined.indexOf('bkash') >= 0 || combined.indexOf('b-kash') >= 0 || combined.indexOf('বিকাশ') >= 0) {
+    provider = 'bKash';
+  } else if (explicitProv.indexOf('nagad') >= 0 || combined.indexOf('nagad') >= 0 || combined.indexOf('নগদ') >= 0) {
+    provider = 'Nagad';
+  } else if (explicitProv.indexOf('rocket') >= 0 || combined.indexOf('rocket') >= 0 || combined.indexOf('16216') >= 0 || combined.indexOf('dbbl') >= 0 || combined.indexOf('রকেট') >= 0) {
+    provider = 'Rocket';
+  } else if (explicitProv.indexOf('upay') >= 0 || combined.indexOf('upay') >= 0 || combined.indexOf('উপায়') >= 0 || combined.indexOf('উপায়') >= 0) {
+    provider = 'Upay';
+  }
+
+  var trxId = normalizeTrxId(typeof payload.trxId === 'string' ? payload.trxId : '');
+  if (!trxId && rawText) {
+    var trxMatch = rawText.match(/(?:TrxID|TxnID|TxnId|Transaction\s*ID|Trans\s*ID|Ref)\s*[:#\-]?\s*([A-Z0-9]{5,20})/i);
+    if (trxMatch && trxMatch[1]) trxId = normalizeTrxId(trxMatch[1]);
+  }
+
+  var amountNum = Number(payload.amount);
+  if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    var primaryAmt =
+      rawText.match(/(?:received|cash\s*in|payment(?:\s*of)?|send\s*money|amount\s*[:\-]?)\s*(?:tk\.?|bdt|৳)?\s*([\d,]{1,10}(?:\.\d{1,2})?)/i) ||
+      rawText.match(/(?:tk\.?|bdt|৳)\s*([\d,]{1,10}(?:\.\d{1,2})?)/i) ||
+      rawText.match(/([\d,]{1,10}(?:\.\d{1,2})?)\s*(?:tk|bdt|টাকা)/i);
+    if (primaryAmt && primaryAmt[1]) amountNum = Number(primaryAmt[1].replace(/,/g, ''));
+  }
+  var amountBdt = (Number.isFinite(amountNum) && amountNum > 0) ? Math.round(amountNum) : 0;
+
+  var senderPhone = rawSender;
+  var phoneMatch = rawText.match(/(?:from|sender|a\/c)\s*[:\-]?\s*(01\d{9}|\+?8801\d{9})/i);
+  if (phoneMatch && phoneMatch[1]) senderPhone = phoneMatch[1];
+
+  if (!trxId || trxId.length < 4) {
+    return { ok: false, error: 'Could not extract a valid TrxID from SMS payload.' };
+  }
+  if (amountBdt < 10) {
+    return { ok: false, error: 'Could not extract a valid payment amount (>= ৳10) from SMS.' };
+  }
+  return {
+    ok: true,
+    provider: provider,
+    amountBdt: amountBdt,
+    trxId: trxId,
+    sender: senderPhone || provider,
+    rawText: rawText || (provider + ' Tk ' + amountBdt + ' TrxID ' + trxId)
+  };
+}
+
+function tryAutoMatchSmsWithPending(d, sms) {
+  if (!sms || sms.status !== 'Unused') return null;
+  var pendingDep = (d.walletDeposits || []).find(function (dep) {
+    return dep.status === 'Pending' &&
+      normalizeTrxId(dep.trxId) === sms.trxId &&
+      Math.round(Number(dep.amountBdt)) === Math.round(sms.amountBdt);
+  });
+  if (pendingDep) {
+    pendingDep.status = 'Approved';
+    pendingDep.autoMatched = true;
+    var depOwner = d.users[String(pendingDep.userIdentifier || '').toLowerCase()];
+    if (depOwner) {
+      depOwner.walletBalanceBdt = (depOwner.walletBalanceBdt || 0) + pendingDep.amountBdt;
+      var rItem = (depOwner.walletRequests || []).find(function (r) { return r.id === pendingDep.id; });
+      if (rItem) { rItem.status = 'Approved'; rItem.autoMatched = true; }
+    }
+    sms.status = 'Matched';
+    sms.matchedRefId = pendingDep.id;
+    logActivity(d, 'Auto-Approved via SMS', pendingDep.id + ' · ৳' + pendingDep.amountBdt + ' (' + sms.provider + ', TrxID: ' + sms.trxId + ') credited automatically to ' + pendingDep.userName, 'success', 'SMS Auto-Matcher');
+    return { matchedType: 'deposit', refId: pendingDep.id, userName: pendingDep.userName, amountBdt: pendingDep.amountBdt };
+  }
+
+  var pendingOrd = (d.ordersLog || []).find(function (ord) {
+    return ord.status === 'Pending' &&
+      ord.trxId &&
+      normalizeTrxId(ord.trxId) === sms.trxId &&
+      Math.round(Number(ord.finalPrice)) === Math.round(sms.amountBdt);
+  });
+  if (pendingOrd) {
+    pendingOrd.status = 'Processing';
+    pendingOrd.autoMatched = true;
+    var ordOwner = d.users[String(pendingOrd.userIdentifier || '').toLowerCase()];
+    if (ordOwner) {
+      var uOrd = (ordOwner.orders || []).find(function (o) { return o.id === pendingOrd.id; });
+      if (uOrd) { uOrd.status = 'Processing'; uOrd.autoMatched = true; }
+    }
+    sms.status = 'Matched';
+    sms.matchedRefId = pendingOrd.id;
+    logActivity(d, 'Order Verified via SMS', pendingOrd.id + ' · ৳' + pendingOrd.finalPrice + ' (' + sms.provider + ', TrxID: ' + sms.trxId + ') moved to Processing automatically', 'success', 'SMS Auto-Matcher');
+    return { matchedType: 'order', refId: pendingOrd.id, userName: pendingOrd.userName, amountBdt: pendingOrd.finalPrice };
+  }
+  return null;
+}
+
+async function ingestSmsPayment(d, parsed, actor) {
+  if (!Array.isArray(d.smsPayments)) d.smsPayments = [];
+  var existing = d.smsPayments.find(function (s) { return s.trxId === parsed.trxId; });
+  if (existing) return { duplicate: true, sms: existing, matched: null };
+
+  var smsRecord = {
+    id: 'SMS-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 5).toUpperCase(),
+    provider: parsed.provider,
+    amountBdt: parsed.amountBdt,
+    trxId: parsed.trxId,
+    sender: parsed.sender,
+    rawText: parsed.rawText,
+    status: 'Unused',
+    receivedAt: getTodayBD() + ' ' + formatTimeBD(),
+    createdAtMs: Date.now()
+  };
+  d.smsPayments.unshift(smsRecord);
+  d.smsPayments = d.smsPayments.slice(0, 200);
+
+  var matched = tryAutoMatchSmsWithPending(d, smsRecord);
+  if (!matched) {
+    logActivity(d, 'SMS Received', smsRecord.provider + ' ৳' + smsRecord.amountBdt + ' · TrxID ' + smsRecord.trxId + ' stored (waiting for user checkout)', 'info', actor || 'Android SMS Forwarder');
+  }
+  saveDb(d);
+
+  if (matched) {
+    await sendTelegram(
+      matched.matchedType === 'deposit'
+        ? ('🤖 <b>Auto-Approved Wallet Deposit via SMS!</b>\n🆔 ID: <code>' + matched.refId + '</code>\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
+        : ('🤖 <b>Order Payment Verified via SMS!</b>\n🆔 Order: <code>' + matched.refId + '</code> → Processing\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
+    );
+  }
+  return { duplicate: false, sms: smsRecord, matched: matched };
+}
+
 function logActivity(d, action, detail, level, actor) {
   if (!Array.isArray(d.activityLog)) d.activityLog = [];
   if (action === 'Duplicate TrxID Blocked') {
@@ -274,7 +432,8 @@ function defaultDb() {
       announcement: Object.assign({}, DEFAULT_ANNOUNCEMENT),
       banners: JSON.parse(JSON.stringify(DEFAULT_BANNERS)),
       telegramBotToken: '',
-      telegramChatId: ''
+      telegramChatId: '',
+      smsWebhookSecret: crypto.randomBytes(16).toString('hex')
     },
     users: {},
     recentWinners: [
@@ -286,6 +445,7 @@ function defaultDb() {
     spinsLog: [],
     ordersLog: [],
     walletDeposits: [],
+    smsPayments: [],
     activityLog: [],
     duplicateTrxBlockedCount: 0
   };
@@ -324,6 +484,8 @@ function loadDb() {
     p.spinsLog = Array.isArray(p.spinsLog) ? p.spinsLog : [];
     p.ordersLog = Array.isArray(p.ordersLog) ? p.ordersLog : [];
     p.walletDeposits = Array.isArray(p.walletDeposits) ? p.walletDeposits : [];
+    p.smsPayments = Array.isArray(p.smsPayments) ? p.smsPayments : [];
+    if (typeof p.config.smsWebhookSecret !== 'string' || p.config.smsWebhookSecret.trim().length < 8) p.config.smsWebhookSecret = def.config.smsWebhookSecret;
     p.activityLog = Array.isArray(p.activityLog) ? p.activityLog : [];
     p.duplicateTrxBlockedCount = Number(p.duplicateTrxBlockedCount || 0);
     p.config.announcement = Object.assign({}, DEFAULT_ANNOUNCEMENT, p.config.announcement || {});
@@ -680,6 +842,10 @@ app.post('/api/wallet/deposit', async function (req, res) {
   var amount = Math.max(20, Math.round(Number(b.amountBdt || 0)));
   var u = getOrCreateUser(b.identifier);
   var cleanProof = sanitizeScreenshot(b.screenshotUrl);
+  if (!Array.isArray(db.smsPayments)) db.smsPayments = [];
+  var matchingSms = db.smsPayments.find(function (s) { return s.status === 'Unused' && s.trxId === trxClean; });
+  var exactSmsMatch = Boolean(matchingSms) && Math.round(Number(matchingSms.amountBdt)) === Math.round(amount);
+
   var dep = {
     id: 'DEP-' + Math.floor(100000 + Math.random() * 900000),
     userIdentifier: u.identifier,
@@ -689,23 +855,35 @@ app.post('/api/wallet/deposit', async function (req, res) {
     senderNumber: String(b.senderNumber).trim(),
     trxId: trxClean,
     screenshotUrl: cleanProof,
-    status: 'Pending',
+    status: exactSmsMatch ? 'Approved' : 'Pending',
+    autoMatched: exactSmsMatch ? true : undefined,
     createdAt: getTodayBD() + ' ' + formatTimeBD()
   };
+  if (exactSmsMatch && matchingSms) {
+    u.walletBalanceBdt = (u.walletBalanceBdt || 0) + amount;
+    matchingSms.status = 'Matched';
+    matchingSms.matchedRefId = dep.id;
+    logActivity(db, 'Auto-Approved via SMS', dep.id + ' · ৳' + dep.amountBdt + ' (' + matchingSms.provider + ', TrxID: ' + trxClean + ') instantly matched & credited to ' + u.name, 'success', 'SMS Auto-Matcher');
+  } else if (matchingSms && !exactSmsMatch) {
+    logActivity(db, 'SMS Amount Mismatch', dep.id + ' claimed ৳' + amount + ' for TrxID ' + trxClean + ', but SMS recorded ৳' + matchingSms.amountBdt + '. Held as Pending.', 'warning', 'Security Guard');
+  }
+
   u.walletRequests = [dep].concat(u.walletRequests || []).slice(0, 15);
   db.walletDeposits.unshift(dep);
   db.walletDeposits = db.walletDeposits.slice(0, 100);
   saveDb(db);
   await sendTelegram(
-    '💳 <b>New Wallet Add-Money Request!</b>\n' +
-    '🆔 ID: <code>' + dep.id + '</code>\n' +
-    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
-    '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
-    '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
-    '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
-    '⏳ Status: Pending Admin Approval'
+    exactSmsMatch
+      ? ('🤖 <b>Instant Auto-Approved Wallet Deposit!</b>\n🆔 ID: <code>' + dep.id + '</code>\n👤 User: ' + u.name + ' (' + u.identifier + ')\n💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n🧾 TrxID: <code>' + dep.trxId + '</code>')
+      : ('💳 <b>New Wallet Add-Money Request!</b>\n' +
+        '🆔 ID: <code>' + dep.id + '</code>\n' +
+        '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+        '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
+        '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
+        '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
+        '⏳ Status: Pending Admin Approval')
   );
-  res.json(Object.assign({ deposit: dep }, serializeUser(u)));
+  res.json(Object.assign({ autoApproved: exactSmsMatch, deposit: dep }, serializeUser(u)));
 });
 
 app.post('/api/watchlist/toggle', function (req, res) {
@@ -1033,6 +1211,10 @@ app.post('/api/orders', async function (req, res) {
   u.spins += 1;
   u.goldenSpins += 1;
 
+  if (!Array.isArray(db.smsPayments)) db.smsPayments = [];
+  var matchingOrderSms = (!isWallet && trxClean) ? db.smsPayments.find(function (s) { return s.status === 'Unused' && s.trxId === trxClean; }) : null;
+  var exactOrderSmsMatch = Boolean(matchingOrderSms) && Math.round(Number(matchingOrderSms.amountBdt)) === Math.round(finalPrice);
+
   var ord = {
     id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
     userIdentifier: u.identifier,
@@ -1052,11 +1234,17 @@ app.post('/api/orders', async function (req, res) {
     senderNumber: isWallet ? undefined : String(b.senderNumber).trim(),
     trxId: isWallet ? undefined : trxClean,
     screenshotUrl: isWallet ? undefined : sanitizeScreenshot(b.screenshotUrl),
-    status: isWallet ? 'Processing' : 'Pending',
+    status: (isWallet || exactOrderSmsMatch) ? 'Processing' : 'Pending',
+    autoMatched: exactOrderSmsMatch ? true : undefined,
     cashbackEarned: cashbackEarned,
     supportMessages: [],
     createdAt: formatTimeBD()
   };
+  if (exactOrderSmsMatch && matchingOrderSms) {
+    matchingOrderSms.status = 'Matched';
+    matchingOrderSms.matchedRefId = ord.id;
+    logActivity(db, 'Order Verified via SMS', ord.id + ' · ৳' + ord.finalPrice + ' (' + matchingOrderSms.provider + ', TrxID: ' + trxClean + ') verified automatically via SMS', 'success', 'SMS Auto-Matcher');
+  }
 
   if (b.saveProfile && matchedGame) {
     if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
@@ -1093,7 +1281,7 @@ app.post('/api/orders', async function (req, res) {
   saveDb(db);
 
   var tg = await sendTelegram(
-    '💎 <b>New Crazy_top_up (24) Order!</b>\n' +
+    '💎 <b>New Crazy_top_up (24) Order!</b>' + (exactOrderSmsMatch ? ' 🤖 <b>[SMS Verified]</b>' : '') + '\n' +
     '🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n' +
     '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
     '🎮 Game: ' + ord.gameName + '\n' +
@@ -1111,6 +1299,24 @@ app.post('/api/orders', async function (req, res) {
   );
 
   res.json(Object.assign({ order: ord, referralRewarded: refRewarded, telegramSent: tg.ok }, serializeUser(u)));
+});
+
+app.post('/api/sms-webhook', async function (req, res) {
+  if (!verifySmsWebhookSecret(req, db)) {
+    logActivity(db, 'Unauthorized SMS Webhook', 'Rejected /api/sms-webhook call due to missing or invalid webhook secret.', 'warning', 'Security Guard');
+    saveDb(db);
+    return res.status(401).json({ ok: false, error: 'INVALID_WEBHOOK_SECRET' });
+  }
+  var parsed = parseMobileBankingSms(req.body || {});
+  if (!parsed.ok) return res.status(400).json({ ok: false, error: parsed.error });
+  var result = await ingestSmsPayment(db, parsed, 'Android SMS Forwarder');
+  res.json({
+    ok: true,
+    duplicate: result.duplicate,
+    matched: Boolean(result.matched),
+    matchedRefId: result.matched ? result.matched.refId : null,
+    sms: result.sms
+  });
 });
 
 app.post('/api/admin/login', function (req, res) {
@@ -1139,7 +1345,10 @@ app.get('/api/admin/dashboard', function (req, res) {
     };
   });
   res.json({
-    config: db.config,
+    config: Object.assign({}, db.config, {
+      smsWebhookSecret: getSmsWebhookSecret(db),
+      smsSecretFromEnv: Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8)
+    }),
     regularWedges: REGULAR_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.regularWeights[w.id] != null ? db.config.regularWeights[w.id] : w.weight }; }),
     goldenWedges: GOLDEN_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.goldenWeights[w.id] != null ? db.config.goldenWeights[w.id] : w.weight }; }),
     stats: {
@@ -1148,12 +1357,15 @@ app.get('/api/admin/dashboard', function (req, res) {
       totalOrders: db.ordersLog.length,
       totalDiscountGiven: db.ordersLog.reduce(function (a, o) { return a + (o.discountSaved || 0); }, 0),
       pendingDeposits: db.walletDeposits.filter(function (d) { return d.status === 'Pending'; }).length,
-      duplicateTrxBlockedCount: db.duplicateTrxBlockedCount || 0
+      blockedDuplicates: db.duplicateTrxBlockedCount || 0,
+      smsReceivedCount: (db.smsPayments || []).length,
+      smsMatchedCount: (db.smsPayments || []).filter(function (s) { return s.status === 'Matched'; }).length
     },
     users: usersList,
     spinsLog: db.spinsLog.slice(0, 40),
     ordersLog: db.ordersLog.slice(0, 50),
     walletDeposits: db.walletDeposits.slice(0, 50),
+    smsPayments: (db.smsPayments || []).slice(0, 60),
     activityLog: (db.activityLog || []).slice(0, 60)
   });
 });
@@ -1222,6 +1434,7 @@ app.post('/api/admin/config', function (req, res) {
   }
   if (typeof b.telegramBotToken === 'string') db.config.telegramBotToken = b.telegramBotToken.trim();
   if (typeof b.telegramChatId === 'string') db.config.telegramChatId = b.telegramChatId.trim();
+  if (typeof b.smsWebhookSecret === 'string' && b.smsWebhookSecret.trim().length >= 8) db.config.smsWebhookSecret = b.smsWebhookSecret.trim().slice(0, 128);
   logActivity(db, 'Config Updated', 'Admin updated store settings / banners / notice / catalog', 'info', 'Admin');
   saveDb(db);
   res.json({ ok: true, config: db.config });
@@ -1290,6 +1503,20 @@ app.post('/api/admin/orders/reply', function (req, res) {
   logActivity(db, 'Support Reply Sent', 'Admin replied on Order ' + b.orderId, 'info', 'Admin');
   saveDb(db);
   res.json({ ok: true, order: logOrd });
+});
+
+app.post('/api/admin/sms/test', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var parsed = parseMobileBankingSms(req.body || {});
+  if (!parsed.ok) return res.status(400).json({ ok: false, error: parsed.error });
+  var result = await ingestSmsPayment(db, parsed, 'Admin SMS Test');
+  res.json({
+    ok: true,
+    duplicate: result.duplicate,
+    matched: Boolean(result.matched),
+    matchedRefId: result.matched ? result.matched.refId : null,
+    sms: result.sms
+  });
 });
 
 app.post('/api/admin/telegram/test', async function (req, res) {
