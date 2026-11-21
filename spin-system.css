@@ -3998,3 +3998,44 @@ body.sw-on-checkout #siteFooter {
 .eps-easy-trxrow button { border: 0; border-radius: 4px; background: #ffffff; color: #991b1b; padding: 2px 8px; font-size: 10px; font-weight: 800; cursor: pointer; }
 .eps-easy-trxbox input { width: 100%; border: 0; border-radius: 4px; padding: 8px 10px; font-size: 12px; font-weight: 700; color: #0f172a; outline: none; box-sizing: border-box; }
 .eps-easy-foot { margin-top: 22px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+
+/* V19 Gateway Pay Bar & Clean Fullscreen Payment Method Mode */
+.am-gw-paybar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: #dbeafe;
+  border-top: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+  letter-spacing: 0.01em;
+}
+body.am-gateway-mode {
+  background-color: #f1f5fb !important;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.22) 1px, transparent 1px) !important;
+  background-size: 18px 18px !important;
+}
+body.am-gateway-mode header,
+body.am-gateway-mode .nav,
+body.am-gateway-mode .fab,
+body.am-gateway-mode #fab {
+  display: none !important;
+}
+body.am-gateway-mode #amView {
+  padding-top: 14px !important;
+  padding-bottom: 84px !important;
+  min-height: 100vh;
+}
+body.am-gateway-mode .am-gw-wrap {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0 2px 24px;
+}

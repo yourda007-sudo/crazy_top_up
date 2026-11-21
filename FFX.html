@@ -1647,7 +1647,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
   <!-- 6. Crazy_Top_Up (24) Footer & Contact Us -->
   <section class="ac2-footer-sec">
     <div class="ac2-f-brand">
-      <img src="Main logo.jpg" alt="Crazy_Top_Up (24)">
+      <img src="Main logo.jpg" alt="Crazy_Top_Up (24)" onerror="this.onerror=null;this.src='pwa-192x192.png';">
       <span>Crazy_Top_Up (24)</span>
     </div>
     <p class="ac2-f-tag">Crazy_Top_Up (24) | Trusted by Gamers, Loved by Everyone.</p>
@@ -1676,6 +1676,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
   </section>
 </main><!-- ADD MONEY PAGE (Crazy_Top_Up (24)) -->
 <main class="wrap" id="amView" hidden>
+  <div id="amPendingCard" hidden style="margin-bottom:12px;border-radius:18px;background:#ffffff;border:1px solid #bfdbfe;padding:13px 15px;box-shadow:0 6px 18px -10px rgba(21,101,216,.28);display:none;align-items:center;justify-content:space-between;gap:10px;"></div>
   <section class="am-hero">
     <div class="am-hero-glow1"></div>
     <div class="am-hero-glow2"></div>
@@ -1711,7 +1712,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     <label class="am-lbl" for="amAmtInput">AMOUNT</label>
     <div class="am-inp-wrap">
       <span class="am-taka">৳</span>
-      <input id="amAmtInput" type="number" min="20" value="50" inputmode="numeric" placeholder="50">
+      <input id="amAmtInput" type="number" min="20" value="" inputmode="numeric" placeholder="Enter amount">
       <button type="button" class="am-clear" id="amClearAmt" aria-label="Clear amount">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1772,7 +1773,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
       <button type="button" class="am-gw-icobtn" id="amGwHome" aria-label="Home">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10z"/></svg>
       </button>
-      <span id="amChosenAmt" style="display:none;">Amount: ৳50</span>
+      <span id="amChosenAmt" style="display:none;">Amount: ৳0</span>
       <button type="button" class="am-gw-icobtn" id="amGwClose" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1834,6 +1835,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
         </div>
       </button>
     </div>
+    <div class="am-gw-paybar" id="amGwPayBar">Pay 0.00</div>
   </section>
 
   <!-- Step 3A: Bangla QR (bKash) Checkout Screen -->
@@ -2724,7 +2726,7 @@ setInterval(fetchFreshAccountConfig, 15000);
   function route(){
     var onFF=location.hash==='#ff-likes', onUid=location.hash==='#uid-topup', onWm=location.hash==='#weekly-monthly', onWl=location.hash==='#weekly-lite', onLu=location.hash==='#level-up-pass', onIn=location.hash==='#indonesia-server', onOr=location.hash==='#my-orders', onCd=location.hash==='#my-codes', onAc=location.hash==='#account', onTr=location.hash==='#my-transaction', onCt=location.hash==='#contact-us', onUc=location.hash==='#uid-checker', onAm=location.hash==='#add-money';
     home.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm; foot.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm;
-    var amv=document.getElementById('amView'); if(amv) amv.hidden=!onAm;
+    var amv=document.getElementById('amView'); if(amv) amv.hidden=!onAm; if(!onAm){document.body.classList.remove('am-gateway-mode');}
     var tv=document.getElementById('trView'); if(tv) tv.hidden=!onTr;
     var ctv=document.getElementById('ctView'); if(ctv) ctv.hidden=!onCt;
     var ucv=document.getElementById('ucView'); if(ucv) ucv.hidden=!onUc;
@@ -2778,8 +2780,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=document.getElementById('uid').value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');document.getElementById('uid').focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
@@ -2863,8 +2865,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');inp.focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
@@ -2947,8 +2949,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');inp.focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
@@ -3031,8 +3033,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');inp.focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
@@ -3115,8 +3117,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');inp.focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
@@ -3199,8 +3201,8 @@ setInterval(fetchFreshAccountConfig, 15000);
     var uid=inp.value.trim();
     if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
     if(uid.length<6){toast('সঠিক প্লেয়ার আইডি দিন');inp.focus();return;}
-    // TODO: অর্ডার সাবমিট লজিক এখানে বসান
-    toast('অর্ডার সাবমিট হচ্ছে... ('+sel.name+', '+sel.price+' টাকা, '+sel.pay+')');
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
   });
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();

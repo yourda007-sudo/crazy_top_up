@@ -59,13 +59,15 @@
   ];
 
   var PRODUCT_VIEWS = [
-    { viewId: 'ffView', name: 'FF Likes', pkGrid: 'pkGrid', needEl: 'needAmt', buyBtn: 'buyBtn', uidInp: 'uid', poSel: '#ffView .po' },
-    { viewId: 'uidView', name: 'UID Topup (BD)', pkGrid: 'uidPkGrid', needEl: 'uidNeed', buyBtn: 'uidBuy', uidInp: 'uidInp', poSel: '#uidPo .po' },
-    { viewId: 'wmView', name: 'Weekly/Monthly', pkGrid: 'wmPkGrid', needEl: 'wmNeed', buyBtn: 'wmBuy', uidInp: 'wmInp', poSel: '#wmPo .po' },
-    { viewId: 'wlView', name: 'Weekly Lite', pkGrid: 'wlPkGrid', needEl: 'wlNeed', buyBtn: 'wlBuy', uidInp: 'wlInp', poSel: '#wlPo .po' },
-    { viewId: 'luView', name: 'Level Up Pass', pkGrid: 'luPkGrid', needEl: 'luNeed', buyBtn: 'luBuy', uidInp: 'luInp', poSel: '#luPo .po' },
-    { viewId: 'inView', name: 'Indonesia Server', pkGrid: 'inPkGrid', needEl: 'inNeed', buyBtn: 'inBuy', uidInp: 'inInp', poSel: '#inPo .po' }
+    { viewId: 'ffView', name: 'FF Likes', pkGrid: 'pkGrid', needEl: 'needAmt', buyBtn: 'buyBtn', uidInp: 'uid', poSel: '#ffView .po', balEl: '' },
+    { viewId: 'uidView', name: 'UID Topup (BD)', pkGrid: 'uidPkGrid', needEl: 'uidNeed', buyBtn: 'uidBuy', uidInp: 'uidInp', poSel: '#uidPo .po', balEl: 'uidBal' },
+    { viewId: 'wmView', name: 'Weekly/Monthly', pkGrid: 'wmPkGrid', needEl: 'wmNeed', buyBtn: 'wmBuy', uidInp: 'wmInp', poSel: '#wmPo .po', balEl: 'wmBal' },
+    { viewId: 'wlView', name: 'Weekly Lite', pkGrid: 'wlPkGrid', needEl: 'wlNeed', buyBtn: 'wlBuy', uidInp: 'wlInp', poSel: '#wlPo .po', balEl: 'wlBal' },
+    { viewId: 'luView', name: 'Level Up Pass', pkGrid: 'luPkGrid', needEl: 'luNeed', buyBtn: 'luBuy', uidInp: 'luInp', poSel: '#luPo .po', balEl: 'luBal' },
+    { viewId: 'inView', name: 'Indonesia Server', pkGrid: 'inPkGrid', needEl: 'inNeed', buyBtn: 'inBuy', uidInp: 'inInp', poSel: '#inPo .po', balEl: 'inBal' }
   ];
+  var pendingProductOrder = null;
+  var amOpenedDirectlyToGateway = false;
 
   /* -------------------- State -------------------- */
   function defaultState() {
@@ -2092,8 +2094,155 @@
     }
   }
 
+  function renderAmPendingCard() {
+    var box = document.getElementById('amPendingCard');
+    if (!box) return;
+    if (!pendingProductOrder) {
+      box.hidden = true;
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    var curBal = Number(state.walletBalanceBdt || 0);
+    var reqAmt = Number(pendingProductOrder.pricing.finalPrice || 0);
+    var readyToPay = curBal >= reqAmt;
+    box.hidden = false;
+    box.style.display = 'flex';
+    box.innerHTML =
+      '<div style="min-width:0;flex:1;">' +
+        '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:' + (readyToPay ? '#15803d' : '#1558c0') + ';">' +
+          (readyToPay ? '✅ ব্যালেন্স রেডি — অর্ডার সম্পন্ন করুন' : 'Wallet Pay অর্ডার পেন্ডিং') +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' +
+          esc(pendingProductOrder.cfg.name) + ' · ' + esc(pendingProductOrder.pkgName) +
+        '</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px;">UID: <b>' + esc(pendingProductOrder.uidVal) + '</b> · প্রয়োজন: <b>৳' + reqAmt + '</b> (ওয়ালেট: ৳' + curBal + ')</div>' +
+      '</div>' +
+      (readyToPay
+        ? '<button type="button" id="amCompletePendingBtn" style="padding:8px 12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">Pay ৳' + reqAmt + '</button>'
+        : '<button type="button" id="amCancelPendingBtn" style="padding:7px 10px;border:0;border-radius:9px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Back</button>');
+
+    var payNowBtn = document.getElementById('amCompletePendingBtn');
+    if (payNowBtn) {
+      payNowBtn.onclick = function () {
+        submitPendingProductOrder(payNowBtn);
+      };
+    }
+    var backBtn = document.getElementById('amCancelPendingBtn');
+    if (backBtn) {
+      backBtn.onclick = function () {
+        var ret = (pendingProductOrder && pendingProductOrder.returnHash) || '';
+        pendingProductOrder = null;
+        renderAmPendingCard();
+        location.hash = ret ? ret.replace(/^#/, '') : '';
+      };
+    }
+  }
+
+  function submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, triggerBtn) {
+    if (usedOfferObj) {
+      usedOfferObj.used = true;
+      state.activeOfferId = null;
+    }
+    state.spins += 1;
+    state.goldenSpins += 1;
+    saveState();
+    syncAllUI();
+
+    var ordObj = {
+      gameName: cfg.name,
+      packageLabel: pkgName,
+      playerUid: uidVal,
+      paymentMethod: payMethod,
+      originalPrice: pricing.originalPrice,
+      discountSaved: pricing.discountSaved,
+      finalPrice: pricing.finalPrice,
+      bonusPercent: pricing.bonusPercent,
+      appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
+    };
+    if (apiAvailable !== false && isUserSignedIn()) {
+      if (triggerBtn) triggerBtn.disabled = true;
+      apiPostJson('/api/orders', {
+        identifier: getUserKey(),
+        gameName: cfg.name,
+        packageLabel: pkgName,
+        playerUid: uidVal,
+        paymentMethod: payMethod,
+        originalPrice: pricing.originalPrice,
+        appliedOfferId: usedOfferObj ? usedOfferObj.id : null
+      }).then(function (data) {
+        applyServerPayload(data, true);
+        if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
+        pendingProductOrder = null;
+        renderAmPendingCard();
+        syncAllUI();
+        showOrderSummary(data.order || ordObj);
+      }).catch(function (err) {
+        if (payMethod === 'Wallet Pay' && err && /insufficient wallet/i.test(String(err.message || ''))) {
+          var needed = Math.max(20, pricing.finalPrice - Number(state.walletBalanceBdt || 0));
+          openAddMoneyForOrder(needed, {
+            cfg: cfg, pkgName: pkgName, uidVal: uidVal, pricing: pricing, usedOfferObj: usedOfferObj, returnHash: location.hash || ''
+          }, 1);
+          return;
+        }
+        showOfferToast('❌ ' + ((err && err.message) || 'অর্ডার সাবমিট ব্যর্থ হয়েছে।'), '', '');
+      }).finally(function () {
+        if (triggerBtn) triggerBtn.disabled = false;
+      });
+    } else {
+      pendingProductOrder = null;
+      renderAmPendingCard();
+      showOrderSummary(ordObj);
+    }
+  }
+
+  function submitPendingProductOrder(btnEl) {
+    if (!pendingProductOrder) return;
+    var p = pendingProductOrder;
+    submitProductOrderDirect(p.cfg, p.pkgName, p.uidVal, 'Wallet Pay', p.pricing, p.usedOfferObj, btnEl);
+  }
+
+  function openAddMoneyForOrder(amountBdt, pendingObj, startStep) {
+    pendingProductOrder = pendingObj || null;
+    var targetStep = startStep === 2 ? 2 : 1;
+    amOpenedDirectlyToGateway = (targetStep === 2);
+    var amt = Math.max(20, Math.round(Number(amountBdt) || 20));
+    var inp = document.getElementById('amAmtInput');
+    var ch = document.getElementById('amChosenAmt');
+    var payBar = document.getElementById('amGwPayBar');
+    if (targetStep === 2) {
+      if (inp) inp.value = String(amt);
+      if (ch) ch.textContent = 'Amount: ৳' + amt;
+      if (payBar) payBar.textContent = 'Pay ' + amt + '.00';
+    } else {
+      if (inp) inp.value = '';
+      if (ch) ch.textContent = 'Amount: ৳0';
+      if (payBar) payBar.textContent = 'Pay 0.00';
+    }
+    var err1 = document.getElementById('amErr1');
+    if (err1) err1.style.display = 'none';
+    renderAmPendingCard();
+    if (typeof window.__amShowStep === 'function') {
+      window.__amShowStep(targetStep);
+    }
+    location.hash = 'add-money';
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+  }
+
   function syncAllProductViews() {
-    PRODUCT_VIEWS.forEach(updateProductOfferStrip);
+    var balNum = Number(state.walletBalanceBdt || 0);
+    PRODUCT_VIEWS.forEach(function (cfg) {
+      updateProductOfferStrip(cfg);
+      if (cfg.balEl) {
+        var bEl = document.getElementById(cfg.balEl);
+        if (bEl) bEl.textContent = balNum.toFixed(2);
+      }
+    });
+    var walTop = document.querySelector('a.wallet');
+    if (walTop) {
+      walTop.innerHTML = '<svg class="i"><use href="#wal"/></svg>' + Math.round(balNum) + '৳';
+    }
+    renderAmPendingCard();
   }
 
   function setupProductHooks() {
@@ -2129,7 +2278,7 @@
       if (buyBtn) {
         buyBtn.addEventListener('click', function () {
           var txt = (buyBtn.textContent || '').trim().toLowerCase();
-          if (txt === 'login') return;
+          if (txt === 'login' || !isUserSignedIn()) return;
           var activePk = document.querySelector('#' + cfg.pkGrid + ' .pk.on');
           var uidInput = document.getElementById(cfg.uidInp);
           var uidVal = uidInput ? uidInput.value.trim() : '';
@@ -2140,48 +2289,37 @@
           var activePay = document.querySelector(cfg.poSel + '.on');
           var payMethod = activePay ? (activePay.getAttribute('data-pay') || 'Wallet Pay') : 'Wallet Pay';
           var pricing = computePricing(basePrice);
-
           var usedOfferObj = (pricing.offer && !pricing.conditionWarning) ? pricing.offer : null;
-          if (usedOfferObj) {
-            usedOfferObj.used = true;
-            state.activeOfferId = null;
-          }
-          state.spins += 1;
-          state.goldenSpins += 1;
-          saveState();
-          syncAllUI();
+          var curBal = Number(state.walletBalanceBdt || 0);
 
-          var ordObj = {
-            gameName: cfg.name,
-            packageLabel: pkgName,
-            playerUid: uidVal,
-            paymentMethod: payMethod,
-            originalPrice: pricing.originalPrice,
-            discountSaved: pricing.discountSaved,
-            finalPrice: pricing.finalPrice,
-            bonusPercent: pricing.bonusPercent,
-            appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
-          };
-          if (apiAvailable !== false && isUserSignedIn()) {
-            apiPostJson('/api/orders', {
-              identifier: getUserKey(),
-              gameName: cfg.name,
-              packageLabel: pkgName,
-              playerUid: uidVal,
-              paymentMethod: payMethod,
-              originalPrice: pricing.originalPrice,
-              appliedOfferId: usedOfferObj ? usedOfferObj.id : null
-            }).then(function (data) {
-              applyServerPayload(data, true);
-              if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
-              syncAllUI();
-              showOrderSummary(data.order || ordObj);
-            }).catch(function () {
-              showOrderSummary(ordObj);
-            });
-          } else {
-            showOrderSummary(ordObj);
+          if (payMethod === 'Wallet Pay' && curBal < pricing.finalPrice) {
+            var neededAmt = Math.max(20, pricing.finalPrice - curBal);
+            playClick();
+            openAddMoneyForOrder(neededAmt, {
+              cfg: cfg,
+              pkgName: pkgName,
+              uidVal: uidVal,
+              pricing: pricing,
+              usedOfferObj: usedOfferObj,
+              returnHash: location.hash || ''
+            }, 1);
+            return;
           }
+
+          if (payMethod === 'Instant Pay') {
+            playClick();
+            openAddMoneyForOrder(Math.max(20, pricing.finalPrice), {
+              cfg: cfg,
+              pkgName: pkgName,
+              uidVal: uidVal,
+              pricing: pricing,
+              usedOfferObj: usedOfferObj,
+              returnHash: location.hash || ''
+            }, 2);
+            return;
+          }
+
+          submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, buyBtn);
         });
       }
     });
@@ -3960,13 +4098,22 @@
 
     function showAmStep(mode) {
       stopQrTimer();
-      if (hero) hero.hidden = (mode !== 1);
-      step1.hidden = (mode !== 1);
+      var isGw = (mode !== 1);
+      document.body.classList.toggle('am-gateway-mode', isGw);
+      if (hero) hero.hidden = isGw;
+      step1.hidden = isGw;
       step2.hidden = (mode !== 2);
       if (step3Qr) step3Qr.hidden = (mode !== 'qr');
       if (step3Mfs) step3Mfs.hidden = (mode !== 'mfs');
       if (step3Eps) step3Eps.hidden = (mode !== 'eps');
+      if (isGw) {
+        var pCard = document.getElementById('amPendingCard');
+        if (pCard) { pCard.hidden = true; pCard.style.display = 'none'; }
+      } else {
+        renderAmPendingCard();
+      }
     }
+    window.__amShowStep = showAmStep;
 
     function getActiveNumber(m) {
       var bkNum = (paymentNumbers && paymentNumbers.bkash) || '01700-000000';
@@ -4408,14 +4555,35 @@
         return;
       }
       err1.style.display = 'none';
+      amOpenedDirectlyToGateway = false;
       if (chosenAmt) chosenAmt.textContent = 'Amount: ৳' + amt;
+      var payBar = document.getElementById('amGwPayBar');
+      if (payBar) payBar.textContent = 'Pay ' + amt + '.00';
       showAmStep(2);
     };
 
+    function exitGatewayToOrigin(forceHome) {
+      if (amOpenedDirectlyToGateway && pendingProductOrder) {
+        var ret = (!forceHome && pendingProductOrder.returnHash) ? pendingProductOrder.returnHash.replace(/^#/, '') : '';
+        pendingProductOrder = null;
+        amOpenedDirectlyToGateway = false;
+        showAmStep(1);
+        location.hash = ret;
+        return;
+      }
+      amOpenedDirectlyToGateway = false;
+      if (forceHome) {
+        showAmStep(1);
+      } else {
+        showAmStep(1);
+        location.hash = '';
+      }
+    }
+
     var gwHome = document.getElementById('amGwHome');
-    if (gwHome) gwHome.onclick = function () { showAmStep(1); };
+    if (gwHome) gwHome.onclick = function () { exitGatewayToOrigin(true); };
     var gwClose = document.getElementById('amGwClose');
-    if (gwClose) gwClose.onclick = function () { showAmStep(1); location.hash = ''; };
+    if (gwClose) gwClose.onclick = function () { exitGatewayToOrigin(false); };
 
     view.querySelectorAll('.am-gw-card').forEach(function (btn) {
       btn.onclick = function () {
@@ -4429,7 +4597,7 @@
 
     document.getElementById('amQrBack').onclick = function () { showAmStep(2); };
     document.getElementById('amMfsBack').onclick = function () { showAmStep(2); };
-    document.getElementById('amMfsClose').onclick = function () { showAmStep(1); location.hash = ''; };
+    document.getElementById('amMfsClose').onclick = function () { exitGatewayToOrigin(false); };
 
     document.getElementById('amQrDlBtn').onclick = function () {
       var c = document.getElementById('amQrCanvas');

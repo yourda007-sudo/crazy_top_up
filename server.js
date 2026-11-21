@@ -7,6 +7,7 @@ var express = require('express');
 
 var app = express();
 app.use(express.json({ limit: '6mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 var DB_PATH = path.join(__dirname, 'spin-db.json');
 
@@ -259,8 +260,9 @@ function verifySmsWebhookSecret(req, d) {
 
 function parseMobileBankingSms(payload) {
   payload = payload || {};
-  var rawSender = String(payload.sender || '').trim().slice(0, 64);
-  var rawText = String(payload.text != null ? payload.text : (payload.message != null ? payload.message : (payload.body != null ? payload.body : ''))).trim().slice(0, 1000);
+  var rawSender = String(payload.sender != null ? payload.sender : (payload.from != null ? payload.from : (payload.phone != null ? payload.phone : (payload.address != null ? payload.address : '')))).trim().slice(0, 64);
+  var txtCand = payload.text != null ? payload.text : (payload.msg != null ? payload.msg : (payload.message != null ? payload.message : (payload.body != null ? payload.body : (payload.sms != null ? payload.sms : payload.content))));
+  var rawText = String(txtCand != null ? txtCand : '').trim().slice(0, 1000);
   var combined = (rawSender + ' ' + rawText).toLowerCase();
   var explicitProv = String(payload.provider || '').trim().toLowerCase();
   var provider = 'Unknown';
