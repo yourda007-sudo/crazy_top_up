@@ -5,7 +5,7 @@
   "description": "Gaming top-up store with Spin & Win discounts, Wallet cashback, VIP tiers, and instant support.",
   "start_url": "/FFX.html",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "theme_color": "#0c1118",
   "background_color": "#0c1118",
   "icons": [

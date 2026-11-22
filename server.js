@@ -1528,6 +1528,28 @@ app.post('/api/admin/telegram/test', async function (req, res) {
   res.json({ ok: true });
 });
 
+
+app.get('/.well-known/assetlinks.json', function (req, res) {
+  var rawJson = String(process.env.TWA_ASSETLINKS_JSON || '').trim();
+  res.setHeader('Cache-Control', 'no-cache');
+  if (rawJson) {
+    try { return res.json(JSON.parse(rawJson)); } catch (e) {}
+  }
+  var pkg = String(process.env.ANDROID_PACKAGE_NAME || 'com.crazytopup24.app').trim();
+  var fps = String(process.env.ANDROID_SHA256 || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (fps.length > 0) {
+    return res.json([{
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: fps }
+    }]);
+  }
+  var staticPath = path.join(__dirname, 'assetlinks.json');
+  if (fs.existsSync(staticPath)) {
+    try { return res.sendFile(staticPath); } catch (e) {}
+  }
+  return res.json([]);
+});
+
 app.use(express.static(__dirname, {
   setHeaders: function (res, filePath) {
     if (/\.(html|js|css|json)$/i.test(filePath)) {
