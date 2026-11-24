@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.crazytopup24.app",
+        "sha256_cert_fingerprints": ["99:8F:78:97:DC:3E:05:04:B7:3D:BE:A9:99:B9:BE:0B:2C:31:0E:E4:E4:27:3B:89:C9:2D:00:87:E0:71:3D:6A"]
+      }
+    }]
