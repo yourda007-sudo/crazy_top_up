@@ -376,12 +376,19 @@
       { name: 'Siam', vipRank: 'Bronze', metricValue: 3 }
     ]
   };
-  var deferredInstallPrompt = null;
+  var deferredInstallPrompt = (typeof window !== 'undefined' && window.__crazyDeferredInstallPrompt) || null;
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredInstallPrompt = e;
+    window.__crazyDeferredInstallPrompt = e;
     if (location.hash === '#spin-checkout') renderCheckoutView();
     injectSiteTriggers();
+  });
+  window.addEventListener('appinstalled', function () {
+    deferredInstallPrompt = null;
+    window.__crazyDeferredInstallPrompt = null;
+    var pop = document.getElementById('crazyInstallPop');
+    if (pop) pop.classList.add('hide');
   });
   function triggerExternalDownload(url, isDownload) {
     var a = document.createElement('a');
@@ -397,14 +404,20 @@
     a.remove();
   }
   function triggerPwaInstall() {
-    if (deferredInstallPrompt && typeof deferredInstallPrompt.prompt === 'function') {
-      deferredInstallPrompt.prompt();
-      deferredInstallPrompt.userChoice.then(function () {
+    var promptObj = deferredInstallPrompt || (typeof window !== 'undefined' && window.__crazyDeferredInstallPrompt);
+    if (promptObj && typeof promptObj.prompt === 'function') {
+      promptObj.prompt();
+      promptObj.userChoice.then(function (choice) {
         deferredInstallPrompt = null;
+        window.__crazyDeferredInstallPrompt = null;
+        if (choice && choice.outcome === 'accepted') {
+          var pop = document.getElementById('crazyInstallPop');
+          if (pop) pop.classList.add('hide');
+        }
         if (location.hash === '#spin-checkout') renderCheckoutView();
       }).catch(function () {});
     } else {
-      showSiteToast('অ্যাপ ইনস্টল করতে ব্রাউজার মেনু (⋮ / Share) থেকে "Add to Home Screen" বা "Install App" চাপুন।');
+      showSiteToast('অ্যাপ ইনস্টল করতে ব্রাউজার মেনু (⋮ / Share) থেকে "Install App" বা "Add to Home Screen" চাপুন।');
     }
   }
   function handleMobileAppDownload(ev) {
@@ -428,10 +441,13 @@
       return;
     }
     if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
-    if (deferredInstallPrompt && typeof deferredInstallPrompt.prompt === 'function') {
-      triggerPwaInstall();
-    } else if (url) {
+    if (url) {
       triggerExternalDownload(url, /\.apk(\?|$)/i.test(url));
+      return;
+    }
+    var promptObj = deferredInstallPrompt || (typeof window !== 'undefined' && window.__crazyDeferredInstallPrompt);
+    if (promptObj && typeof promptObj.prompt === 'function') {
+      triggerPwaInstall();
     } else {
       triggerPwaInstall();
     }
@@ -3772,6 +3788,54 @@
       var spinHdr = document.getElementById('swHdrBtn');
       if (spinHdr) hr.insertBefore(admLink, spinHdr);
       else hr.appendChild(admLink);
+    }
+    injectInstallAppPopup();
+  }
+  function injectInstallAppPopup() {
+    var isStandalone = false;
+    try {
+      isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    } catch (e) {}
+    if (isStandalone) return;
+    try {
+      if (window.sessionStorage && window.sessionStorage.getItem('crazy_pwa_popup_dismissed_v1') === '1') return;
+    } catch (e2) {}
+    if (document.getElementById('crazyInstallPop')) return;
+    var pop = document.createElement('div');
+    pop.id = 'crazyInstallPop';
+    pop.className = 'pwa-install-pop';
+    pop.setAttribute('role', 'region');
+    pop.setAttribute('aria-label', 'Install App');
+    pop.innerHTML =
+      '<div class="pwa-ip-ico" aria-hidden="true">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
+          '<polyline points="7 10 12 15 17 10"/>' +
+          '<line x1="12" y1="15" x2="12" y2="3"/>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="pwa-ip-txt">' +
+        '<b>Install App</b>' +
+        '<small>Install the app for better experience!</small>' +
+      '</div>' +
+      '<button type="button" class="pwa-ip-btn" id="crazyInstallBtn">Install</button>' +
+      '<button type="button" class="pwa-ip-close" id="crazyInstallClose" aria-label="Close">×</button>';
+    document.body.appendChild(pop);
+    var instBtn = document.getElementById('crazyInstallBtn');
+    if (instBtn) {
+      instBtn.onclick = function (ev) {
+        playClick();
+        handleMobileAppDownload(ev);
+      };
+    }
+    var clsBtn = document.getElementById('crazyInstallClose');
+    if (clsBtn) {
+      clsBtn.onclick = function () {
+        pop.classList.add('hide');
+        try {
+          if (window.sessionStorage) window.sessionStorage.setItem('crazy_pwa_popup_dismissed_v1', '1');
+        } catch (e3) {}
+      };
     }
   }
 
