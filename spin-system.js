@@ -4369,19 +4369,82 @@
 
 
   var ACCOUNT_RANKS = [
-    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "linear-gradient(135deg,#8e5627 0%,#a86c39 48%,#734016 100%)", fill: "#9a5b25", rim: "#f6ad55", core: "#fff7ed" },
-    { level: 2, name: "Silver", min: 101, max: 1000, range: "101 - 1,000 Tk", sub: "Silver members unlock priority delivery.", grad: "linear-gradient(135deg,#475569 0%,#64748b 50%,#334155 100%)", fill: "#64748b", rim: "#e2e8f0", core: "#f8fafc" },
-    { level: 3, name: "Gold", min: 1001, max: 5000, range: "1,001 - 5,000 Tk", sub: "Gold tier boosts your spin luck and savings.", grad: "linear-gradient(135deg,#b45309 0%,#d97706 50%,#78350f 100%)", fill: "#d97706", rim: "#fde047", core: "#fef9c3" },
-    { level: 4, name: "Platinum", min: 5001, max: 10000, range: "5,001 - 10,000 Tk", sub: "Platinum unlocks special top-up rates.", grad: "linear-gradient(135deg,#0369a1 0%,#0284c7 50%,#1e3a8a 100%)", fill: "#0284c7", rim: "#7dd3fc", core: "#f0f9ff" },
-    { level: 5, name: "Diamond", min: 10001, max: 25000, range: "10,001 - 25,000 Tk", sub: "Diamond members enjoy VIP discounts & perks.", grad: "linear-gradient(135deg,#6d28d9 0%,#9333ea 50%,#4c1d95 100%)", fill: "#7c3aed", rim: "#d8b4fe", core: "#faf5ff" },
-    { level: 6, name: "Heroic", min: 25001, max: 50000, range: "25,001 - 50,000 Tk", sub: "Heroic champions get elite priority access.", grad: "linear-gradient(135deg,#b91c1c 0%,#dc2626 50%,#7f1d1d 100%)", fill: "#dc2626", rim: "#fca5a5", core: "#fef2f2" },
-    { level: 7, name: "Master", min: 50001, max: 100000, range: "50,001 - 100,000 Tk", sub: "Master rank commands top store privileges.", grad: "linear-gradient(135deg,#c2410c 0%,#ea580c 50%,#7c2d12 100%)", fill: "#ea580c", rim: "#fdba74", core: "#fff7ed" },
-    { level: 8, name: "Grand Master", min: 100001, max: null, range: "100,000+ Tk", sub: "Grand Master — supreme Crazy_Top_Up (24) legend!", grad: "linear-gradient(135deg,#b45309 0%,#dc2626 52%,#581c87 100%)", fill: "#b91c1c", rim: "#facc15", core: "#fef08a" }
+    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "linear-gradient(142deg,#5c3312 0%,#864e21 48%,#bc7a3b 100%)", fill: "#8c4a1b", rim: "#f2a86b", core: "#ffffff" },
+    { level: 2, name: "Silver", min: 101, max: 1000, range: "101 - 1,000 Tk", sub: "Silver members unlock priority delivery.", grad: "linear-gradient(135deg,#334155 0%,#64748b 50%,#94a3b8 100%)", fill: "#64748b", rim: "#e2e8f0", core: "#f8fafc" },
+    { level: 3, name: "Gold", min: 1001, max: 5000, range: "1,001 - 5,000 Tk", sub: "Gold tier boosts your spin luck and savings.", grad: "linear-gradient(135deg,#92400e 0%,#d97706 50%,#f59e0b 100%)", fill: "#d97706", rim: "#fde047", core: "#fef9c3" },
+    { level: 4, name: "Platinum", min: 5001, max: 10000, range: "5,001 - 10,000 Tk", sub: "Platinum unlocks special top-up rates.", grad: "linear-gradient(135deg,#1e3a8a 0%,#0284c7 50%,#38bdf8 100%)", fill: "#1d4ed8", rim: "#7dd3fc", core: "#f0f9ff" },
+    { level: 5, name: "Diamond", min: 10001, max: 25000, range: "10,001 - 25,000 Tk", sub: "Diamond members enjoy VIP discounts & perks.", grad: "linear-gradient(135deg,#4c1d95 0%,#7c3aed 50%,#a855f7 100%)", fill: "#7c3aed", rim: "#d8b4fe", core: "#faf5ff" },
+    { level: 6, name: "Heroic", min: 25001, max: 50000, range: "25,001 - 50,000 Tk", sub: "Heroic champions get elite priority access.", grad: "linear-gradient(135deg,#7f1d1d 0%,#dc2626 50%,#ef4444 100%)", fill: "#dc2626", rim: "#fca5a5", core: "#fef2f2" },
+    { level: 7, name: "Master", min: 50001, max: 100000, range: "50,001 - 100,000 Tk", sub: "Master rank commands top store privileges.", grad: "linear-gradient(135deg,#7c2d12 0%,#ea580c 50%,#f97316 100%)", fill: "#ea580c", rim: "#fdba74", core: "#fff7ed" },
+    { level: 8, name: "Grand Master", min: 100001, max: null, range: "100,000+ Tk", sub: "Grand Master — supreme Crazy_Top_Up (24) legend!", grad: "linear-gradient(135deg,#78350f 0%,#dc2626 52%,#7e22ce 100%)", fill: "#b91c1c", rim: "#facc15", core: "#fef08a" }
   ];
-  function rankShieldSvg(r, sz) {
-    return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 44 44\" aria-hidden=\"true\">" +
-      "<path d=\"M22 4l13 5.2v10.6c0 9.4-5.7 16.5-13 19.7-7.3-3.2-13-10.3-13-19.7V9.2L22 4z\" fill=\"" + r.fill + "\" stroke=\"" + r.rim + "\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
-      "<path d=\"M22 13l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7-3.4-3.3 4.7-.7L22 13z\" fill=\"" + r.core + "\"/>" +
+  function rankShieldSvg(r, sz, isJourneyCurrent) {
+    if (isJourneyCurrent) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 44 44\" aria-hidden=\"true\">" +
+        "<path d=\"M12 10h4v3h12v-3h4v22l-10 5.5L12 32V10z\" fill=\"#ffffff\"/>" +
+      "</svg>";
+    }
+    var lvl = r && r.level ? Number(r.level) : 1;
+    if (lvl === 1) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M14 10h9l3 5h12l3-5h9v34L32 56 14 44V10z\" fill=\"#b8682e\" stroke=\"#f3ba7d\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M19 15h26v26L32 49 19 41V15z\" fill=\"#3b1a07\" stroke=\"#d48342\" stroke-width=\"1.6\"/>" +
+        "<path d=\"M26 21l12-4v5l-12 4v-5zm0 8l12-4v5l-12 4v-5zm0 8l12-4v5l-12 4v-5z\" fill=\"#ffffff\"/>" +
+        "<path d=\"M12 12l5 4v7l-5-3v-8zm40 0l-5 4v7l5-3v-8z\" fill=\"#f5c085\"/>" +
+      "</svg>";
+    }
+    if (lvl === 2) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M10 14l10 4 12-7 12 7 10-4-4 28-18 14-18-14-4-28z\" fill=\"#94a3b8\" stroke=\"#f1f5f9\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 19l15 5 15-5-3 21-12 10-12-10-3-21z\" fill=\"#1e293b\" stroke=\"#cbd5e1\" stroke-width=\"1.5\"/>" +
+        "<path d=\"M23 25l9 4 9-4v4l-9 4-9-4v-4zm0 8l9 4 9-4v4l-9 4-9-4v-4z\" fill=\"#e2e8f0\"/>" +
+      "</svg>";
+    }
+    if (lvl === 3) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M11 16l9-4 12-5 12 5 9 4-4 26-17 15-17-15-4-26z\" fill=\"#d97706\" stroke=\"#fde047\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M18 20l14-5 14 5-3 20-11 10-11-10-3-20z\" fill=\"#451a03\" stroke=\"#facc15\" stroke-width=\"1.5\"/>" +
+        "<polygon points=\"32,20 38,31 32,42 26,31\" fill=\"#fef08a\" stroke=\"#f59e0b\" stroke-width=\"1.5\"/>" +
+        "<circle cx=\"32\" cy=\"31\" r=\"3\" fill=\"#ffffff\"/>" +
+      "</svg>";
+    }
+    if (lvl === 4) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M10 15l11-4 11-5 11 5 11 4-5 27-17 15-17-15-5-27z\" fill=\"#1d4ed8\" stroke=\"#e2e8f0\" stroke-width=\"2.3\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M18 20l14-6 14 6-3 19-11 10-11-10-3-19z\" fill=\"#0f172a\" stroke=\"#60a5fa\" stroke-width=\"1.5\"/>" +
+        "<polygon points=\"32,20 40,30 32,43 24,30\" fill=\"#38bdf8\" stroke=\"#e0f2fe\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,24 36,30 32,37 28,30\" fill=\"#ffffff\"/>" +
+      "</svg>";
+    }
+    if (lvl === 5) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M9 14l13 2 10-10 10 10 13-2-6 27-17 16-17-16-6-27z\" fill=\"#7e22ce\" stroke=\"#e9d5ff\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M18 21l14-6 14 6-4 19-10 10-10-10-4-19z\" fill=\"#2e1065\" stroke=\"#c084fc\" stroke-width=\"1.5\"/>" +
+        "<polygon points=\"32,19 41,29 32,43 23,29\" fill=\"#d8b4fe\" stroke=\"#ffffff\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,24 36,29 32,37 28,29\" fill=\"#ffffff\"/>" +
+      "</svg>";
+    }
+    if (lvl === 6) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M7 13l15 5 10-11 10 11 15-5-6 27-19 16-19-16-6-27z\" fill=\"#dc2626\" stroke=\"#ffffff\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 21l15-5 15 5-4 18-11 10-11-10-4-18z\" fill=\"#450a0a\" stroke=\"#fca5a5\" stroke-width=\"1.4\"/>" +
+        "<path d=\"M21 24l11 5 11-5-4 13-7 6-7-6-4-13z\" fill=\"#f8fafc\"/>" +
+        "<polygon points=\"32,25 36,31 32,37 28,31\" fill=\"#ef4444\"/>" +
+      "</svg>";
+    }
+    if (lvl === 7) {
+      return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+        "<path d=\"M8 14l14 3 10-12 10 12 14-3-5 27-19 16-19-16-5-27z\" fill=\"#ea580c\" stroke=\"#fde047\" stroke-width=\"2.3\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 20l15-6 15 6-4 19-11 10-11-10-4-19z\" fill=\"#431407\" stroke=\"#fb923c\" stroke-width=\"1.5\"/>" +
+        "<polygon points=\"32,18 39,28 36,41 32,45 28,41 25,28\" fill=\"#fde047\"/>" +
+        "<polygon points=\"32,23 36,29 32,37 28,29\" fill=\"#ffffff\"/>" +
+      "</svg>";
+    }
+    return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
+      "<path d=\"M6 12l15 5 11-12 11 12 15-5-6 28-20 17-20-17-6-28z\" fill=\"#b45309\" stroke=\"#fde047\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>" +
+      "<path d=\"M16 19l16-6 16 6-4 20-12 11-12-11-4-20z\" fill=\"#450a0a\" stroke=\"#facc15\" stroke-width=\"1.6\"/>" +
+      "<path d=\"M21 25l11-7 11 7-4 14-7 6-7-6-4-14z\" fill=\"#facc15\"/>" +
+      "<polygon points=\"32,22 36,30 32,39 28,30\" fill=\"#ffffff\"/>" +
     "</svg>";
   }
   function computePin6(seed) {
@@ -4503,7 +4566,7 @@
     var rh = document.getElementById("acRankHero");
     if (rh) rh.style.background = cur.grad;
     var hs = document.getElementById("acHeroShield");
-    if (hs) hs.innerHTML = rankShieldSvg(cur, 38);
+    if (hs) hs.innerHTML = rankShieldSvg(cur, 44, false);
     var hl = document.getElementById("acHeroLvl");
     if (hl) hl.textContent = "Level " + cur.level;
     var hn = document.getElementById("acHeroName");
@@ -4541,11 +4604,11 @@
         var isUnl = r.level < cur.level;
         var badgeCls = isCur ? "cur" : (isUnl ? "unl" : "");
         var chkIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><polyline points=\"20 6 9 17 4 12\"/></svg>";
-        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>";
+        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"currentColor\" style=\"vertical-align:-1px;margin-right:3px;\"><path d=\"M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z\"/></svg>";
         var badgeTxt = isCur ? (chkIco + "Current") : (isUnl ? (chkIco + "Unlocked") : (lockIco + "Locked"));
         return "<div class=\"ac2-j-item" + (isCur ? " is-cur" : "") + "\">" +
           "<div class=\"ac2-j-left\">" +
-            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, 24) + "</div>" +
+            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, isCur ? 22 : 28, isCur) + "</div>" +
             "<div><b>" + r.name + "</b><small>" + r.range + "</small></div>" +
           "</div>" +
           "<span class=\"ac2-j-pill " + badgeCls + "\">" + badgeTxt + "</span>" +
