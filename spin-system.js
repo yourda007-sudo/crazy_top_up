@@ -607,6 +607,7 @@
       if (data.state.lastSpinDate) state.lastSpinDate = data.state.lastSpinDate;
       if (Array.isArray(data.state.stockWatchlist)) state.stockWatchlist = data.state.stockWatchlist;
       saveState();
+      syncOrdersAndTransactions();
     }
   }
 
@@ -2346,18 +2347,19 @@
     }
     var curBal = Number(state.walletBalanceBdt || 0);
     var reqAmt = Number(pendingProductOrder.pricing.finalPrice || 0);
-    var readyToPay = curBal >= reqAmt;
+    var isInstantMode = pendingProductOrder.payMode === 'instant';
+    var readyToPay = !isInstantMode && curBal >= reqAmt;
     box.hidden = false;
     box.style.display = 'flex';
     box.innerHTML =
       '<div style="min-width:0;flex:1;">' +
         '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:' + (readyToPay ? '#15803d' : '#1558c0') + ';">' +
-          (readyToPay ? '✅ ব্যালেন্স রেডি — অর্ডার সম্পন্ন করুন' : 'Wallet Pay অর্ডার পেন্ডিং') +
+          (readyToPay ? '✅ ব্যালেন্স রেডি — অর্ডার সম্পন্ন করুন' : (isInstantMode ? '⚡ Instant Pay অর্ডার — নিচে পেমেন্ট মেথড বেছে নিন' : 'Wallet Pay অর্ডার পেন্ডিং')) +
         '</div>' +
         '<div style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' +
           esc(pendingProductOrder.cfg.name) + ' · ' + esc(pendingProductOrder.pkgName) +
         '</div>' +
-        '<div style="font-size:11px;color:#64748b;margin-top:2px;">UID: <b>' + esc(pendingProductOrder.uidVal) + '</b> · প্রয়োজন: <b>৳' + reqAmt + '</b> (ওয়ালেট: ৳' + curBal + ')</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px;">UID: <b>' + esc(pendingProductOrder.uidVal) + '</b> · প্রয়োজন: <b>৳' + reqAmt + '</b>' + (isInstantMode ? '' : (' (ওয়ালেট: ৳' + curBal + ')')) + '</div>' +
       '</div>' +
       (readyToPay
         ? '<button type="button" id="amCompletePendingBtn" style="padding:8px 12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">Pay ৳' + reqAmt + '</button>'
@@ -2380,67 +2382,172 @@
     }
   }
 
-  function submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, triggerBtn) {
-    if (usedOfferObj) {
-      usedOfferObj.used = true;
-      state.activeOfferId = null;
+  var secTransTimerId = null;
+  function showSecurityTransition(opts, callback) {
+    opts = opts || {};
+    var ov = document.getElementById('amSecTransOv');
+    if (!ov) {
+      if (typeof callback === 'function') callback();
+      return;
     }
-    state.spins += 1;
-    state.goldenSpins += 1;
-    saveState();
-    syncAllUI();
+    if (secTransTimerId) {
+      clearTimeout(secTransTimerId);
+      secTransTimerId = null;
+    }
+    var titleEl = document.getElementById('amSecTransTitle');
+    var subEl = document.getElementById('amSecTransSub');
+    var badgeEl = document.getElementById('amSecTransBadge');
+    var progEl = document.getElementById('amSecTransProg');
+    var cardEl = ov.querySelector('.am-sec-card');
 
+    if (titleEl) titleEl.textContent = opts.title || 'নিরাপদ পেমেন্ট গেটওয়ে চালু হচ্ছে...';
+    if (subEl) subEl.textContent = opts.subtitle || 'অনুগ্রহ করে অপেক্ষা করুন, এনক্রিপ্টেড কানেকশন যাচাই হচ্ছে।';
+    if (badgeEl) {
+      badgeEl.innerHTML = opts.badgeHtml || '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1565d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>';
+    }
+    var dur = Math.max(360, Number(opts.duration || 760));
+    if (progEl) {
+      progEl.style.animation = 'none';
+      void progEl.offsetWidth;
+      progEl.style.animation = 'amSecFill ' + (dur / 1000).toFixed(2) + 's cubic-bezier(0.22, 1, 0.36, 1) forwards';
+    }
+    if (cardEl) {
+      cardEl.style.animation = 'none';
+      void cardEl.offsetWidth;
+      cardEl.style.animation = 'epsCardPop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    }
+    ov.style.display = 'flex';
+    secTransTimerId = setTimeout(function () {
+      secTransTimerId = null;
+      ov.style.display = 'none';
+      if (typeof callback === 'function') callback();
+    }, dur);
+  }
+
+  function formatNowLabel() {
+    try {
+      var d = new Date();
+      var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+      var hr = d.getHours();
+      var ampm = hr >= 12 ? 'PM' : 'AM';
+      hr = hr % 12 || 12;
+      return pad(d.getDate()) + '-' + pad(d.getMonth() + 1) + '-' + d.getFullYear() + ' ' + pad(hr) + ':' + pad(d.getMinutes()) + ' ' + ampm;
+    } catch (e) {
+      return 'Just now';
+    }
+  }
+
+  function submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, triggerBtn, extraMeta) {
+    extraMeta = extraMeta || {};
+    var ordIdLocal = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
     var ordObj = {
+      id: ordIdLocal,
       gameName: cfg.name,
       packageLabel: pkgName,
       playerUid: uidVal,
       paymentMethod: payMethod,
+      senderNumber: extraMeta.senderNumber || '',
+      trxId: extraMeta.trxId || '',
       originalPrice: pricing.originalPrice,
       discountSaved: pricing.discountSaved,
       finalPrice: pricing.finalPrice,
       bonusPercent: pricing.bonusPercent,
-      appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
+      appliedOfferCode: usedOfferObj ? usedOfferObj.code : '',
+      status: payMethod === 'Wallet Pay' ? 'Processing' : 'Pending',
+      createdAt: formatNowLabel()
     };
     if (apiAvailable !== false && isUserSignedIn()) {
-      if (triggerBtn) triggerBtn.disabled = true;
+      var origBtnHtml = triggerBtn ? triggerBtn.innerHTML : '';
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.classList.add('loading');
+        triggerBtn.innerHTML = '<span class="am-btn-spin" aria-hidden="true"></span><span>অর্ডার প্রসেস হচ্ছে...</span>';
+      }
+      var startedAt = Date.now();
       apiPostJson('/api/orders', {
         identifier: getUserKey(),
         gameName: cfg.name,
         packageLabel: pkgName,
         playerUid: uidVal,
         paymentMethod: payMethod,
+        senderNumber: extraMeta.senderNumber || undefined,
+        trxId: extraMeta.trxId || undefined,
         originalPrice: pricing.originalPrice,
         appliedOfferId: usedOfferObj ? usedOfferObj.id : null
       }).then(function (data) {
-        applyServerPayload(data, true);
-        if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
-        pendingProductOrder = null;
-        renderAmPendingCard();
-        syncAllUI();
-        showOrderSummary(data.order || ordObj);
+        if (usedOfferObj) {
+          usedOfferObj.used = true;
+          state.activeOfferId = null;
+        }
+        var elapsed = Date.now() - startedAt;
+        var extraWait = Math.max(320, 620 - elapsed);
+        showSecurityTransition({
+          title: 'অর্ডার কনফার্ম করা হচ্ছে...',
+          subtitle: cfg.name + ' · ' + pkgName + ' (' + payMethod + ')',
+          duration: extraWait
+        }, function () {
+          applyServerPayload(data, true);
+          if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
+          pendingProductOrder = null;
+          amOpenedDirectlyToGateway = false;
+          renderAmPendingCard();
+          syncAllUI();
+          showOrderSummary(data.order || ordObj);
+        });
       }).catch(function (err) {
-        if (payMethod === 'Wallet Pay' && err && /insufficient wallet/i.test(String(err.message || ''))) {
+        if (payMethod === 'Wallet Pay' && err && /insufficient|পর্যাপ্ত ব্যালেন্স/i.test(String(err.message || ''))) {
           var needed = Math.max(20, pricing.finalPrice - Number(state.walletBalanceBdt || 0));
-          openAddMoneyForOrder(needed, {
-            cfg: cfg, pkgName: pkgName, uidVal: uidVal, pricing: pricing, usedOfferObj: usedOfferObj, returnHash: location.hash || ''
-          }, 1);
+          showSecurityTransition({
+            title: 'ওয়ালেট অ্যাড মানি চালু হচ্ছে...',
+            subtitle: 'অর্ডারের জন্য আরও ৳' + needed + ' যোগ করতে হবে',
+            duration: 680
+          }, function () {
+            openAddMoneyForOrder(needed, {
+              cfg: cfg, pkgName: pkgName, uidVal: uidVal, pricing: pricing, usedOfferObj: usedOfferObj, payMode: 'wallet', returnHash: location.hash || ''
+            }, 1);
+          });
           return;
         }
         showOfferToast('❌ ' + ((err && err.message) || 'অর্ডার সাবমিট ব্যর্থ হয়েছে।'), '', '');
       }).finally(function () {
-        if (triggerBtn) triggerBtn.disabled = false;
+        if (triggerBtn) {
+          triggerBtn.disabled = false;
+          triggerBtn.classList.remove('loading');
+          triggerBtn.innerHTML = origBtnHtml;
+        }
       });
     } else {
-      pendingProductOrder = null;
-      renderAmPendingCard();
-      showOrderSummary(ordObj);
+      if (usedOfferObj) {
+        usedOfferObj.used = true;
+        state.activeOfferId = null;
+      }
+      if (payMethod === 'Wallet Pay') {
+        state.walletBalanceBdt = Math.max(0, Number(state.walletBalanceBdt || 0) - Number(pricing.finalPrice || 0));
+      }
+      state.lifetimeSpendBdt = Number(state.lifetimeSpendBdt || 0) + Number(pricing.finalPrice || 0);
+      state.spins += 1;
+      state.goldenSpins += 1;
+      state.orders = [ordObj].concat(state.orders || []).slice(0, 20);
+      saveState();
+      syncAllUI();
+      showSecurityTransition({
+        title: 'অর্ডার কনফার্ম করা হচ্ছে...',
+        subtitle: cfg.name + ' · ' + pkgName,
+        duration: 620
+      }, function () {
+        pendingProductOrder = null;
+        amOpenedDirectlyToGateway = false;
+        renderAmPendingCard();
+        syncAllUI();
+        showOrderSummary(ordObj);
+      });
     }
   }
 
-  function submitPendingProductOrder(btnEl) {
+  function submitPendingProductOrder(btnEl, payMethodOverride, extraMeta) {
     if (!pendingProductOrder) return;
     var p = pendingProductOrder;
-    submitProductOrderDirect(p.cfg, p.pkgName, p.uidVal, 'Wallet Pay', p.pricing, p.usedOfferObj, btnEl);
+    submitProductOrderDirect(p.cfg, p.pkgName, p.uidVal, payMethodOverride || 'Wallet Pay', p.pricing, p.usedOfferObj, btnEl, extraMeta);
   }
 
   function openAddMoneyForOrder(amountBdt, pendingObj, startStep) {
@@ -2536,27 +2643,55 @@
           if (payMethod === 'Wallet Pay' && curBal < pricing.finalPrice) {
             var neededAmt = Math.max(20, pricing.finalPrice - curBal);
             playClick();
-            openAddMoneyForOrder(neededAmt, {
-              cfg: cfg,
-              pkgName: pkgName,
-              uidVal: uidVal,
-              pricing: pricing,
-              usedOfferObj: usedOfferObj,
-              returnHash: location.hash || ''
-            }, 1);
+            var origHtml1 = buyBtn.innerHTML;
+            buyBtn.disabled = true;
+            buyBtn.classList.add('loading');
+            buyBtn.innerHTML = '<span class="am-btn-spin" aria-hidden="true"></span><span>ওয়ালেট খোলা হচ্ছে...</span>';
+            showSecurityTransition({
+              title: 'নিরাপদ অ্যাড মানি ওয়ালেট খুলছে...',
+              subtitle: 'অর্ডারের জন্য আরও ৳' + neededAmt + ' যোগ করতে হবে',
+              duration: 700
+            }, function () {
+              buyBtn.disabled = false;
+              buyBtn.classList.remove('loading');
+              buyBtn.innerHTML = origHtml1;
+              openAddMoneyForOrder(neededAmt, {
+                cfg: cfg,
+                pkgName: pkgName,
+                uidVal: uidVal,
+                pricing: pricing,
+                usedOfferObj: usedOfferObj,
+                payMode: 'wallet',
+                returnHash: location.hash || ''
+              }, 1);
+            });
             return;
           }
 
           if (payMethod === 'Instant Pay') {
             playClick();
-            openAddMoneyForOrder(Math.max(20, pricing.finalPrice), {
-              cfg: cfg,
-              pkgName: pkgName,
-              uidVal: uidVal,
-              pricing: pricing,
-              usedOfferObj: usedOfferObj,
-              returnHash: location.hash || ''
-            }, 2);
+            var origHtml2 = buyBtn.innerHTML;
+            buyBtn.disabled = true;
+            buyBtn.classList.add('loading');
+            buyBtn.innerHTML = '<span class="am-btn-spin" aria-hidden="true"></span><span>গেটওয়ে চালু হচ্ছে...</span>';
+            showSecurityTransition({
+              title: 'নিরাপদ ইনস্ট্যান্ট পেমেন্ট চালু হচ্ছে...',
+              subtitle: cfg.name + ' · ' + pkgName + ' (৳' + pricing.finalPrice + ')',
+              duration: 700
+            }, function () {
+              buyBtn.disabled = false;
+              buyBtn.classList.remove('loading');
+              buyBtn.innerHTML = origHtml2;
+              openAddMoneyForOrder(Math.max(20, pricing.finalPrice), {
+                cfg: cfg,
+                pkgName: pkgName,
+                uidVal: uidVal,
+                pricing: pricing,
+                usedOfferObj: usedOfferObj,
+                payMode: 'instant',
+                returnHash: location.hash || ''
+              }, 2);
+            });
             return;
           }
 
@@ -3668,10 +3803,55 @@
     }
   }
 
+  function syncOrdersAndTransactions() {
+    if (typeof window.renderOrders === 'function') {
+      var mappedOrders = (state.orders || []).map(function (o) {
+        var cleanId = String(o.id || '').replace(/^ORD-/, '');
+        var pkgText = (o.gameName ? (o.gameName + ' — ') : '') + (o.packageLabel || 'Top-Up');
+        if (o.paymentMethod) pkgText += ' (' + o.paymentMethod + (o.trxId ? ' · ' + o.trxId : '') + ')';
+        return {
+          id: cleanId || o.id || 'ORDER',
+          status: o.status || 'Pending',
+          date: o.createdAt || '',
+          updated: o.updatedAt || o.createdAt || '',
+          package: pkgText,
+          price: Number(o.finalPrice != null ? o.finalPrice : (o.originalPrice || 0)),
+          playerId: o.playerUid || ''
+        };
+      });
+      window.renderOrders(mappedOrders);
+    }
+    if (typeof window.renderTransactions === 'function') {
+      var mappedTx = (state.walletRequests || []).map(function (r) {
+        return {
+          number: (r.senderNumber || r.method || '') + (r.trxId ? ' (' + r.trxId + ')' : ''),
+          amount: Number(r.amountBdt || 0),
+          status: r.status || 'Pending'
+        };
+      });
+      window.renderTransactions(mappedTx);
+    }
+  }
+
+  window.__syncMyOrders = function () {
+    syncOrdersAndTransactions();
+    if (apiAvailable !== false && isUserSignedIn() && getUserKey() !== '__default__') {
+      fetch('/api/user/state?identifier=' + encodeURIComponent(getUserKey()))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (data) { applyServerPayload(data, true); syncOrdersAndTransactions(); }
+        })
+        .catch(function () {});
+    }
+  };
+  window.__syncMyTransactions = window.__syncMyOrders;
+
   function syncAllUI() {
     syncBadges();
     renderTickerDOM();
     syncAllProductViews();
+    syncOrdersAndTransactions();
+    renderMyAccountRankView();
     if (location.hash === '#spin-checkout') renderCheckoutView();
     var amBalEl = document.getElementById('amBalVal');
     if (amBalEl) amBalEl.textContent = '৳' + Number(state.walletBalanceBdt || 0);
@@ -4333,6 +4513,13 @@
       if (qrTimerId) { clearInterval(qrTimerId); qrTimerId = null; }
     }
 
+    function triggerAmStepAnim(el) {
+      if (!el || el.hidden) return;
+      el.classList.remove('am-step-enter');
+      void el.offsetWidth;
+      el.classList.add('am-step-enter');
+    }
+
     function showAmStep(mode) {
       stopQrTimer();
       var isGw = (mode !== 1);
@@ -4343,11 +4530,16 @@
       if (step3Qr) step3Qr.hidden = (mode !== 'qr');
       if (step3Mfs) step3Mfs.hidden = (mode !== 'mfs');
       if (step3Eps) step3Eps.hidden = (mode !== 'eps');
-      if (isGw) {
+      if (!isGw) {
+        triggerAmStepAnim(step1);
+        renderAmPendingCard();
+      } else {
         var pCard = document.getElementById('amPendingCard');
         if (pCard) { pCard.hidden = true; pCard.style.display = 'none'; }
-      } else {
-        renderAmPendingCard();
+        if (mode === 2) triggerAmStepAnim(step2);
+        else if (mode === 'qr') triggerAmStepAnim(step3Qr);
+        else if (mode === 'mfs') triggerAmStepAnim(step3Mfs);
+        else if (mode === 'eps') triggerAmStepAnim(step3Eps);
       }
     }
     window.__amShowStep = showAmStep;
@@ -4575,6 +4767,16 @@
       var epsConnTimer = null;
       var epsPickTimer = null;
       var epsEasyLang = "en";
+      function getEpsChannelLogoHtml(ch) {
+        var list = (EPS_CHANNELS.WALLET || []).concat(EPS_CHANNELS.BANK || []);
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === ch && typeof list[i].render === "function") {
+            return list[i].render(true);
+          }
+        }
+        return "<b style=\"font-size:13px;color:#006a4e;\">" + esc(ch) + "</b>";
+      }
+
       function startEpsConnecting() {
         var err = document.getElementById("epsErr");
         if (!epsChannel) {
@@ -4586,16 +4788,31 @@
         err.style.display = "none";
         var amt = Math.round(Number(amtInp.value)) || 50;
         var chLbl = epsChannel === "নগদ" ? "Nagad" : epsChannel;
+        var connOv = document.getElementById("epsConnOv");
         var connLogo = document.getElementById("epsConnLogo");
-        connLogo.innerHTML = epsChannel === "নগদ"
-          ? "<div style=\"display:flex;align-items:center;gap:5px;\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"#fef3c7\" stroke=\"#f59e0b\" stroke-width=\"2.8\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"#dc2626\"/></svg><div style=\"text-align:left;line-height:1;\"><div style=\"font-size:15px;font-weight:900;color:#dc2626;\">নগদ</div><div style=\"font-size:5.5px;font-weight:700;color:#dc2626;\">ডাক বিভাগের ডিজিটাল লেনদেন</div></div></div>"
-          : ("<b style=\"font-size:13px;color:#006a4e;\">" + esc(epsChannel) + "</b>");
+        connLogo.innerHTML = getEpsChannelLogoHtml(epsChannel);
         document.getElementById("epsConnTitle").textContent = "Connecting to " + chLbl;
-        document.getElementById("epsConnOv").style.display = "flex";
+        var connCard = connOv ? connOv.querySelector(".eps-conn-card") : null;
+        var connBar = connOv ? connOv.querySelector(".eps-conn-prog div") : null;
+        if (connCard) {
+          connCard.style.animation = "none";
+          void connCard.offsetWidth;
+          connCard.style.animation = "epsCardPop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)";
+        }
+        if (connBar) {
+          connBar.style.animation = "none";
+          void connBar.offsetWidth;
+          connBar.style.animation = "epsBarFill 1.55s cubic-bezier(0.22, 1, 0.36, 1) forwards";
+        }
+        connOv.style.display = "flex";
         if (epsConnTimer) clearTimeout(epsConnTimer);
         epsConnTimer = setTimeout(function () {
-          document.getElementById("epsConnOv").style.display = "none";
-          document.getElementById("epsEasyCard").style.background = getEasyBg(epsChannel);
+          connOv.style.display = "none";
+          var easyCard = document.getElementById("epsEasyCard");
+          easyCard.style.background = getEasyBg(epsChannel);
+          easyCard.style.animation = "none";
+          void easyCard.offsetWidth;
+          easyCard.style.animation = "epsCardPop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)";
           document.getElementById("epsEasyInv").textContent = "261120" + String(Date.now()).slice(-6) + "TW";
           document.getElementById("epsEasyAmt").textContent = "BDT " + amt + ".00";
           document.getElementById("epsEasyPhoneStep").style.display = "block";
@@ -4684,6 +4901,144 @@
         var t = document.getElementById("epsEasyNumTxt").textContent;
         if (navigator.clipboard && t) navigator.clipboard.writeText(t).then(function () { showSiteToast("কপি হয়েছে: " + t); }).catch(function () {});
       };
+      function submitGatewayPayment(gwOpts) {
+        var btn = gwOpts.btn;
+        var origLabel = gwOpts.origLabel;
+        var err = gwOpts.errEl;
+        var ok = gwOpts.okEl;
+        var method = gwOpts.method;
+        var amt = gwOpts.amountBdt;
+        var sender = gwOpts.senderNumber;
+        var trx = gwOpts.trxId;
+        var epsOv = document.getElementById("epsEasyOv");
+
+        if (pendingProductOrder && pendingProductOrder.payMode === 'instant') {
+          var p = pendingProductOrder;
+          var fallbackOrd = {
+            id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+            gameName: p.cfg.name,
+            packageLabel: p.pkgName,
+            playerUid: p.uidVal,
+            paymentMethod: method,
+            senderNumber: sender,
+            trxId: trx,
+            originalPrice: p.pricing.originalPrice,
+            discountSaved: p.pricing.discountSaved,
+            finalPrice: p.pricing.finalPrice,
+            bonusPercent: p.pricing.bonusPercent,
+            appliedOfferCode: p.usedOfferObj ? p.usedOfferObj.code : '',
+            status: 'Pending',
+            createdAt: formatNowLabel()
+          };
+          if (apiAvailable !== false && isUserSignedIn()) {
+            fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                identifier: getUserKey(),
+                gameName: p.cfg.name,
+                packageLabel: p.pkgName,
+                playerUid: p.uidVal,
+                paymentMethod: method,
+                senderNumber: sender,
+                trxId: trx,
+                originalPrice: p.pricing.originalPrice,
+                appliedOfferId: p.usedOfferObj ? p.usedOfferObj.id : null
+              })
+            }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+              .then(function (res) {
+                if (!res.ok) {
+                  err.textContent = (res.data && res.data.error) || 'অর্ডার সাবমিট ব্যর্থ হয়েছে।';
+                  err.style.display = 'block';
+                  return;
+                }
+                if (p.usedOfferObj) { p.usedOfferObj.used = true; state.activeOfferId = null; }
+                applyServerPayload(res.data, true);
+                if (gwOpts.onResetInput) gwOpts.onResetInput();
+                var createdOrd = res.data.order || fallbackOrd;
+                pendingProductOrder = null;
+                amOpenedDirectlyToGateway = false;
+                renderAmPendingCard();
+                syncAllUI();
+                ok.textContent = '✅ অর্ডার সফল! Order #' + createdOrd.id + ' (' + method + ') — My Orders-এ যুক্ত হয়েছে।';
+                ok.style.display = 'block';
+                setTimeout(function () {
+                  if (epsOv) epsOv.style.display = 'none';
+                  showAmStep(1);
+                  showOrderSummary(createdOrd);
+                }, 420);
+              }).catch(function () {
+                err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';
+                err.style.display = 'block';
+              }).finally(function () {
+                btn.disabled = false;
+                btn.textContent = origLabel;
+              });
+          } else {
+            if (p.usedOfferObj) { p.usedOfferObj.used = true; state.activeOfferId = null; }
+            state.spins += 1;
+            state.goldenSpins += 1;
+            state.lifetimeSpendBdt = Number(state.lifetimeSpendBdt || 0) + Number(p.pricing.finalPrice || 0);
+            state.orders = [fallbackOrd].concat(state.orders || []).slice(0, 20);
+            saveState();
+            if (gwOpts.onResetInput) gwOpts.onResetInput();
+            pendingProductOrder = null;
+            amOpenedDirectlyToGateway = false;
+            renderAmPendingCard();
+            syncAllUI();
+            ok.textContent = '✅ অর্ডার সফল! Order #' + fallbackOrd.id + ' — My Orders-এ যুক্ত হয়েছে।';
+            ok.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = origLabel;
+            setTimeout(function () {
+              if (epsOv) epsOv.style.display = 'none';
+              showAmStep(1);
+              showOrderSummary(fallbackOrd);
+            }, 420);
+          }
+          return;
+        }
+
+        fetch('/api/wallet/deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identifier: getUserKey(),
+            method: method,
+            amountBdt: amt,
+            senderNumber: sender,
+            trxId: trx
+          })
+        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+          .then(function (res) {
+            if (!res.ok) {
+              err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।';
+              err.style.display = 'block';
+              return;
+            }
+            applyServerPayload(res.data, true);
+            syncAllUI();
+            if (gwOpts.onResetInput) gwOpts.onResetInput();
+            var isAuto = Boolean(res.data && res.data.autoApproved);
+            ok.textContent = isAuto
+              ? ('✅ অটো-ভেরিফাই সফল! ' + method + ' ৳' + amt + '.00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!')
+              : ('✅ ' + method + ' ৳' + amt + '.00 TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!');
+            ok.style.display = 'block';
+            if (isAuto && pendingProductOrder && Number(state.walletBalanceBdt || 0) >= Number(pendingProductOrder.pricing.finalPrice || 0)) {
+              setTimeout(function () {
+                if (epsOv) epsOv.style.display = 'none';
+                submitPendingProductOrder(null);
+              }, 450);
+            }
+          }).catch(function () {
+            err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।';
+            err.style.display = 'block';
+          }).finally(function () {
+            btn.disabled = false;
+            btn.textContent = origLabel;
+          });
+      }
+
       document.getElementById("epsEasyConfirm").onclick = function () {
         var trx = (document.getElementById("epsEasyTrxInp").value || "").trim().toUpperCase();
         var err = document.getElementById("epsEasyTrxErr");
@@ -4695,26 +5050,17 @@
         var btn = document.getElementById("epsEasyConfirm");
         btn.disabled = true; btn.textContent = "...";
         var amt = Math.round(Number(amtInp.value)) || 50;
-        fetch("/api/wallet/deposit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            identifier: getUserKey(),
-            method: "EPS (" + epsChannel + ")",
-            amountBdt: amt,
-            senderNumber: sender || ("EPS " + epsChannel),
-            trxId: trx
-          })
-        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
-          .then(function (res) {
-            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
-            applyServerPayload(res.data, true);
-            document.getElementById("epsEasyTrxInp").value = "";
-            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " সফলভাবে জমা হয়েছে!");
-            ok.style.display = "block";
-          }).catch(function () {
-            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
-          }).finally(function () { btn.disabled = false; btn.textContent = "Confirm"; });
+        submitGatewayPayment({
+          btn: btn,
+          origLabel: "Confirm",
+          errEl: err,
+          okEl: ok,
+          method: "EPS (" + epsChannel + ")",
+          amountBdt: amt,
+          senderNumber: sender || ("EPS " + epsChannel),
+          trxId: trx,
+          onResetInput: function () { document.getElementById("epsEasyTrxInp").value = ""; }
+        });
       };
       document.getElementById("epsPayBtn").onclick = function () {
         startEpsConnecting();
@@ -4732,26 +5078,17 @@
         var btn = document.getElementById("epsVerifyBtn");
         btn.disabled = true; btn.textContent = "...";
         var amt = Math.round(Number(amtInp.value)) || 50;
-        fetch("/api/wallet/deposit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            identifier: getUserKey(),
-            method: "EPS (" + epsChannel + ")",
-            amountBdt: amt,
-            senderNumber: "EPS " + epsChannel,
-            trxId: trx
-          })
-        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
-          .then(function (res) {
-            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
-            applyServerPayload(res.data, true);
-            document.getElementById("epsTrxInp").value = "";
-            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " ভেরিফাইয়ের জন্য জমা হয়েছে!");
-            ok.style.display = "block";
-          }).catch(function () {
-            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
-          }).finally(function () { btn.disabled = false; btn.textContent = "Verify"; });
+        submitGatewayPayment({
+          btn: btn,
+          origLabel: "Verify",
+          errEl: err,
+          okEl: ok,
+          method: "EPS (" + epsChannel + ")",
+          amountBdt: amt,
+          senderNumber: "EPS " + epsChannel,
+          trxId: trx,
+          onResetInput: function () { document.getElementById("epsTrxInp").value = ""; }
+        });
       };
     }
 
@@ -4808,7 +5145,26 @@
       if (chosenAmt) chosenAmt.textContent = 'Amount: ৳' + amt;
       var payBar = document.getElementById('amGwPayBar');
       if (payBar) payBar.textContent = 'Pay ' + amt + '.00';
-      showAmStep(2);
+
+      var nextBtn = document.getElementById('amNextBtn');
+      var origNextHtml = nextBtn ? nextBtn.innerHTML : '';
+      if (nextBtn) {
+        nextBtn.disabled = true;
+        nextBtn.classList.add('loading');
+        nextBtn.innerHTML = '<span class="am-btn-spin" aria-hidden="true"></span><span>নিরাপদ গেটওয়ে প্রস্তুত হচ্ছে...</span>';
+      }
+      showSecurityTransition({
+        title: 'নিরাপদ পেমেন্ট গেটওয়ে চালু হচ্ছে...',
+        subtitle: '৳' + amt + ' Add Money করার জন্য পেমেন্ট মেথড লোড হচ্ছে',
+        duration: 820
+      }, function () {
+        if (nextBtn) {
+          nextBtn.disabled = false;
+          nextBtn.classList.remove('loading');
+          nextBtn.innerHTML = origNextHtml;
+        }
+        showAmStep(2);
+      });
     };
 
     function exitGatewayToOrigin(forceHome) {
@@ -4838,9 +5194,20 @@
       btn.onclick = function () {
         selectedMethod = btn.getAttribute('data-method') || 'bKash';
         var amt = Math.round(Number(amtInp.value)) || 50;
-        if (selectedMethod === 'bKash') openQrStep(amt);
-        else if (selectedMethod === 'EPS') openEpsStep(amt);
-        else openMfsStep(selectedMethod, amt);
+        view.querySelectorAll('.am-gw-card').forEach(function (x) { x.classList.remove('picking'); });
+        btn.classList.add('picking');
+        var methodLbl = selectedMethod === 'EPS' ? 'PAY WITH ≡EPS' : selectedMethod;
+        showSecurityTransition({
+          title: methodLbl + ' গেটওয়ে চালু হচ্ছে...',
+          subtitle: '৳' + amt + '.00 নিরাপদ পেমেন্ট স্ক্রিন খোলা হচ্ছে',
+          badgeHtml: btn.innerHTML,
+          duration: 540
+        }, function () {
+          btn.classList.remove('picking');
+          if (selectedMethod === 'bKash') openQrStep(amt);
+          else if (selectedMethod === 'EPS') openEpsStep(amt);
+          else openMfsStep(selectedMethod, amt);
+        });
       };
     });
 
@@ -4871,26 +5238,17 @@
       btn.disabled = true; btn.textContent = '...';
       var amt = Math.round(Number(amtInp.value)) || 50;
       var uniqueTrx = 'QR-' + d + '-' + Date.now().toString(36).slice(-4).toUpperCase();
-      fetch('/api/wallet/deposit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: getUserKey(),
-          method: 'bKash (Bangla QR)',
-          amountBdt: amt,
-          senderNumber: 'Last4: ' + d,
-          trxId: uniqueTrx
-        })
-      }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
-        .then(function (res) {
-          if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
-          applyServerPayload(res.data, true);
-          document.getElementById('amQrDigits').value = '';
-          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + '.00 BDT সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!');
-          ok.style.display = 'block';
-        }).catch(function () {
-          err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
-        }).finally(function () { btn.disabled = false; btn.textContent = 'Verify'; });
+      submitGatewayPayment({
+        btn: btn,
+        origLabel: 'Verify',
+        errEl: err,
+        okEl: ok,
+        method: 'bKash (Bangla QR)',
+        amountBdt: amt,
+        senderNumber: 'Last4: ' + d,
+        trxId: uniqueTrx,
+        onResetInput: function () { document.getElementById('amQrDigits').value = ''; }
+      });
     };
 
     document.getElementById('amMfsVerifyBtn').onclick = function () {
@@ -4906,26 +5264,17 @@
       var btn = document.getElementById('amMfsVerifyBtn');
       btn.disabled = true; btn.textContent = 'ভেরিফাই হচ্ছে...';
       var amt = Math.round(Number(amtInp.value)) || 50;
-      fetch('/api/wallet/deposit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: getUserKey(),
-          method: selectedMethod,
-          amountBdt: amt,
-          senderNumber: selectedMethod + ' MFS',
-          trxId: trx
-        })
-      }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
-        .then(function (res) {
-          if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
-          applyServerPayload(res.data, true);
-          document.getElementById('amMfsTrxInp').value = '';
-          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!');
-          ok.style.display = 'block';
-        }).catch(function () {
-          err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
-        }).finally(function () { btn.disabled = false; btn.textContent = 'ভেরিফাই'; });
+      submitGatewayPayment({
+        btn: btn,
+        origLabel: 'ভেরিফাই',
+        errEl: err,
+        okEl: ok,
+        method: selectedMethod,
+        amountBdt: amt,
+        senderNumber: selectedMethod + ' MFS',
+        trxId: trx,
+        onResetInput: function () { document.getElementById('amMfsTrxInp').value = ''; }
+      });
     };
   }
 

@@ -218,7 +218,7 @@ footer h2{margin:30px 0 12px;font-size:26px;font-weight:800;letter-spacing:-.6px
 .nav a.add i{position:absolute;top:-22px;width:58px;height:58px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;border:4px solid #fff;box-shadow:0 10px 22px -4px rgba(37,99,235,.8)}
 .nav a.add i svg{font-size:26px}
 @media(min-width:760px){.grid{grid-template-columns:repeat(6,1fr)}.slide{aspect-ratio:2.1/1}.nav{display:none!important}.fab{right:max(16px,calc(50% - 480px));bottom:24px}footer{padding-bottom:50px}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){.ban,.slide,.fab,.pop,.pbox{transition:none!important}.ucd .an,.ct-card{opacity:1!important;transform:none!important;animation:none!important}}
 
 /* bottom area v2 */
 .dl{position:relative;overflow:hidden;margin-top:24px;padding:30px 20px 32px;border-radius:28px;text-align:center;background:linear-gradient(135deg,#3b82f6,#1d4ed8 55%,#1e3a8a);border:0;box-shadow:0 22px 44px -22px rgba(29,78,216,.8)}
@@ -291,8 +291,8 @@ footer .about h2{margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-.
 .pk:active{transform:scale(.97)}
 .pk span{font-size:14px;font-weight:700;line-height:1.55}
 .pk b{font-size:15px;font-weight:800;color:var(--v)}
-.pk.on{border-color:var(--v);background:linear-gradient(160deg,#eff5ff,#fff);box-shadow:0 0 0 3px rgba(37,99,235,.15),0 10px 20px -12px rgba(37,99,235,.7)}
-.pk.on:after{content:"✓";position:absolute;top:-8px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+.pk.on{border-color:var(--v);background:linear-gradient(160deg,#eff5ff,#fff);box-shadow:0 0 0 3px rgba(37,99,235,.15),0 10px 20px -12px rgba(37,99,235,.7);animation:pnameIn .24s cubic-bezier(.2,.9,.3,1)}
+.pk.on:after{content:"✓";position:absolute;top:-8px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;animation:chkBounce .3s cubic-bezier(.2,1.2,.4,1)}
 .lbl{display:block;margin:2px 0 10px;font-size:16px;font-weight:700}
 .inp{width:100%;height:54px;padding:0 16px;border-radius:14px;border:1.5px solid #bcd0fb;background:#fff;font-size:16px;font-family:inherit;color:var(--tx);outline:none;transition:.2s}
 .inp:focus{border-color:var(--v);box-shadow:0 0 0 4px rgba(37,99,235,.14)}
@@ -300,15 +300,21 @@ footer .about h2{margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-.
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:52px;margin-top:12px;border:0;border-radius:14px;background:var(--g);color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 10px 22px -10px rgba(37,99,235,.85);transition:.2s}
 .btn:active{transform:scale(.98)}
 .btn:disabled{opacity:.6}
-.btn.loading{opacity:.92;pointer-events:none}
-.btn .uid-spin{width:17px;height:17px;border:2.4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;display:inline-block;animation:ucRing .7s linear infinite;flex-shrink:0}
+.btn.loading{opacity:.95;pointer-events:none;box-shadow:0 8px 20px -6px rgba(37,99,235,.7)}
+.btn .uid-spin{width:17px;height:17px;border:2.4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;display:inline-block;animation:ucRing .65s linear infinite;flex-shrink:0}
 .pname{display:none;align-items:center;gap:9px;margin-top:12px;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600}
-.pname.ok{display:flex;background:#ecfdf3;color:#067647;border:1px solid #abefc6;animation:pnameIn .28s cubic-bezier(.2,.8,.2,1)}
+.pname.ok{display:flex;background:#ecfdf3;color:#067647;border:1px solid #abefc6;animation:pnameIn .32s cubic-bezier(.2,.9,.3,1)}
+.pname.ok svg{animation:chkBounce .38s cubic-bezier(.2,1.3,.4,1)}
 .pname.err{display:flex;background:#fef3f2;color:#b42318;border:1px solid #fecdca;animation:pnameIn .28s cubic-bezier(.2,.8,.2,1)}
-.pname.loading{display:flex;background:linear-gradient(110deg,#eff6ff 30%,#dbeafe 50%,#eff6ff 70%) 0 0/200% 100%;color:#1d4ed8;border:1px solid #bfdbfe;animation:sh 1.35s linear infinite,pnameIn .22s ease}
-.pname-spin{width:18px;height:18px;border:2.5px solid rgba(37,99,235,.22);border-top-color:#2563eb;border-radius:50%;flex-shrink:0;animation:ucRing .7s linear infinite}
+.pname.loading{display:flex;flex-direction:column;align-items:stretch;gap:8px;background:linear-gradient(110deg,#eff6ff 30%,#dbeafe 50%,#eff6ff 70%) 0 0/200% 100%;color:#1d4ed8;border:1px solid #93c5fd;box-shadow:0 8px 20px -10px rgba(37,99,235,.35);animation:sh 1.2s linear infinite,pnameIn .24s ease}
+.pname-row{display:flex;align-items:center;gap:9px}
+.pname-bar{width:100%;height:5px;border-radius:999px;background:rgba(37,99,235,.15);overflow:hidden}
+.pname-bar-fill{height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#06b6d4,#3b82f6);transform-origin:left center;animation:pnameFill .78s cubic-bezier(.22,1,.36,1) forwards}
+.pname-spin{width:18px;height:18px;border:2.5px solid rgba(37,99,235,.22);border-top-color:#2563eb;border-radius:50%;flex-shrink:0;animation:ucRing .65s linear infinite}
 .pname svg{font-size:18px;flex-shrink:0}
-@keyframes pnameIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes pnameIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pnameFill{0%{transform:scaleX(.08)}65%{transform:scaleX(.84)}100%{transform:scaleX(1)}}
+@keyframes chkBounce{0%{transform:scale(.4)}65%{transform:scale(1.22)}100%{transform:scale(1)}}
 /* UID CHECKER: full account details (one big GIF card, text on top) */
 .ucd{margin-top:14px;display:none}
 .ucd.on{display:block}
@@ -335,8 +341,8 @@ footer .about h2{margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-.
 .ucd .big.off .fx:after,.ucd .big.off .fx *,.ucd .big.off .avw:before{animation-play-state:paused}
 .ucd .big.lite .fx:after,.ucd .big.lite .fx *,.ucd .big.lite .avw:before{animation:none}
 .ucd .big.lite .fx *{display:none}
-@media (prefers-reduced-motion:reduce){.ucd .fx:after,.ucd .fx *,.ucd .avw:before{animation:none!important}}
-.ucd .an{opacity:0;animation:ucUp .6s cubic-bezier(.2,.8,.2,1) forwards}
+@media (prefers-reduced-motion:reduce){.ucd .fx:after,.ucd .fx *,.ucd .avw:before,.ucd .an{animation:none!important}.ucd .an{opacity:1!important;transform:none!important}}
+.ucd .an{opacity:1;animation:ucUp .6s cubic-bezier(.2,.8,.2,1) both}
 .ucd .uh{text-align:center;padding:6px 0 4px}
 .ucd .avw{position:relative;width:88px;height:88px;margin:0 auto 14px}
 .ucd .av{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#1e3a8a 70%);border:3px solid #fff;box-shadow:0 6px 18px rgba(0,0,0,.45)}
@@ -699,7 +705,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 .ct-live i{width:9px;height:9px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 0 rgba(74,222,128,.7);animation:ctPulse 1.8s infinite}
 .ct-sec{margin:22px 4px 0;font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--mu)}
 .ct-list{display:grid;gap:14px;margin-top:12px}
-.ct-card{position:relative;display:flex;align-items:center;gap:15px;padding:16px;border-radius:24px;background:#fff;border:1px solid var(--bd);box-shadow:0 12px 28px -18px rgba(20,40,90,.45);overflow:hidden;color:var(--tx);opacity:0;transform:translateY(14px);animation:ctIn .5s cubic-bezier(.2,.8,.2,1) forwards;transition:transform .18s,box-shadow .18s}
+.ct-card{position:relative;display:flex;align-items:center;gap:15px;padding:16px;border-radius:24px;background:#fff;border:1px solid var(--bd);box-shadow:0 12px 28px -18px rgba(20,40,90,.45);overflow:hidden;color:var(--tx);opacity:1;transform:none;animation:ctIn .5s cubic-bezier(.2,.8,.2,1) both;transition:transform .18s,box-shadow .18s}
 .ct-card:nth-child(2){animation-delay:.08s}
 .ct-card:nth-child(3){animation-delay:.16s}
 .ct-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c1)}
@@ -715,7 +721,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 .ct-card.off .ct-tx small:after{content:" (শীঘ্রই আসছে)"}
 .ct-note{display:flex;align-items:center;gap:12px;margin-top:20px;padding:14px 16px;border-radius:20px;background:#eef4ff;border:1px dashed #b7cdfb;font-size:12.8px;line-height:1.65;color:#334155}
 .ct-note svg{font-size:22px;color:var(--v);flex-shrink:0}
-@keyframes ctIn{to{opacity:1;transform:none}}
+@keyframes ctIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes ctFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes ctPulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}70%{box-shadow:0 0 0 9px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
 
@@ -796,7 +802,7 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CrazyTopUp24">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="spin-system.css?v=26">
+<link rel="stylesheet" href="spin-system.css?v=27">
 </head>
 <body>
 
@@ -2100,6 +2106,29 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     </div>
   </div>
 
+  <!-- Universal Security & Gateway Transition Overlay (v27) -->
+  <div class="am-sec-ov" id="amSecTransOv" style="display:none;" aria-live="polite">
+    <div class="am-sec-card">
+      <div class="am-sec-bar"></div>
+      <div class="am-sec-body">
+        <div class="am-sec-ring-wrap">
+          <div class="am-sec-ring" aria-hidden="true"></div>
+          <div class="am-sec-badge" id="amSecTransBadge">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1565d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </div>
+        </div>
+        <div class="am-sec-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h4 class="am-sec-title" id="amSecTransTitle">নিরাপদ পেমেন্ট গেটওয়ে চালু হচ্ছে...</h4>
+        <p class="am-sec-sub" id="amSecTransSub">অনুগ্রহ করে অপেক্ষা করুন, এনক্রিপ্টেড কানেকশন যাচাই হচ্ছে।</p>
+        <div class="am-sec-prog"><div class="am-sec-prog-fill" id="amSecTransProg"></div></div>
+        <div class="am-sec-foot">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>256-Bit SSL Encrypted</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div class="toast" id="toast"></div>
@@ -3316,8 +3345,11 @@ setInterval(fetchFreshAccountConfig, 15000);
     ok:'<svg class="i"><use href="#chk"/></svg>'
   };
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-  function dt(v){ // "24-09-2026 05:55:50 PM" অথবা আলাদা date/time
-    var t=esc(v||'').split(' ');
+  function dt(v){ // "24-09-2026 05:55:50 PM" অথবা "05:55 PM"
+    var s=esc(v||'').trim();
+    if(!s) return {d:'—',t:''};
+    var t=s.split(' ');
+    if(t.length===2 && /^(AM|PM)$/i.test(t[1])) return {d:'Today',t:s};
     return {d:t[0]||'',t:t.slice(1).join(' ')};
   }
 
@@ -3355,7 +3387,7 @@ setInterval(fetchFreshAccountConfig, 15000);
   }
   function sync(){
     var on=location.hash==='#my-orders';
-    if(on){ closePanel(); }
+    if(on){ closePanel(); if(typeof window.__syncMyOrders==='function') window.__syncMyOrders(); }
     if(navOrders) navOrders.classList.toggle('on',on);
     if(on){ if(navHome) navHome.classList.remove('on'); if(navAcc) navAcc.classList.remove('on'); }
     else if(navHome && !panel.classList.contains('show') && !/^#(ff-likes|uid-topup|weekly-monthly|weekly-lite|level-up-pass|indonesia-server|my-codes|my-transaction|contact-us|uid-checker|add-money)$/.test(location.hash)) navHome.classList.add('on');
@@ -3673,7 +3705,7 @@ setInterval(fetchFreshAccountConfig, 15000);
 
   function showBoxLoading(box){
     box.className='pname loading';
-    box.innerHTML='<span class="pname-spin" aria-hidden="true"></span><span>প্লেয়ার আইডি যাচাই করা হচ্ছে...</span>';
+    box.innerHTML='<div class="pname-row"><span class="pname-spin" aria-hidden="true"></span><span>প্লেয়ার আইডি যাচাই করা হচ্ছে...</span></div><div class="pname-bar" aria-hidden="true"><div class="pname-bar-fill"></div></div>';
   }
   function setBtnBusy(btn,busy,lbl){
     btn.disabled=!!busy;
@@ -3684,6 +3716,17 @@ setInterval(fetchFreshAccountConfig, 15000);
       btn.classList.remove('loading');
       btn.textContent=lbl;
     }
+  }
+  function fetchPlayerJson(uid, signal){
+    var directUrl=API_URL+encodeURIComponent(uid);
+    var proxyUrl='/api/ff-player?uid='+encodeURIComponent(uid);
+    return fetch(directUrl,{cache:'no-store',signal:signal})
+      .then(function(r){ if(!r.ok) throw new Error('direct_http'); return r.json(); })
+      .then(function(d){ if(!pickName(d)) throw new Error('no_name'); return d; })
+      .catch(function(){
+        return fetch(proxyUrl,{cache:'no-store',signal:signal})
+          .then(function(r2){ if(!r2.ok) throw new Error('proxy_http'); return r2.json(); });
+      });
   }
   PAGES.forEach(function(ids){
     var btn=document.getElementById(ids[0]), inp=document.getElementById(ids[1]), box=document.getElementById(ids[2]);
@@ -3700,22 +3743,32 @@ setInterval(fetchFreshAccountConfig, 15000);
       var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
       var to=setTimeout(function(){ if(ctrl) ctrl.abort(); },TIMEOUT_MS);
       function finish(cb){
-        var wait=Math.max(0,480-(Date.now()-started));
+        var wait=Math.max(0,780-(Date.now()-started));
         setTimeout(function(){
           if(my!==token) return;
           cb();
           setBtnBusy(btn,false,LBL);
         }, wait);
       }
-      fetch(API_URL+encodeURIComponent(uid),{cache:'no-store',signal:ctrl?ctrl.signal:undefined})
-        .then(function(r){ if(!r.ok) throw new Error('http'); return r.json(); })
+      fetchPlayerJson(uid, ctrl?ctrl.signal:undefined)
         .then(function(d){
           if(my!==token) return;
           clearTimeout(to);
           finish(function(){
             var name=pickName(d);
-            if(name){ if(isUc){ box.className='pname'; box.textContent=''; renderDetail(d,box); } else show(box,'ok',name,'chk'); }
-            else { show(box,'err',isUc?NODATA:'এই আইডির কোনো প্লেয়ার পাওয়া যায়নি','warn'); clearDetail(box); }
+            if(name){
+              if(isUc){
+                try{
+                  box.className='pname'; box.textContent=''; renderDetail(d,box);
+                }catch(e){
+                  show(box,'ok','Player: '+name+' (UID: '+uid+')','chk');
+                }
+              } else {
+                show(box,'ok',name,'chk');
+              }
+            } else {
+              show(box,'err',isUc?NODATA:'এই আইডির কোনো প্লেয়ার পাওয়া যায়নি','warn'); clearDetail(box);
+            }
           });
         })
         .catch(function(){
@@ -3758,6 +3811,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     var navLinks=[].slice.call(document.querySelectorAll('nav.nav a'));
     if(location.hash==='#my-transaction'){
       panel.classList.remove('show'); panel.setAttribute('aria-hidden','true'); document.body.style.overflow='';
+      if(typeof window.__syncMyTransactions==='function') window.__syncMyTransactions();
       setTimeout(function(){ navLinks.forEach(function(n){ n.classList.remove('on'); }); },0);
     }
   }
@@ -3800,6 +3854,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=26"></script>
+<script src="spin-system.js?v=27"></script>
 </body>
 </html>

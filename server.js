@@ -197,6 +197,12 @@ function formatTimeBD() {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
 
+function formatDateTimeBD() {
+  var d = getTodayBD().split('-');
+  var dateStr = d.length === 3 ? (d[2] + '-' + d[1] + '-' + d[0]) : getTodayBD();
+  return dateStr + ' ' + formatTimeBD();
+}
+
 var DEFAULT_ANNOUNCEMENT = {
   active: true,
   tagLabel: 'NOTICE',
@@ -1281,7 +1287,7 @@ app.post('/api/orders', async function (req, res) {
     autoMatched: exactOrderSmsMatch ? true : undefined,
     cashbackEarned: cashbackEarned,
     supportMessages: [],
-    createdAt: formatTimeBD()
+    createdAt: formatDateTimeBD()
   };
   if (exactOrderSmsMatch && matchingOrderSms) {
     matchingOrderSms.status = 'Matched';
@@ -1616,6 +1622,45 @@ app.post('/api/admin/telegram/test', async function (req, res) {
   res.json({ ok: true });
 });
 
+
+app.get('/api/ff-player', async function (req, res) {
+  var uid = String((req.query && req.query.uid) || '').replace(/\D/g, '');
+  if (!uid || uid.length < 6 || uid.length > 15) {
+    return res.status(400).json({ error: 'সঠিক প্লেয়ার আইডি দিন' });
+  }
+  var targetUrl = 'https://auraffxserverinfocheckerapi.onrender.com/api/player?uid=' + encodeURIComponent(uid);
+  try {
+    if (typeof fetch === 'function') {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var tm = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+      var r = await fetch(targetUrl, {
+        headers: { Accept: 'application/json' },
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      clearTimeout(tm);
+      var txt = await r.text();
+      res.status(r.status);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return res.send(txt);
+    }
+    var https = require('https');
+    https.get(targetUrl, { timeout: 20000 }, function (up) {
+      var chunks = [];
+      up.on('data', function (c) { chunks.push(c); });
+      up.on('end', function () {
+        res.status(up.statusCode || 200);
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.send(Buffer.concat(chunks).toString('utf8'));
+      });
+    }).on('error', function () {
+      res.status(502).json({ error: 'প্লেয়ার ইনফো সার্ভার পাওয়া যায়নি' });
+    });
+  } catch (e) {
+    return res.status(502).json({ error: 'প্লেয়ার ইনফো আনা যায়নি' });
+  }
+});
 
 app.get('/.well-known/assetlinks.json', function (req, res) {
   var rawJson = String(process.env.TWA_ASSETLINKS_JSON || '').trim();
