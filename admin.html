@@ -63,8 +63,7 @@
         <span>Crazy_top_up (24)</span>
         <span class="badge">Admin Panel</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <a href="/crazy-topup-spin.zip" download="crazy-topup-spin.zip" class="btn btn-sky">⬇ Download GitHub Zip</a>
+      <div style="display:flex;gap:8px;align-items:center;">
         <a href="/" class="btn btn-slate">← Back to Store</a>
         <button type="button" id="refreshBtn" class="btn btn-slate" style="display:none;">↻ Refresh</button>
         <button type="button" id="saveAllBtn" class="btn btn-gold" style="display:none;">Save All Settings</button>
@@ -229,62 +228,6 @@
             <div><label class="lbl">Telegram Chat / Group ID</label><input type="text" id="tgChatId" class="inp mono" placeholder="582910384 or -100..." /></div>
             <div id="tgStatus" class="msg"></div>
           </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:18px;">
-        <div class="card-hd">
-          <h2>Auto-SMS TrxID Webhook (Android Sync)</h2>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <span id="smsEnvNote" style="font-size:11px;color:#94a3b8;">Instant bKash / Nagad / Rocket / Upay Auto-Verify</span>
-            <button type="button" id="smsTestBtn" class="btn btn-emerald" style="padding:6px 11px;font-size:11.5px;">Simulate SMS</button>
-          </div>
-        </div>
-        <div class="grid grid-2" style="margin-bottom:14px;">
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <label class="lbl">Webhook Endpoint URL (POST JSON)</label>
-              <div style="display:flex;gap:6px;">
-                <input type="text" id="smsWebhookUrl" class="inp mono" readonly />
-                <button type="button" id="copySmsUrlBtn" class="btn btn-slate">Copy</button>
-              </div>
-            </div>
-            <div>
-              <label class="lbl">Webhook Secret Key (x-webhook-key / secret)</label>
-              <div style="display:flex;gap:6px;">
-                <input type="text" id="smsWebhookSecret" class="inp mono" placeholder="Min 8 characters" />
-                <button type="button" id="genSmsSecretBtn" class="btn btn-slate">Regenerate</button>
-                <button type="button" id="copySmsSecretBtn" class="btn btn-slate">Copy</button>
-              </div>
-            </div>
-            <div style="background:#0b1017;border:1px solid #1e293b;border-radius:10px;padding:10px;font-size:11.5px;color:#cbd5e1;line-height:1.55;">
-              <div style="font-weight:800;color:#fcd34d;margin-bottom:4px;">Android App Setup (SMS Forwarder / MacroDroid):</div>
-              <div>1. Filter incoming SMS from <b>bKash</b>, <b>Nagad</b>, <b>16216</b> (Rocket), or <b>Upay</b>.</div>
-              <div>2. Set HTTP Method: <b>POST</b> to the Webhook URL above (Content-Type: <span class="mono">application/json</span>).</div>
-              <div>3. JSON Body: <code id="smsJsonSample" class="mono" style="color:#7dd3fc;">{"secret":"...","sender":"{from}","text":"{body}"}</code></div>
-            </div>
-          </div>
-
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <label class="lbl">Test Simulator — Sender ID</label>
-              <input type="text" id="smsTestSender" class="inp mono" value="bKash" />
-            </div>
-            <div>
-              <label class="lbl">Test Simulator — Sample MFS SMS Text</label>
-              <textarea id="smsTestBody" class="inp mono" rows="3" placeholder="You have received Tk 100.00 from 01711000024. TrxID DEMO9281A">You have received Tk 100.00 from 01711000024. Fee Tk 0.00. Balance Tk 1500.00. TrxID DEMO9281A at 20/11/2026</textarea>
-            </div>
-            <div id="smsStatus" class="msg"></div>
-          </div>
-        </div>
-
-        <div class="tbl-wrap" style="max-height:260px;">
-          <table>
-            <thead>
-              <tr><th>Provider</th><th>Amount</th><th>TrxID</th><th>Sender</th><th>Status</th><th>Time</th></tr>
-            </thead>
-            <tbody id="smsPaymentsBody"></tbody>
-          </table>
         </div>
       </div>
 
@@ -622,7 +565,6 @@
         '<div class="stat-card"><div class="stat-lbl">Total Orders</div><div class="stat-val">' + data.stats.totalOrders + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Discounts Given</div><div class="stat-val">৳' + data.stats.totalDiscountGiven + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Pending Deposits</div><div class="stat-val">' + (data.stats.pendingDeposits || 0) + '</div></div>' +
-        '<div class="stat-card"><div class="stat-lbl">Auto-SMS Matched</div><div class="stat-val" style="color:#34d399;">' + (data.stats.smsMatchedCount || 0) + ' / ' + (data.stats.smsReceivedCount || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Duplicate TrxID Blocked</div><div class="stat-val" style="color:#f87171;">' + (data.stats.blockedDuplicates || 0) + '</div></div>';
 
       renderWeights('regWeightsList', data.regularWedges, 'reg');
@@ -664,21 +606,6 @@
 
       document.getElementById('tgToken').value = c.telegramBotToken || '';
       document.getElementById('tgChatId').value = c.telegramChatId || '';
-
-      var whUrl = window.location.origin + '/api/sms-webhook';
-      var secVal = c.smsWebhookSecret || '';
-      document.getElementById('smsWebhookUrl').value = whUrl;
-      var secInp = document.getElementById('smsWebhookSecret');
-      secInp.value = secVal;
-      secInp.readOnly = Boolean(c.smsSecretFromEnv);
-      document.getElementById('smsEnvNote').textContent = c.smsSecretFromEnv
-        ? 'Managed by SMS_WEBHOOK_SECRET env variable'
-        : 'Instant bKash / Nagad / Rocket / Upay Auto-Verify';
-      document.getElementById('smsJsonSample').textContent = JSON.stringify({
-        secret: secVal || 'YOUR_SECRET',
-        sender: '{from}',
-        text: '{body}'
-      });
 
       var ann = c.announcement || {};
       document.getElementById('noticeActive').value = ann.active === false ? '0' : '1';
@@ -744,23 +671,6 @@
               '<td class="mono" style="color:#34d399;">৳' + (u.walletBalanceBdt || 0) + '</td>' +
               '<td class="mono">' + (u.streakCount || 0) + '/7</td>' +
               '<td class="mono">' + (u.referredCount || 0) + ' / ' + (u.ordersCount || 0) + '</td></tr>';
-          }).join('');
-
-      document.getElementById('smsPaymentsBody').innerHTML = (data.smsPayments || []).length === 0
-        ? '<tr><td colspan="6" style="color:#94a3b8;text-align:center;">No MFS SMS received yet. Forward bKash/Nagad/Rocket SMS or click Simulate SMS.</td></tr>'
-        : data.smsPayments.map(function (s) {
-            var isMatched = s.status === 'Matched';
-            var statusHtml = isMatched
-              ? '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:800;background:rgba(16,185,129,0.16);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);">Matched · ' + esc(s.matchedRefId || '') + '</span>'
-              : '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:800;background:rgba(148,163,184,0.14);color:#cbd5e1;border:1px solid rgba(148,163,184,0.3);">Unused</span>';
-            return '<tr>' +
-              '<td><b>' + esc(s.provider) + '</b></td>' +
-              '<td class="mono" style="color:#fcd34d;font-weight:800;">৳' + Number(s.amountBdt || 0) + '</td>' +
-              '<td class="mono" style="color:#7dd3fc;">' + esc(s.trxId) + '</td>' +
-              '<td class="mono" style="font-size:11px;color:#cbd5e1;">' + esc(s.sender) + '</td>' +
-              '<td>' + statusHtml + '</td>' +
-              '<td class="mono" style="font-size:11px;color:#94a3b8;">' + esc(s.receivedAt) + '</td>' +
-              '</tr>';
           }).join('');
 
       document.getElementById('activityLogBody').innerHTML = (data.activityLog || []).length === 0
@@ -852,8 +762,7 @@
         },
         banners: currentBanners,
         telegramBotToken: document.getElementById('tgToken').value.trim(),
-        telegramChatId: document.getElementById('tgChatId').value.trim(),
-        smsWebhookSecret: document.getElementById('smsWebhookSecret').value.trim()
+        telegramChatId: document.getElementById('tgChatId').value.trim()
       };
       await api('/api/admin/config', { method: 'POST', body: JSON.stringify(payload) });
       var b = document.getElementById('saveBanner');
@@ -981,62 +890,6 @@
       } catch (e) {
         st.className = 'msg err';
         st.textContent = '❌ Telegram Error: ' + e.message;
-      }
-    };
-
-    document.getElementById('copySmsUrlBtn').onclick = function () {
-      var v = document.getElementById('smsWebhookUrl').value;
-      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
-      var st = document.getElementById('smsStatus');
-      st.className = 'msg';
-      st.textContent = 'Webhook URL copied!';
-    };
-    document.getElementById('copySmsSecretBtn').onclick = function () {
-      var v = document.getElementById('smsWebhookSecret').value;
-      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
-      var st = document.getElementById('smsStatus');
-      st.className = 'msg';
-      st.textContent = 'Webhook Secret copied!';
-    };
-    document.getElementById('genSmsSecretBtn').onclick = function () {
-      var inp = document.getElementById('smsWebhookSecret');
-      if (inp.readOnly) return;
-      var bytes = new Uint8Array(16);
-      if (window.crypto && window.crypto.getRandomValues) {
-        window.crypto.getRandomValues(bytes);
-      } else {
-        for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
-      }
-      var hex = Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-      inp.value = hex;
-      var st = document.getElementById('smsStatus');
-      st.className = 'msg';
-      st.textContent = 'Generated new secret — click Save All Settings to apply.';
-    };
-    document.getElementById('smsTestBtn').onclick = async function () {
-      var st = document.getElementById('smsStatus');
-      st.className = 'msg';
-      st.textContent = 'Simulating SMS webhook...';
-      try {
-        var resp = await api('/api/admin/sms/test', {
-          method: 'POST',
-          body: JSON.stringify({
-            sender: document.getElementById('smsTestSender').value.trim(),
-            text: document.getElementById('smsTestBody').value.trim()
-          })
-        });
-        st.className = 'msg';
-        if (resp.matched && resp.matchedRefId) {
-          st.textContent = 'Matched & Auto-Approved: ' + resp.matchedRefId + ' (TrxID ' + resp.sms.trxId + ', ৳' + resp.sms.amountBdt + ')';
-        } else if (resp.duplicate) {
-          st.textContent = 'TrxID ' + resp.sms.trxId + ' already recorded earlier (Status: ' + resp.sms.status + ').';
-        } else {
-          st.textContent = 'SMS Stored: ' + resp.sms.provider + ' ৳' + resp.sms.amountBdt + ' · TrxID ' + resp.sms.trxId + ' (Ready to auto-match when user submits!).';
-        }
-        await loadDashboard();
-      } catch (e) {
-        st.className = 'msg err';
-        st.textContent = 'SMS Error: ' + e.message;
       }
     };
 
