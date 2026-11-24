@@ -30,6 +30,7 @@ GitHub Repo (yourda007-sudo/crazy_top_up) e upload korar niyom:
        ADMIN_PASSKEY=your_secret_password
        TELEGRAM_BOT_TOKEN=optional_bot_token
        TELEGRAM_CHAT_ID=optional_chat_id
+       SMS_WEBHOOK_SECRET=optional_android_sms_secret
    - Render/Railway use korle persistent disk mount korben jate spin-db.json save thake.
 
 5. Admin Panel URL: https://yourdomain.com/admin.html

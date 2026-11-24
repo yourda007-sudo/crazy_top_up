@@ -1,11 +1,13 @@
 // Crazy_top_up (24) — Full-Stack Server (Spin Lock, Wallet, TrxID Orders, Promo Codes, Flash Sale, VIP Tiers, Leaderboard, Telegram Alerts)
 try { require('dotenv').config(); } catch (e) {}
+var crypto = require('crypto');
 var fs = require('fs');
 var path = require('path');
 var express = require('express');
 
 var app = express();
-app.use(express.json({ limit: '6mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 var DB_PATH = path.join(__dirname, 'spin-db.json');
 
@@ -85,6 +87,40 @@ var DEFAULT_CATALOG = {
     { id: 'in-140', gameId: 'indo', amountLabel: '140 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 180, popular: true, inStock: true },
     { id: 'in-355', gameId: 'indo', amountLabel: '355 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 445, popular: false, inStock: true },
     { id: 'in-720', gameId: 'indo', amountLabel: '720 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 890, popular: false, inStock: true }
+  ]
+};
+
+var DEFAULT_SITE_SETTINGS = {
+  siteName: 'Crazy_Top_Up (24)',
+  logoUrl: 'Main logo.jpg',
+  heroBanners: [
+    { id: 'hb-1', imageUrl: 'Banner 1.jpg', linkUrl: '', alt: 'Banner 1', active: true },
+    { id: 'hb-2', imageUrl: 'Banner 2.jpg', linkUrl: '', alt: 'Banner 2', active: true },
+    { id: 'hb-3', imageUrl: 'Banner 3.jpg', linkUrl: '', alt: 'Banner 3', active: true }
+  ],
+  popupActive: true,
+  popupImageUrl: 'Notification.jpg',
+  popupText: 'সবথেকে কম দামে টপ করার জন্য সেরা ওয়েবসাইট\n১০০% বিশ্বস্ত ও দ্রুত ডেলিভারিতে\nঅর্ডার করুন নিশ্চিন্তে 🥰',
+  telegramChannel: 'https://t.me/crazy_top_up_24',
+  telegramGroup: '',
+  youtubeChannel: '',
+  helplineTitle: 'Telegram HelpLine',
+  helplineHours: 'সকাল ৮টা থেকে রাত ১২টা',
+  appDownloadMode: 'auto',
+  appDownloadUrl: '',
+  appStoreLabel: 'Google Play',
+  footerNoticeTitle: 'নোটিশ:',
+  footerNoticeText: 'যেকোনো অর্ডার-সংক্রান্ত সমস্যার জন্য Telegram-এ অর্ডারের স্ক্রিনশট এবং পেমেন্টের ট্রানজেকশন আইডি লিখে মেসেজ দিন।',
+  footerAlertTitle: 'বিশেষ সতর্কতা:',
+  footerAlertText: '১৮ বছরের নিচে অভিভাবকের অনুমতি ছাড়া অর্ডার করা সম্পূর্ণ নিষিদ্ধ।',
+  productCards: [
+    { id: 'ff-likes', title: 'FF Likes', imageUrl: 'FF LIKES.jpg' },
+    { id: 'uid-topup', title: 'UID Topup (BD)', imageUrl: 'UID TOPUP (BD).jpg' },
+    { id: 'weekly-monthly', title: 'Weekly/Monthly', imageUrl: 'WEEKLYMONTHLY.jpg' },
+    { id: 'weekly-lite', title: 'Weekly Lite', imageUrl: 'WEEKLY LITE.jpg' },
+    { id: 'level-up-pass', title: 'Level Up Pass', imageUrl: 'LEVEL UP PASS.jpg' },
+    { id: 'indonesia-server', title: 'Indonesia Server', imageUrl: 'INDONESIA SERVER.jpg' },
+    { id: 'uid-checker', title: 'UID Checker', imageUrl: 'uid checker.jpg' }
   ]
 };
 
@@ -231,6 +267,164 @@ function findDuplicateTrxId(d, trxRaw) {
   return null;
 }
 
+
+function getSmsWebhookSecret(d) {
+  var envSec = String(process.env.SMS_WEBHOOK_SECRET || '').trim();
+  if (envSec.length >= 8) return envSec;
+  return String((d && d.config && d.config.smsWebhookSecret) || '').trim();
+}
+
+function timingSafeEqualsStr(a, b) {
+  if (!a || !b) return false;
+  var ha = crypto.createHash('sha256').update(String(a)).digest();
+  var hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+function verifySmsWebhookSecret(req, d) {
+  var expected = getSmsWebhookSecret(d);
+  if (!expected) return false;
+  var authHdr = String((req.headers && req.headers.authorization) || '');
+  var bearer = authHdr.toLowerCase().indexOf('bearer ') === 0 ? authHdr.slice(7).trim() : '';
+  var bodySecret = (req.body && typeof req.body.secret === 'string') ? req.body.secret.trim() : '';
+  var hdrKey = String((req.headers && req.headers['x-webhook-key']) || '').trim();
+  var candidate = (hdrKey || bearer || bodySecret || '').trim();
+  return timingSafeEqualsStr(candidate, expected);
+}
+
+function parseMobileBankingSms(payload) {
+  payload = payload || {};
+  var rawSender = String(payload.sender != null ? payload.sender : (payload.from != null ? payload.from : (payload.phone != null ? payload.phone : (payload.address != null ? payload.address : '')))).trim().slice(0, 64);
+  var txtCand = payload.text != null ? payload.text : (payload.msg != null ? payload.msg : (payload.message != null ? payload.message : (payload.body != null ? payload.body : (payload.sms != null ? payload.sms : payload.content))));
+  var rawText = String(txtCand != null ? txtCand : '').trim().slice(0, 1000);
+  var combined = (rawSender + ' ' + rawText).toLowerCase();
+  var explicitProv = String(payload.provider || '').trim().toLowerCase();
+  var provider = 'Unknown';
+  if (explicitProv.indexOf('bkash') >= 0 || combined.indexOf('bkash') >= 0 || combined.indexOf('b-kash') >= 0 || combined.indexOf('বিকাশ') >= 0) {
+    provider = 'bKash';
+  } else if (explicitProv.indexOf('nagad') >= 0 || combined.indexOf('nagad') >= 0 || combined.indexOf('নগদ') >= 0) {
+    provider = 'Nagad';
+  } else if (explicitProv.indexOf('rocket') >= 0 || combined.indexOf('rocket') >= 0 || combined.indexOf('16216') >= 0 || combined.indexOf('dbbl') >= 0 || combined.indexOf('রকেট') >= 0) {
+    provider = 'Rocket';
+  } else if (explicitProv.indexOf('upay') >= 0 || combined.indexOf('upay') >= 0 || combined.indexOf('উপায়') >= 0 || combined.indexOf('উপায়') >= 0) {
+    provider = 'Upay';
+  }
+
+  var trxId = normalizeTrxId(typeof payload.trxId === 'string' ? payload.trxId : '');
+  if (!trxId && rawText) {
+    var trxMatch = rawText.match(/(?:TrxID|TxnID|TxnId|Transaction\s*ID|Trans\s*ID|Ref)\s*[:#\-]?\s*([A-Z0-9]{5,20})/i);
+    if (trxMatch && trxMatch[1]) trxId = normalizeTrxId(trxMatch[1]);
+  }
+
+  var amountNum = Number(payload.amount);
+  if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    var primaryAmt =
+      rawText.match(/(?:received|cash\s*in|payment(?:\s*of)?|send\s*money|amount\s*[:\-]?)\s*(?:tk\.?|bdt|৳)?\s*([\d,]{1,10}(?:\.\d{1,2})?)/i) ||
+      rawText.match(/(?:tk\.?|bdt|৳)\s*([\d,]{1,10}(?:\.\d{1,2})?)/i) ||
+      rawText.match(/([\d,]{1,10}(?:\.\d{1,2})?)\s*(?:tk|bdt|টাকা)/i);
+    if (primaryAmt && primaryAmt[1]) amountNum = Number(primaryAmt[1].replace(/,/g, ''));
+  }
+  var amountBdt = (Number.isFinite(amountNum) && amountNum > 0) ? Math.round(amountNum) : 0;
+
+  var senderPhone = rawSender;
+  var phoneMatch = rawText.match(/(?:from|sender|a\/c)\s*[:\-]?\s*(01\d{9}|\+?8801\d{9})/i);
+  if (phoneMatch && phoneMatch[1]) senderPhone = phoneMatch[1];
+
+  if (!trxId || trxId.length < 4) {
+    return { ok: false, error: 'Could not extract a valid TrxID from SMS payload.' };
+  }
+  if (amountBdt < 10) {
+    return { ok: false, error: 'Could not extract a valid payment amount (>= ৳10) from SMS.' };
+  }
+  return {
+    ok: true,
+    provider: provider,
+    amountBdt: amountBdt,
+    trxId: trxId,
+    sender: senderPhone || provider,
+    rawText: rawText || (provider + ' Tk ' + amountBdt + ' TrxID ' + trxId)
+  };
+}
+
+function tryAutoMatchSmsWithPending(d, sms) {
+  if (!sms || sms.status !== 'Unused') return null;
+  var pendingDep = (d.walletDeposits || []).find(function (dep) {
+    return dep.status === 'Pending' &&
+      normalizeTrxId(dep.trxId) === sms.trxId &&
+      Math.round(Number(dep.amountBdt)) === Math.round(sms.amountBdt);
+  });
+  if (pendingDep) {
+    pendingDep.status = 'Approved';
+    pendingDep.autoMatched = true;
+    var depOwner = d.users[String(pendingDep.userIdentifier || '').toLowerCase()];
+    if (depOwner) {
+      depOwner.walletBalanceBdt = (depOwner.walletBalanceBdt || 0) + pendingDep.amountBdt;
+      var rItem = (depOwner.walletRequests || []).find(function (r) { return r.id === pendingDep.id; });
+      if (rItem) { rItem.status = 'Approved'; rItem.autoMatched = true; }
+    }
+    sms.status = 'Matched';
+    sms.matchedRefId = pendingDep.id;
+    logActivity(d, 'Auto-Approved via SMS', pendingDep.id + ' · ৳' + pendingDep.amountBdt + ' (' + sms.provider + ', TrxID: ' + sms.trxId + ') credited automatically to ' + pendingDep.userName, 'success', 'SMS Auto-Matcher');
+    return { matchedType: 'deposit', refId: pendingDep.id, userName: pendingDep.userName, amountBdt: pendingDep.amountBdt };
+  }
+
+  var pendingOrd = (d.ordersLog || []).find(function (ord) {
+    return ord.status === 'Pending' &&
+      ord.trxId &&
+      normalizeTrxId(ord.trxId) === sms.trxId &&
+      Math.round(Number(ord.finalPrice)) === Math.round(sms.amountBdt);
+  });
+  if (pendingOrd) {
+    pendingOrd.status = 'Processing';
+    pendingOrd.autoMatched = true;
+    var ordOwner = d.users[String(pendingOrd.userIdentifier || '').toLowerCase()];
+    if (ordOwner) {
+      var uOrd = (ordOwner.orders || []).find(function (o) { return o.id === pendingOrd.id; });
+      if (uOrd) { uOrd.status = 'Processing'; uOrd.autoMatched = true; }
+    }
+    sms.status = 'Matched';
+    sms.matchedRefId = pendingOrd.id;
+    logActivity(d, 'Order Verified via SMS', pendingOrd.id + ' · ৳' + pendingOrd.finalPrice + ' (' + sms.provider + ', TrxID: ' + sms.trxId + ') moved to Processing automatically', 'success', 'SMS Auto-Matcher');
+    return { matchedType: 'order', refId: pendingOrd.id, userName: pendingOrd.userName, amountBdt: pendingOrd.finalPrice };
+  }
+  return null;
+}
+
+async function ingestSmsPayment(d, parsed, actor) {
+  if (!Array.isArray(d.smsPayments)) d.smsPayments = [];
+  var existing = d.smsPayments.find(function (s) { return s.trxId === parsed.trxId; });
+  if (existing) return { duplicate: true, sms: existing, matched: null };
+
+  var smsRecord = {
+    id: 'SMS-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 5).toUpperCase(),
+    provider: parsed.provider,
+    amountBdt: parsed.amountBdt,
+    trxId: parsed.trxId,
+    sender: parsed.sender,
+    rawText: parsed.rawText,
+    status: 'Unused',
+    receivedAt: getTodayBD() + ' ' + formatTimeBD(),
+    createdAtMs: Date.now()
+  };
+  d.smsPayments.unshift(smsRecord);
+  d.smsPayments = d.smsPayments.slice(0, 200);
+
+  var matched = tryAutoMatchSmsWithPending(d, smsRecord);
+  if (!matched) {
+    logActivity(d, 'SMS Received', smsRecord.provider + ' ৳' + smsRecord.amountBdt + ' · TrxID ' + smsRecord.trxId + ' stored (waiting for user checkout)', 'info', actor || 'Android SMS Forwarder');
+  }
+  saveDb(d);
+
+  if (matched) {
+    await sendTelegram(
+      matched.matchedType === 'deposit'
+        ? ('🤖 <b>Auto-Approved Wallet Deposit via SMS!</b>\n🆔 ID: <code>' + matched.refId + '</code>\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
+        : ('🤖 <b>Order Payment Verified via SMS!</b>\n🆔 Order: <code>' + matched.refId + '</code> → Processing\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
+    );
+  }
+  return { duplicate: false, sms: smsRecord, matched: matched };
+}
+
 function logActivity(d, action, detail, level, actor) {
   if (!Array.isArray(d.activityLog)) d.activityLog = [];
   if (action === 'Duplicate TrxID Blocked') {
@@ -273,8 +467,10 @@ function defaultDb() {
       catalog: JSON.parse(JSON.stringify(DEFAULT_CATALOG)),
       announcement: Object.assign({}, DEFAULT_ANNOUNCEMENT),
       banners: JSON.parse(JSON.stringify(DEFAULT_BANNERS)),
+      siteSettings: JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS)),
       telegramBotToken: '',
-      telegramChatId: ''
+      telegramChatId: '',
+      smsWebhookSecret: crypto.randomBytes(16).toString('hex')
     },
     users: {},
     recentWinners: [
@@ -286,6 +482,7 @@ function defaultDb() {
     spinsLog: [],
     ordersLog: [],
     walletDeposits: [],
+    smsPayments: [],
     activityLog: [],
     duplicateTrxBlockedCount: 0
   };
@@ -324,10 +521,16 @@ function loadDb() {
     p.spinsLog = Array.isArray(p.spinsLog) ? p.spinsLog : [];
     p.ordersLog = Array.isArray(p.ordersLog) ? p.ordersLog : [];
     p.walletDeposits = Array.isArray(p.walletDeposits) ? p.walletDeposits : [];
+    p.smsPayments = Array.isArray(p.smsPayments) ? p.smsPayments : [];
+    if (typeof p.config.smsWebhookSecret !== 'string' || p.config.smsWebhookSecret.trim().length < 8) p.config.smsWebhookSecret = def.config.smsWebhookSecret;
     p.activityLog = Array.isArray(p.activityLog) ? p.activityLog : [];
     p.duplicateTrxBlockedCount = Number(p.duplicateTrxBlockedCount || 0);
     p.config.announcement = Object.assign({}, DEFAULT_ANNOUNCEMENT, p.config.announcement || {});
     p.config.banners = (Array.isArray(p.config.banners) && p.config.banners.length) ? p.config.banners : JSON.parse(JSON.stringify(DEFAULT_BANNERS));
+    var rawSs = (p.config.siteSettings && typeof p.config.siteSettings === 'object') ? p.config.siteSettings : {};
+    p.config.siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS, rawSs);
+    p.config.siteSettings.heroBanners = (Array.isArray(rawSs.heroBanners) && rawSs.heroBanners.length) ? rawSs.heroBanners : JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS.heroBanners));
+    p.config.siteSettings.productCards = (Array.isArray(rawSs.productCards) && rawSs.productCards.length) ? rawSs.productCards : JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS.productCards));
     return p;
   } catch (e) {
     return defaultDb();
@@ -469,6 +672,41 @@ function buildLeaderboard() {
   };
 }
 
+
+var SEED_PUBLIC_ORDERS = [
+  { id: "ro-seed-1", customerName: "Shsbj", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+  { id: "ro-seed-2", customerName: "asadul islam", packageLabel: "Weekly", finalPrice: 158, status: "Done" },
+  { id: "ro-seed-3", customerName: "MR RADUWAN FF RX", packageLabel: "25 Diamond", finalPrice: 22, status: "Done" },
+  { id: "ro-seed-4", customerName: "Sp Ff", packageLabel: "505 Diamond", finalPrice: 336, status: "Done" },
+  { id: "ro-seed-5", customerName: "Md Sohel Rana", packageLabel: "50 Diamond", finalPrice: 37, status: "Done" },
+  { id: "ro-seed-6", customerName: "nayeem Ahmed", packageLabel: "Level Up Package - Level 6", finalPrice: 40, status: "In Progress" },
+  { id: "ro-seed-7", customerName: "Shamim Khan", packageLabel: "850 Diamond", finalPrice: 558, status: "Done" },
+  { id: "ro-seed-8", customerName: "Bdudu Hdudud", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+  { id: "ro-seed-9", customerName: "Borno Hasan", packageLabel: "Level Up Package - Level 25", finalPrice: 75, status: "In Progress" },
+  { id: "ro-seed-10", customerName: "Sajjad Vai", packageLabel: "240 Diamond", finalPrice: 158, status: "Done" }
+];
+function buildRecentPublicOrders() {
+  var real = [];
+  Object.keys(db.users).forEach(function (k) {
+    var u = db.users[k];
+    (u.orders || []).forEach(function (o) {
+      if (!o || o.status === "Rejected") return;
+      real.push({
+        id: o.id,
+        customerName: u.name || "Player",
+        packageLabel: o.packageLabel,
+        finalPrice: o.finalPrice,
+        status: o.status === "Completed" ? "Done" : "In Progress",
+        createdAt: o.createdAt
+      });
+    });
+  });
+  real.sort(function (a, b) {
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+  return real.concat(SEED_PUBLIC_ORDERS).slice(0, 10);
+}
+
 function evaluatePromoCode(codeRaw, basePrice) {
   var clean = String(codeRaw || '').trim().toUpperCase();
   if (!clean) return { ok: false, discount: 0, error: 'প্রোমো কোড লিখুন।' };
@@ -524,6 +762,7 @@ function serializeUser(u) {
       firstOrderBonusPending: Boolean(u.referredBy && !u.firstOrderCompleted)
     },
     recentWinners: db.recentWinners.slice(0, 12),
+    recentOrders: buildRecentPublicOrders(),
     rules: db.config.rules,
     paymentNumbers: db.config.paymentNumbers,
     support: db.config.support,
@@ -532,6 +771,7 @@ function serializeUser(u) {
     catalog: db.config.catalog || DEFAULT_CATALOG,
     announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
     banners: db.config.banners || DEFAULT_BANNERS,
+    siteSettings: db.config.siteSettings || DEFAULT_SITE_SETTINGS,
     leaderboard: buildLeaderboard()
   };
 }
@@ -569,6 +809,7 @@ app.get('/api/health', function (req, res) {
 app.get('/api/public/feed', function (req, res) {
   res.json({
     recentWinners: db.recentWinners.slice(0, 12),
+    recentOrders: buildRecentPublicOrders(),
     config: {
       regularWeights: db.config.regularWeights,
       goldenWeights: db.config.goldenWeights,
@@ -581,6 +822,7 @@ app.get('/api/public/feed', function (req, res) {
     catalog: db.config.catalog || DEFAULT_CATALOG,
     announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
     banners: db.config.banners || DEFAULT_BANNERS,
+    siteSettings: db.config.siteSettings || DEFAULT_SITE_SETTINGS,
     leaderboard: buildLeaderboard()
   });
 });
@@ -643,6 +885,10 @@ app.post('/api/wallet/deposit', async function (req, res) {
   var amount = Math.max(20, Math.round(Number(b.amountBdt || 0)));
   var u = getOrCreateUser(b.identifier);
   var cleanProof = sanitizeScreenshot(b.screenshotUrl);
+  if (!Array.isArray(db.smsPayments)) db.smsPayments = [];
+  var matchingSms = db.smsPayments.find(function (s) { return s.status === 'Unused' && s.trxId === trxClean; });
+  var exactSmsMatch = Boolean(matchingSms) && Math.round(Number(matchingSms.amountBdt)) === Math.round(amount);
+
   var dep = {
     id: 'DEP-' + Math.floor(100000 + Math.random() * 900000),
     userIdentifier: u.identifier,
@@ -652,23 +898,35 @@ app.post('/api/wallet/deposit', async function (req, res) {
     senderNumber: String(b.senderNumber).trim(),
     trxId: trxClean,
     screenshotUrl: cleanProof,
-    status: 'Pending',
+    status: exactSmsMatch ? 'Approved' : 'Pending',
+    autoMatched: exactSmsMatch ? true : undefined,
     createdAt: getTodayBD() + ' ' + formatTimeBD()
   };
+  if (exactSmsMatch && matchingSms) {
+    u.walletBalanceBdt = (u.walletBalanceBdt || 0) + amount;
+    matchingSms.status = 'Matched';
+    matchingSms.matchedRefId = dep.id;
+    logActivity(db, 'Auto-Approved via SMS', dep.id + ' · ৳' + dep.amountBdt + ' (' + matchingSms.provider + ', TrxID: ' + trxClean + ') instantly matched & credited to ' + u.name, 'success', 'SMS Auto-Matcher');
+  } else if (matchingSms && !exactSmsMatch) {
+    logActivity(db, 'SMS Amount Mismatch', dep.id + ' claimed ৳' + amount + ' for TrxID ' + trxClean + ', but SMS recorded ৳' + matchingSms.amountBdt + '. Held as Pending.', 'warning', 'Security Guard');
+  }
+
   u.walletRequests = [dep].concat(u.walletRequests || []).slice(0, 15);
   db.walletDeposits.unshift(dep);
   db.walletDeposits = db.walletDeposits.slice(0, 100);
   saveDb(db);
   await sendTelegram(
-    '💳 <b>New Wallet Add-Money Request!</b>\n' +
-    '🆔 ID: <code>' + dep.id + '</code>\n' +
-    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
-    '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
-    '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
-    '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
-    '⏳ Status: Pending Admin Approval'
+    exactSmsMatch
+      ? ('🤖 <b>Instant Auto-Approved Wallet Deposit!</b>\n🆔 ID: <code>' + dep.id + '</code>\n👤 User: ' + u.name + ' (' + u.identifier + ')\n💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n🧾 TrxID: <code>' + dep.trxId + '</code>')
+      : ('💳 <b>New Wallet Add-Money Request!</b>\n' +
+        '🆔 ID: <code>' + dep.id + '</code>\n' +
+        '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+        '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
+        '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
+        '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
+        '⏳ Status: Pending Admin Approval')
   );
-  res.json(Object.assign({ deposit: dep }, serializeUser(u)));
+  res.json(Object.assign({ autoApproved: exactSmsMatch, deposit: dep }, serializeUser(u)));
 });
 
 app.post('/api/watchlist/toggle', function (req, res) {
@@ -996,6 +1254,10 @@ app.post('/api/orders', async function (req, res) {
   u.spins += 1;
   u.goldenSpins += 1;
 
+  if (!Array.isArray(db.smsPayments)) db.smsPayments = [];
+  var matchingOrderSms = (!isWallet && trxClean) ? db.smsPayments.find(function (s) { return s.status === 'Unused' && s.trxId === trxClean; }) : null;
+  var exactOrderSmsMatch = Boolean(matchingOrderSms) && Math.round(Number(matchingOrderSms.amountBdt)) === Math.round(finalPrice);
+
   var ord = {
     id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
     userIdentifier: u.identifier,
@@ -1015,11 +1277,17 @@ app.post('/api/orders', async function (req, res) {
     senderNumber: isWallet ? undefined : String(b.senderNumber).trim(),
     trxId: isWallet ? undefined : trxClean,
     screenshotUrl: isWallet ? undefined : sanitizeScreenshot(b.screenshotUrl),
-    status: isWallet ? 'Processing' : 'Pending',
+    status: (isWallet || exactOrderSmsMatch) ? 'Processing' : 'Pending',
+    autoMatched: exactOrderSmsMatch ? true : undefined,
     cashbackEarned: cashbackEarned,
     supportMessages: [],
     createdAt: formatTimeBD()
   };
+  if (exactOrderSmsMatch && matchingOrderSms) {
+    matchingOrderSms.status = 'Matched';
+    matchingOrderSms.matchedRefId = ord.id;
+    logActivity(db, 'Order Verified via SMS', ord.id + ' · ৳' + ord.finalPrice + ' (' + matchingOrderSms.provider + ', TrxID: ' + trxClean + ') verified automatically via SMS', 'success', 'SMS Auto-Matcher');
+  }
 
   if (b.saveProfile && matchedGame) {
     if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
@@ -1056,7 +1324,7 @@ app.post('/api/orders', async function (req, res) {
   saveDb(db);
 
   var tg = await sendTelegram(
-    '💎 <b>New Crazy_top_up (24) Order!</b>\n' +
+    '💎 <b>New Crazy_top_up (24) Order!</b>' + (exactOrderSmsMatch ? ' 🤖 <b>[SMS Verified]</b>' : '') + '\n' +
     '🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n' +
     '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
     '🎮 Game: ' + ord.gameName + '\n' +
@@ -1074,6 +1342,24 @@ app.post('/api/orders', async function (req, res) {
   );
 
   res.json(Object.assign({ order: ord, referralRewarded: refRewarded, telegramSent: tg.ok }, serializeUser(u)));
+});
+
+app.post('/api/sms-webhook', async function (req, res) {
+  if (!verifySmsWebhookSecret(req, db)) {
+    logActivity(db, 'Unauthorized SMS Webhook', 'Rejected /api/sms-webhook call due to missing or invalid webhook secret.', 'warning', 'Security Guard');
+    saveDb(db);
+    return res.status(401).json({ ok: false, error: 'INVALID_WEBHOOK_SECRET' });
+  }
+  var parsed = parseMobileBankingSms(req.body || {});
+  if (!parsed.ok) return res.status(400).json({ ok: false, error: parsed.error });
+  var result = await ingestSmsPayment(db, parsed, 'Android SMS Forwarder');
+  res.json({
+    ok: true,
+    duplicate: result.duplicate,
+    matched: Boolean(result.matched),
+    matchedRefId: result.matched ? result.matched.refId : null,
+    sms: result.sms
+  });
 });
 
 app.post('/api/admin/login', function (req, res) {
@@ -1102,7 +1388,10 @@ app.get('/api/admin/dashboard', function (req, res) {
     };
   });
   res.json({
-    config: db.config,
+    config: Object.assign({}, db.config, {
+      smsWebhookSecret: getSmsWebhookSecret(db),
+      smsSecretFromEnv: Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8)
+    }),
     regularWedges: REGULAR_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.regularWeights[w.id] != null ? db.config.regularWeights[w.id] : w.weight }; }),
     goldenWedges: GOLDEN_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.goldenWeights[w.id] != null ? db.config.goldenWeights[w.id] : w.weight }; }),
     stats: {
@@ -1111,12 +1400,15 @@ app.get('/api/admin/dashboard', function (req, res) {
       totalOrders: db.ordersLog.length,
       totalDiscountGiven: db.ordersLog.reduce(function (a, o) { return a + (o.discountSaved || 0); }, 0),
       pendingDeposits: db.walletDeposits.filter(function (d) { return d.status === 'Pending'; }).length,
-      duplicateTrxBlockedCount: db.duplicateTrxBlockedCount || 0
+      blockedDuplicates: db.duplicateTrxBlockedCount || 0,
+      smsReceivedCount: (db.smsPayments || []).length,
+      smsMatchedCount: (db.smsPayments || []).filter(function (s) { return s.status === 'Matched'; }).length
     },
     users: usersList,
     spinsLog: db.spinsLog.slice(0, 40),
     ordersLog: db.ordersLog.slice(0, 50),
     walletDeposits: db.walletDeposits.slice(0, 50),
+    smsPayments: (db.smsPayments || []).slice(0, 60),
     activityLog: (db.activityLog || []).slice(0, 60)
   });
 });
@@ -1183,9 +1475,57 @@ app.post('/api/admin/config', function (req, res) {
       };
     });
   }
+  if (b.siteSettings && typeof b.siteSettings === 'object') {
+    var s = b.siteSettings;
+    var curSs = db.config.siteSettings || DEFAULT_SITE_SETTINGS;
+    var cleanStr = function (v, max, fb) { return typeof v === 'string' ? v.trim().slice(0, max) : fb; };
+    db.config.siteSettings = {
+      siteName: cleanStr(s.siteName, 80, curSs.siteName) || DEFAULT_SITE_SETTINGS.siteName,
+      logoUrl: (typeof s.logoUrl === 'string' && s.logoUrl.trim()) ? s.logoUrl.trim().slice(0, 1500000) : curSs.logoUrl,
+      heroBanners: Array.isArray(s.heroBanners)
+        ? s.heroBanners.filter(function (hb) { return hb && typeof hb.imageUrl === 'string' && hb.imageUrl.trim(); }).slice(0, 12).map(function (hb, idx) {
+            return {
+              id: String(hb.id || ('hb-' + Date.now() + '-' + idx)),
+              imageUrl: String(hb.imageUrl).trim().slice(0, 2500000),
+              linkUrl: typeof hb.linkUrl === 'string' ? hb.linkUrl.trim().slice(0, 500) : '',
+              alt: typeof hb.alt === 'string' ? hb.alt.trim().slice(0, 80) : ('Banner ' + (idx + 1)),
+              active: hb.active !== false
+            };
+          })
+        : curSs.heroBanners,
+      popupActive: typeof s.popupActive === 'boolean' ? s.popupActive : curSs.popupActive,
+      popupImageUrl: (typeof s.popupImageUrl === 'string' && s.popupImageUrl.trim()) ? s.popupImageUrl.trim().slice(0, 2000000) : curSs.popupImageUrl,
+      popupText: typeof s.popupText === 'string' ? s.popupText.slice(0, 1000) : curSs.popupText,
+      telegramChannel: cleanStr(s.telegramChannel, 300, curSs.telegramChannel),
+      telegramGroup: cleanStr(s.telegramGroup, 300, curSs.telegramGroup),
+      youtubeChannel: cleanStr(s.youtubeChannel, 300, curSs.youtubeChannel),
+      helplineTitle: cleanStr(s.helplineTitle, 80, curSs.helplineTitle) || DEFAULT_SITE_SETTINGS.helplineTitle,
+      helplineHours: cleanStr(s.helplineHours, 80, curSs.helplineHours) || DEFAULT_SITE_SETTINGS.helplineHours,
+      appDownloadMode: (s.appDownloadMode === 'play_store' || s.appDownloadMode === 'direct_apk') ? s.appDownloadMode : 'auto',
+      appDownloadUrl: cleanStr(s.appDownloadUrl, 500, curSs.appDownloadUrl),
+      appStoreLabel: cleanStr(s.appStoreLabel, 40, curSs.appStoreLabel) || 'Google Play',
+      footerNoticeTitle: cleanStr(s.footerNoticeTitle, 40, curSs.footerNoticeTitle) || 'নোটিশ:',
+      footerNoticeText: cleanStr(s.footerNoticeText, 400, curSs.footerNoticeText),
+      footerAlertTitle: cleanStr(s.footerAlertTitle, 40, curSs.footerAlertTitle) || 'বিশেষ সতর্কতা:',
+      footerAlertText: cleanStr(s.footerAlertText, 400, curSs.footerAlertText),
+      productCards: Array.isArray(s.productCards)
+        ? s.productCards.filter(function (pc) { return pc && typeof pc.id === 'string'; }).slice(0, 20).map(function (pc) {
+            return {
+              id: String(pc.id).trim().slice(0, 50),
+              title: String(pc.title || '').trim().slice(0, 60),
+              imageUrl: String(pc.imageUrl || '').trim().slice(0, 1500000)
+            };
+          })
+        : curSs.productCards
+    };
+    if (db.config.siteSettings.telegramChannel) {
+      db.config.support.telegram = db.config.siteSettings.telegramChannel;
+    }
+  }
   if (typeof b.telegramBotToken === 'string') db.config.telegramBotToken = b.telegramBotToken.trim();
   if (typeof b.telegramChatId === 'string') db.config.telegramChatId = b.telegramChatId.trim();
-  logActivity(db, 'Config Updated', 'Admin updated store settings / banners / notice / catalog', 'info', 'Admin');
+  if (typeof b.smsWebhookSecret === 'string' && b.smsWebhookSecret.trim().length >= 8) db.config.smsWebhookSecret = b.smsWebhookSecret.trim().slice(0, 128);
+  logActivity(db, 'Config Updated', 'Admin updated store settings / branding / banners / notice / catalog', 'info', 'Admin');
   saveDb(db);
   res.json({ ok: true, config: db.config });
 });
@@ -1255,11 +1595,47 @@ app.post('/api/admin/orders/reply', function (req, res) {
   res.json({ ok: true, order: logOrd });
 });
 
+app.post('/api/admin/sms/test', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var parsed = parseMobileBankingSms(req.body || {});
+  if (!parsed.ok) return res.status(400).json({ ok: false, error: parsed.error });
+  var result = await ingestSmsPayment(db, parsed, 'Admin SMS Test');
+  res.json({
+    ok: true,
+    duplicate: result.duplicate,
+    matched: Boolean(result.matched),
+    matchedRefId: result.matched ? result.matched.refId : null,
+    sms: result.sms
+  });
+});
+
 app.post('/api/admin/telegram/test', async function (req, res) {
   if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
   var r = await sendTelegram('✅ <b>Crazy_top_up (24) Test Alert</b>\nTelegram Order & Wallet Notification সঠিকভাবে কাজ করছে!');
   if (!r.ok) return res.status(400).json(r);
   res.json({ ok: true });
+});
+
+
+app.get('/.well-known/assetlinks.json', function (req, res) {
+  var rawJson = String(process.env.TWA_ASSETLINKS_JSON || '').trim();
+  res.setHeader('Cache-Control', 'no-cache');
+  if (rawJson) {
+    try { return res.json(JSON.parse(rawJson)); } catch (e) {}
+  }
+  var pkg = String(process.env.ANDROID_PACKAGE_NAME || 'com.crazytopup24.app').trim();
+  var fps = String(process.env.ANDROID_SHA256 || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (fps.length > 0) {
+    return res.json([{
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: fps }
+    }]);
+  }
+  var staticPath = path.join(__dirname, 'assetlinks.json');
+  if (fs.existsSync(staticPath)) {
+    try { return res.sendFile(staticPath); } catch (e) {}
+  }
+  return res.json([]);
 });
 
 app.use(express.static(__dirname, {

@@ -59,13 +59,15 @@
   ];
 
   var PRODUCT_VIEWS = [
-    { viewId: 'ffView', name: 'FF Likes', pkGrid: 'pkGrid', needEl: 'needAmt', buyBtn: 'buyBtn', uidInp: 'uid', poSel: '#ffView .po' },
-    { viewId: 'uidView', name: 'UID Topup (BD)', pkGrid: 'uidPkGrid', needEl: 'uidNeed', buyBtn: 'uidBuy', uidInp: 'uidInp', poSel: '#uidPo .po' },
-    { viewId: 'wmView', name: 'Weekly/Monthly', pkGrid: 'wmPkGrid', needEl: 'wmNeed', buyBtn: 'wmBuy', uidInp: 'wmInp', poSel: '#wmPo .po' },
-    { viewId: 'wlView', name: 'Weekly Lite', pkGrid: 'wlPkGrid', needEl: 'wlNeed', buyBtn: 'wlBuy', uidInp: 'wlInp', poSel: '#wlPo .po' },
-    { viewId: 'luView', name: 'Level Up Pass', pkGrid: 'luPkGrid', needEl: 'luNeed', buyBtn: 'luBuy', uidInp: 'luInp', poSel: '#luPo .po' },
-    { viewId: 'inView', name: 'Indonesia Server', pkGrid: 'inPkGrid', needEl: 'inNeed', buyBtn: 'inBuy', uidInp: 'inInp', poSel: '#inPo .po' }
+    { viewId: 'ffView', name: 'FF Likes', pkGrid: 'pkGrid', needEl: 'needAmt', buyBtn: 'buyBtn', uidInp: 'uid', poSel: '#ffView .po', balEl: '' },
+    { viewId: 'uidView', name: 'UID Topup (BD)', pkGrid: 'uidPkGrid', needEl: 'uidNeed', buyBtn: 'uidBuy', uidInp: 'uidInp', poSel: '#uidPo .po', balEl: 'uidBal' },
+    { viewId: 'wmView', name: 'Weekly/Monthly', pkGrid: 'wmPkGrid', needEl: 'wmNeed', buyBtn: 'wmBuy', uidInp: 'wmInp', poSel: '#wmPo .po', balEl: 'wmBal' },
+    { viewId: 'wlView', name: 'Weekly Lite', pkGrid: 'wlPkGrid', needEl: 'wlNeed', buyBtn: 'wlBuy', uidInp: 'wlInp', poSel: '#wlPo .po', balEl: 'wlBal' },
+    { viewId: 'luView', name: 'Level Up Pass', pkGrid: 'luPkGrid', needEl: 'luNeed', buyBtn: 'luBuy', uidInp: 'luInp', poSel: '#luPo .po', balEl: 'luBal' },
+    { viewId: 'inView', name: 'Indonesia Server', pkGrid: 'inPkGrid', needEl: 'inNeed', buyBtn: 'inBuy', uidInp: 'inInp', poSel: '#inPo .po', balEl: 'inBal' }
   ];
+  var pendingProductOrder = null;
+  var amOpenedDirectlyToGateway = false;
 
   /* -------------------- State -------------------- */
   function defaultState() {
@@ -138,6 +140,197 @@
   var promoBanners = [];
   var activeBannerIdx = 0;
   var bannerTimerStarted = false;
+  var DEFAULT_SITE_SETTINGS = {
+    siteName: 'Crazy_Top_Up (24)',
+    logoUrl: 'Main logo.jpg',
+    heroBanners: [
+      { id: 'hb-1', imageUrl: 'Banner 1.jpg', alt: 'Banner 1', linkUrl: '', active: true },
+      { id: 'hb-2', imageUrl: 'Banner 2.jpg', alt: 'Banner 2', linkUrl: '', active: true },
+      { id: 'hb-3', imageUrl: 'Banner 3.jpg', alt: 'Banner 3', linkUrl: '', active: true }
+    ],
+    popupActive: true,
+    popupImageUrl: 'Notification.jpg',
+    popupText: 'সবথেকে কম দামে টপ করার জন্য সেরা ওয়েবসাইট\n১০০% বিশ্বস্ত ও দ্রুত ডেলিভারিতে\nঅর্ডার করুন নিশ্চিন্তে 🥰',
+    telegramChannel: 'https://t.me/crazy_top_up_24',
+    telegramGroup: 'https://t.me/crazy_top_up_24',
+    youtubeChannel: '',
+    helplineTitle: 'Telegram HelpLine',
+    helplineHours: 'সকাল ৮টা থেকে রাত ১২টা',
+    appDownloadMode: 'auto',
+    appDownloadUrl: '',
+    appStoreLabel: 'Google Play',
+    footerNoticeTitle: 'নোটিশ:',
+    footerNoticeText: 'যেকোনো অর্ডার-সংক্রান্ত সমস্যার জন্য Telegram-এ অর্ডারের স্ক্রিনশট এবং পেমেন্টের ট্রানজেকশন আইডি লিখে মেসেজ দিন।',
+    footerAlertTitle: 'বিশেষ সতর্কতা:',
+    footerAlertText: '১৮ বছরের নিচে অভিভাবকের অনুমতি ছাড়া অর্ডার করা সম্পূর্ণ নিষিদ্ধ।',
+    productCards: [
+      { id: 'ff-likes', title: 'FF Likes', imageUrl: 'FF LIKES.jpg' },
+      { id: 'uid-topup', title: 'UID Topup (BD)', imageUrl: 'UID TOPUP (BD).jpg' },
+      { id: 'weekly-monthly', title: 'Weekly/Monthly', imageUrl: 'WEEKLYMONTHLY.jpg' },
+      { id: 'weekly-lite', title: 'Weekly Lite', imageUrl: 'WEEKLY LITE.jpg' },
+      { id: 'level-up-pass', title: 'Level Up Pass', imageUrl: 'LEVEL UP PASS.jpg' },
+      { id: 'indonesia-server', title: 'Indonesia Server', imageUrl: 'INDONESIA SERVER.jpg' },
+      { id: 'uid-checker', title: 'UID Checker', imageUrl: 'uid checker.jpg' }
+    ]
+  };
+  var siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS);
+  var lastHeroBannerSig = '';
+
+  function normalizeSiteUrl(raw, isTg) {
+    var u = String(raw || '').trim();
+    if (!u || u === '#') return '';
+    if (isTg && u.charAt(0) === '@') return 'https://t.me/' + u.slice(1).trim();
+    if (u.indexOf(' ') !== -1 && !/^https?:\/\//i.test(u)) return '';
+    if (!/^https?:\/\//i.test(u) && !/^\//.test(u)) return 'https://' + u;
+    return u;
+  }
+
+  function applySiteSettings() {
+    var ss = Object.assign({}, DEFAULT_SITE_SETTINGS, siteSettings || {});
+    siteSettings = ss;
+    window.__SITE_SETTINGS__ = ss;
+
+    if (typeof window.syncAccountLinks === 'function') window.syncAccountLinks();
+
+    var nm = String(ss.siteName || 'Crazy_Top_Up (24)').trim();
+    var logo = String(ss.logoUrl || '').trim();
+    if (logo) {
+      document.querySelectorAll('[data-site-logo], .am-gw-logo img, .eps-logo img, .ac2-f-brand img, .am-mfs-merchant img').forEach(function (imgEl) {
+        if (imgEl && imgEl.getAttribute('src') !== logo) imgEl.src = logo;
+        imgEl.alt = nm;
+      });
+    }
+
+    document.querySelectorAll('.am-gw-brand h2, .am-mfs-merchant b, .eps-mname, .am-qr-rec, .ac2-f-brand span, .ac2-f-copy b, #amView .am-title span').forEach(function (el) {
+      if (el) el.textContent = nm;
+    });
+    var acTag = document.querySelector('.ac2-f-tag');
+    if (acTag) acTag.textContent = nm + ' | Trusted by Gamers, Loved by Everyone.';
+
+    // Popup notification
+    if (ss.popupActive === false && typeof window.__closeWelcomePop === 'function') {
+      window.__closeWelcomePop();
+    }
+    var popImg = document.querySelector('#pop .pimg img');
+    if (popImg && ss.popupImageUrl && popImg.getAttribute('src') !== ss.popupImageUrl) {
+      popImg.src = ss.popupImageUrl;
+    }
+
+    // Hero Slider
+    if (Array.isArray(ss.heroBanners)) {
+      var sig = JSON.stringify(ss.heroBanners);
+      if (sig !== lastHeroBannerSig) {
+        lastHeroBannerSig = sig;
+        if (typeof window.__rebuildHeroSlider === 'function') {
+          window.__rebuildHeroSlider(ss.heroBanners);
+        }
+      }
+    }
+
+    // Footer Notice & Special Alert
+    var fNotice = document.querySelector('#siteFooter .notes .note:not(.warn2)');
+    if (fNotice) {
+      var bEl = fNotice.querySelector('b');
+      var pEl = fNotice.querySelector('p');
+      if (bEl && ss.footerNoticeTitle) bEl.textContent = ss.footerNoticeTitle;
+      if (pEl && ss.footerNoticeText) {
+        var txt = String(ss.footerNoticeText);
+        var m = /^(.*?)(\bTelegram\b)(.*)$/i.exec(txt);
+        pEl.textContent = '';
+        if (m) {
+          pEl.appendChild(document.createTextNode(m[1]));
+          var a = document.createElement('a');
+          a.href = '#';
+          a.setAttribute('data-link', 'telegram-channel');
+          a.style.cssText = 'color:inherit;font-weight:700;text-decoration:none';
+          a.textContent = m[2];
+          pEl.appendChild(a);
+          pEl.appendChild(document.createTextNode(m[3]));
+        } else {
+          pEl.textContent = txt;
+        }
+      }
+    }
+    var fAlert = document.querySelector('#siteFooter .notes .note.warn2');
+    if (fAlert) {
+      var ab = fAlert.querySelector('b');
+      var ap = fAlert.querySelector('p');
+      if (ab && ss.footerAlertTitle) ab.textContent = ss.footerAlertTitle;
+      if (ap && ss.footerAlertText) ap.textContent = ss.footerAlertText;
+    }
+
+    var acNote = document.querySelector('.ac2-f-note');
+    if (acNote && ss.footerNoticeText) {
+      acNote.innerHTML = '<b>' + esc(ss.footerNoticeTitle || 'নোটিশ:') + '</b> ' + esc(ss.footerNoticeText);
+    }
+
+    // Contact Us HelpLine (Footer + Account Modal)
+    var fHelpB = document.querySelector('#siteFooter a.help span b');
+    if (fHelpB && ss.helplineTitle) {
+      var vBadge = fHelpB.querySelector('.v-badge');
+      fHelpB.textContent = ss.helplineTitle + ' ';
+      if (vBadge) fHelpB.appendChild(vBadge);
+    }
+    var fHelpP = document.querySelector('#siteFooter a.help span p');
+    if (fHelpP && ss.helplineHours) {
+      var clkSvg = fHelpP.querySelector('svg');
+      fHelpP.textContent = '';
+      if (clkSvg) fHelpP.appendChild(clkSvg);
+      fHelpP.appendChild(document.createTextNode(ss.helplineHours));
+    }
+    var acHelpB = document.querySelector('.ac2-tg-card b');
+    if (acHelpB && ss.helplineTitle) {
+      var chkI = acHelpB.querySelector('.ac2-tg-chk');
+      acHelpB.textContent = ss.helplineTitle + ' ';
+      if (chkI) acHelpB.appendChild(chkI);
+    }
+    var acHelpS = document.querySelector('.ac2-tg-card small');
+    if (acHelpS && ss.helplineHours) acHelpS.textContent = ss.helplineHours;
+
+    // App Download section in Footer + Promo Button
+    var playBtn = document.querySelector('#siteFooter section.dl a.play');
+    if (playBtn) {
+      var playLbl = playBtn.querySelector('span b');
+      if (playLbl && ss.appStoreLabel) playLbl.textContent = ss.appStoreLabel;
+      var dlUrl = normalizeSiteUrl(ss.appDownloadUrl, false);
+      if (dlUrl && (ss.appDownloadMode === 'play_store' || ss.appDownloadMode === 'direct_apk')) {
+        playBtn.href = dlUrl;
+        if (ss.appDownloadMode === 'direct_apk') {
+          playBtn.setAttribute('download', '');
+          playBtn.removeAttribute('target');
+        } else {
+          playBtn.removeAttribute('download');
+          playBtn.target = '_blank';
+          playBtn.rel = 'noopener noreferrer';
+        }
+      } else {
+        playBtn.href = '#';
+        playBtn.removeAttribute('target');
+        playBtn.removeAttribute('download');
+      }
+      playBtn.onclick = handleMobileAppDownload;
+    }
+    var roApp = document.getElementById('roAppBtn');
+    if (roApp) roApp.onclick = handleMobileAppDownload;
+    var hdrPwa = document.getElementById('swHdrPwa');
+    if (hdrPwa) hdrPwa.onclick = handleMobileAppDownload;
+
+    // Game Product Cards
+    if (Array.isArray(ss.productCards)) {
+      ss.productCards.forEach(function (pc) {
+        if (!pc || !pc.id) return;
+        var card = document.querySelector('#homeView .grid a.card[data-open="' + pc.id + '"]');
+        if (!card) return;
+        var img = card.querySelector('.thumb img');
+        var titleP = card.querySelector('p');
+        if (img && pc.imageUrl) img.src = pc.imageUrl;
+        if (img && pc.title) img.alt = pc.title;
+        if (titleP && pc.title) titleP.textContent = pc.title;
+      });
+    }
+
+    if (typeof window.syncAccountLinks === 'function') window.syncAccountLinks();
+  }
 
   function compressProofImage(file, cb) {
     if (!file) { cb(''); return; }
@@ -190,6 +383,19 @@
     if (location.hash === '#spin-checkout') renderCheckoutView();
     injectSiteTriggers();
   });
+  function triggerExternalDownload(url, isDownload) {
+    var a = document.createElement('a');
+    a.href = url;
+    if (isDownload) {
+      a.setAttribute('download', '');
+    } else {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+    }
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
   function triggerPwaInstall() {
     if (deferredInstallPrompt && typeof deferredInstallPrompt.prompt === 'function') {
       deferredInstallPrompt.prompt();
@@ -198,7 +404,36 @@
         if (location.hash === '#spin-checkout') renderCheckoutView();
       }).catch(function () {});
     } else {
-      alert('অ্যাপ ইনস্টল করতে ব্রাউজার মেনু (⋮ / Share) থেকে "Add to Home Screen" বা "Install App" চাপুন।');
+      showSiteToast('অ্যাপ ইনস্টল করতে ব্রাউজার মেনু (⋮ / Share) থেকে "Add to Home Screen" বা "Install App" চাপুন।');
+    }
+  }
+  function handleMobileAppDownload(ev) {
+    var mode = (siteSettings && siteSettings.appDownloadMode) || 'auto';
+    var url = normalizeSiteUrl(siteSettings && siteSettings.appDownloadUrl, false);
+    if (mode === 'play_store' && url) {
+      if (ev && ev.currentTarget && ev.currentTarget.tagName === 'A' && ev.currentTarget.getAttribute('href') === url) {
+        return;
+      }
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      triggerExternalDownload(url, false);
+      return;
+    }
+    if (mode === 'direct_apk' && url) {
+      if (ev && ev.currentTarget && ev.currentTarget.tagName === 'A' && ev.currentTarget.getAttribute('href') === url) {
+        return;
+      }
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      triggerExternalDownload(url, true);
+      showSiteToast('অ্যাপ ডাউনলোড শুরু হয়েছে...');
+      return;
+    }
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    if (deferredInstallPrompt && typeof deferredInstallPrompt.prompt === 'function') {
+      triggerPwaInstall();
+    } else if (url) {
+      triggerExternalDownload(url, /\.apk(\?|$)/i.test(url));
+    } else {
+      triggerPwaInstall();
     }
   }
   function getVipSpendStatusLocal(spendRaw) {
@@ -335,6 +570,9 @@
   function applyServerPayload(data, markAvailable) {
     if (!data) return;
     if (markAvailable) apiAvailable = true;
+    if (Array.isArray(data.recentOrders) && data.recentOrders.length) {
+      liveRecentOrders = data.recentOrders;
+    }
     if (Array.isArray(data.recentWinners) && data.recentWinners.length) {
       recentWinners = data.recentWinners;
     }
@@ -349,6 +587,10 @@
     if (data.leaderboard) leaderboardData = data.leaderboard;
     if (data.announcement) announcementConfig = data.announcement;
     if (Array.isArray(data.banners)) promoBanners = data.banners.filter(function (b) { return b && b.active !== false; });
+    if (data.siteSettings || (data.config && data.config.siteSettings)) {
+      siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS, data.siteSettings || data.config.siteSettings);
+      applySiteSettings();
+    }
     if (data.catalog) applyCatalogData(data.catalog);
     if (data.state) {
       state.spins = typeof data.state.spins === 'number' ? data.state.spins : state.spins;
@@ -404,6 +646,10 @@
       if (typeof data.walletCashbackPercent === 'number') walletCashbackPercent = data.walletCashbackPercent;
       if (data.flashSale) flashSaleConfig = data.flashSale;
       if (data.leaderboard) leaderboardData = data.leaderboard;
+      if (data.siteSettings || (data.config && data.config.siteSettings)) {
+        siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS, data.siteSettings || data.config.siteSettings);
+        applySiteSettings();
+      }
     if (data.catalog) applyCatalogData(data.catalog);
       if (data.config) {
         if (data.config.rules) offerRules = Object.assign({}, offerRules, data.config.rules);
@@ -421,6 +667,8 @@
         }
       }
       renderTickerDOM();
+    renderMyAccountRankView();
+    renderRecentOrdersLive();
       if (location.hash === '#spin-checkout') renderCheckoutView();
       if (isModalOpen) renderModal();
     } catch (e) {
@@ -2087,8 +2335,155 @@
     }
   }
 
+  function renderAmPendingCard() {
+    var box = document.getElementById('amPendingCard');
+    if (!box) return;
+    if (!pendingProductOrder) {
+      box.hidden = true;
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    var curBal = Number(state.walletBalanceBdt || 0);
+    var reqAmt = Number(pendingProductOrder.pricing.finalPrice || 0);
+    var readyToPay = curBal >= reqAmt;
+    box.hidden = false;
+    box.style.display = 'flex';
+    box.innerHTML =
+      '<div style="min-width:0;flex:1;">' +
+        '<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:' + (readyToPay ? '#15803d' : '#1558c0') + ';">' +
+          (readyToPay ? '✅ ব্যালেন্স রেডি — অর্ডার সম্পন্ন করুন' : 'Wallet Pay অর্ডার পেন্ডিং') +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' +
+          esc(pendingProductOrder.cfg.name) + ' · ' + esc(pendingProductOrder.pkgName) +
+        '</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px;">UID: <b>' + esc(pendingProductOrder.uidVal) + '</b> · প্রয়োজন: <b>৳' + reqAmt + '</b> (ওয়ালেট: ৳' + curBal + ')</div>' +
+      '</div>' +
+      (readyToPay
+        ? '<button type="button" id="amCompletePendingBtn" style="padding:8px 12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;">Pay ৳' + reqAmt + '</button>'
+        : '<button type="button" id="amCancelPendingBtn" style="padding:7px 10px;border:0;border-radius:9px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Back</button>');
+
+    var payNowBtn = document.getElementById('amCompletePendingBtn');
+    if (payNowBtn) {
+      payNowBtn.onclick = function () {
+        submitPendingProductOrder(payNowBtn);
+      };
+    }
+    var backBtn = document.getElementById('amCancelPendingBtn');
+    if (backBtn) {
+      backBtn.onclick = function () {
+        var ret = (pendingProductOrder && pendingProductOrder.returnHash) || '';
+        pendingProductOrder = null;
+        renderAmPendingCard();
+        location.hash = ret ? ret.replace(/^#/, '') : '';
+      };
+    }
+  }
+
+  function submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, triggerBtn) {
+    if (usedOfferObj) {
+      usedOfferObj.used = true;
+      state.activeOfferId = null;
+    }
+    state.spins += 1;
+    state.goldenSpins += 1;
+    saveState();
+    syncAllUI();
+
+    var ordObj = {
+      gameName: cfg.name,
+      packageLabel: pkgName,
+      playerUid: uidVal,
+      paymentMethod: payMethod,
+      originalPrice: pricing.originalPrice,
+      discountSaved: pricing.discountSaved,
+      finalPrice: pricing.finalPrice,
+      bonusPercent: pricing.bonusPercent,
+      appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
+    };
+    if (apiAvailable !== false && isUserSignedIn()) {
+      if (triggerBtn) triggerBtn.disabled = true;
+      apiPostJson('/api/orders', {
+        identifier: getUserKey(),
+        gameName: cfg.name,
+        packageLabel: pkgName,
+        playerUid: uidVal,
+        paymentMethod: payMethod,
+        originalPrice: pricing.originalPrice,
+        appliedOfferId: usedOfferObj ? usedOfferObj.id : null
+      }).then(function (data) {
+        applyServerPayload(data, true);
+        if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
+        pendingProductOrder = null;
+        renderAmPendingCard();
+        syncAllUI();
+        showOrderSummary(data.order || ordObj);
+      }).catch(function (err) {
+        if (payMethod === 'Wallet Pay' && err && /insufficient wallet/i.test(String(err.message || ''))) {
+          var needed = Math.max(20, pricing.finalPrice - Number(state.walletBalanceBdt || 0));
+          openAddMoneyForOrder(needed, {
+            cfg: cfg, pkgName: pkgName, uidVal: uidVal, pricing: pricing, usedOfferObj: usedOfferObj, returnHash: location.hash || ''
+          }, 1);
+          return;
+        }
+        showOfferToast('❌ ' + ((err && err.message) || 'অর্ডার সাবমিট ব্যর্থ হয়েছে।'), '', '');
+      }).finally(function () {
+        if (triggerBtn) triggerBtn.disabled = false;
+      });
+    } else {
+      pendingProductOrder = null;
+      renderAmPendingCard();
+      showOrderSummary(ordObj);
+    }
+  }
+
+  function submitPendingProductOrder(btnEl) {
+    if (!pendingProductOrder) return;
+    var p = pendingProductOrder;
+    submitProductOrderDirect(p.cfg, p.pkgName, p.uidVal, 'Wallet Pay', p.pricing, p.usedOfferObj, btnEl);
+  }
+
+  function openAddMoneyForOrder(amountBdt, pendingObj, startStep) {
+    pendingProductOrder = pendingObj || null;
+    var targetStep = startStep === 2 ? 2 : 1;
+    amOpenedDirectlyToGateway = (targetStep === 2);
+    var amt = Math.max(20, Math.round(Number(amountBdt) || 20));
+    var inp = document.getElementById('amAmtInput');
+    var ch = document.getElementById('amChosenAmt');
+    var payBar = document.getElementById('amGwPayBar');
+    if (targetStep === 2) {
+      if (inp) inp.value = String(amt);
+      if (ch) ch.textContent = 'Amount: ৳' + amt;
+      if (payBar) payBar.textContent = 'Pay ' + amt + '.00';
+    } else {
+      if (inp) inp.value = '';
+      if (ch) ch.textContent = 'Amount: ৳0';
+      if (payBar) payBar.textContent = 'Pay 0.00';
+    }
+    var err1 = document.getElementById('amErr1');
+    if (err1) err1.style.display = 'none';
+    renderAmPendingCard();
+    if (typeof window.__amShowStep === 'function') {
+      window.__amShowStep(targetStep);
+    }
+    location.hash = 'add-money';
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+  }
+
   function syncAllProductViews() {
-    PRODUCT_VIEWS.forEach(updateProductOfferStrip);
+    var balNum = Number(state.walletBalanceBdt || 0);
+    PRODUCT_VIEWS.forEach(function (cfg) {
+      updateProductOfferStrip(cfg);
+      if (cfg.balEl) {
+        var bEl = document.getElementById(cfg.balEl);
+        if (bEl) bEl.textContent = balNum.toFixed(2);
+      }
+    });
+    var walTop = document.querySelector('a.wallet');
+    if (walTop) {
+      walTop.innerHTML = '<svg class="i"><use href="#wal"/></svg>' + Math.round(balNum) + '৳';
+    }
+    renderAmPendingCard();
   }
 
   function setupProductHooks() {
@@ -2124,7 +2519,7 @@
       if (buyBtn) {
         buyBtn.addEventListener('click', function () {
           var txt = (buyBtn.textContent || '').trim().toLowerCase();
-          if (txt === 'login') return;
+          if (txt === 'login' || !isUserSignedIn()) return;
           var activePk = document.querySelector('#' + cfg.pkGrid + ' .pk.on');
           var uidInput = document.getElementById(cfg.uidInp);
           var uidVal = uidInput ? uidInput.value.trim() : '';
@@ -2135,48 +2530,37 @@
           var activePay = document.querySelector(cfg.poSel + '.on');
           var payMethod = activePay ? (activePay.getAttribute('data-pay') || 'Wallet Pay') : 'Wallet Pay';
           var pricing = computePricing(basePrice);
-
           var usedOfferObj = (pricing.offer && !pricing.conditionWarning) ? pricing.offer : null;
-          if (usedOfferObj) {
-            usedOfferObj.used = true;
-            state.activeOfferId = null;
-          }
-          state.spins += 1;
-          state.goldenSpins += 1;
-          saveState();
-          syncAllUI();
+          var curBal = Number(state.walletBalanceBdt || 0);
 
-          var ordObj = {
-            gameName: cfg.name,
-            packageLabel: pkgName,
-            playerUid: uidVal,
-            paymentMethod: payMethod,
-            originalPrice: pricing.originalPrice,
-            discountSaved: pricing.discountSaved,
-            finalPrice: pricing.finalPrice,
-            bonusPercent: pricing.bonusPercent,
-            appliedOfferCode: usedOfferObj ? usedOfferObj.code : ''
-          };
-          if (apiAvailable !== false && isUserSignedIn()) {
-            apiPostJson('/api/orders', {
-              identifier: getUserKey(),
-              gameName: cfg.name,
-              packageLabel: pkgName,
-              playerUid: uidVal,
-              paymentMethod: payMethod,
-              originalPrice: pricing.originalPrice,
-              appliedOfferId: usedOfferObj ? usedOfferObj.id : null
-            }).then(function (data) {
-              applyServerPayload(data, true);
-              if (data.referralRewarded) showOfferToast('🤝 Referral Bonus: +1 Scratch Card & +1 Golden Spin!', '', 'scratcher');
-              syncAllUI();
-              showOrderSummary(data.order || ordObj);
-            }).catch(function () {
-              showOrderSummary(ordObj);
-            });
-          } else {
-            showOrderSummary(ordObj);
+          if (payMethod === 'Wallet Pay' && curBal < pricing.finalPrice) {
+            var neededAmt = Math.max(20, pricing.finalPrice - curBal);
+            playClick();
+            openAddMoneyForOrder(neededAmt, {
+              cfg: cfg,
+              pkgName: pkgName,
+              uidVal: uidVal,
+              pricing: pricing,
+              usedOfferObj: usedOfferObj,
+              returnHash: location.hash || ''
+            }, 1);
+            return;
           }
+
+          if (payMethod === 'Instant Pay') {
+            playClick();
+            openAddMoneyForOrder(Math.max(20, pricing.finalPrice), {
+              cfg: cfg,
+              pkgName: pkgName,
+              uidVal: uidVal,
+              pricing: pricing,
+              usedOfferObj: usedOfferObj,
+              returnHash: location.hash || ''
+            }, 2);
+            return;
+          }
+
+          submitProductOrderDirect(cfg, pkgName, uidVal, payMethod, pricing, usedOfferObj, buyBtn);
         });
       }
     });
@@ -2787,7 +3171,7 @@
     });
 
     var installAppBtn = document.getElementById('swCoInstallApp');
-    if (installAppBtn) installAppBtn.onclick = function () { playClick(); triggerPwaInstall(); };
+    if (installAppBtn) installAppBtn.onclick = function (ev) { playClick(); handleMobileAppDownload(ev); };
     var hdrWallet = document.getElementById('swCoHdrWallet');
     if (hdrWallet) hdrWallet.onclick = function () { playClick(); coState.showWalletModal = true; renderCheckoutView(); };
     var heroWallet = document.getElementById('swCoHeroWallet');
@@ -3238,7 +3622,7 @@
       pwaBtn.className = 'sw-pwa-btn';
       pwaBtn.style.marginRight = '6px';
       pwaBtn.textContent = '📲 App';
-      pwaBtn.onclick = function () { playClick(); triggerPwaInstall(); };
+      pwaBtn.onclick = function (ev) { playClick(); handleMobileAppDownload(ev); };
       var spinHdrP = document.getElementById('swHdrBtn');
       if (spinHdrP) hr.insertBefore(pwaBtn, spinHdrP);
       else hr.appendChild(pwaBtn);
@@ -3739,6 +4123,193 @@
     }
   }
 
+
+  var ACCOUNT_RANKS = [
+    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "linear-gradient(135deg,#8e5627 0%,#a86c39 48%,#734016 100%)", fill: "#9a5b25", rim: "#f6ad55", core: "#fff7ed" },
+    { level: 2, name: "Silver", min: 101, max: 1000, range: "101 - 1,000 Tk", sub: "Silver members unlock priority delivery.", grad: "linear-gradient(135deg,#475569 0%,#64748b 50%,#334155 100%)", fill: "#64748b", rim: "#e2e8f0", core: "#f8fafc" },
+    { level: 3, name: "Gold", min: 1001, max: 5000, range: "1,001 - 5,000 Tk", sub: "Gold tier boosts your spin luck and savings.", grad: "linear-gradient(135deg,#b45309 0%,#d97706 50%,#78350f 100%)", fill: "#d97706", rim: "#fde047", core: "#fef9c3" },
+    { level: 4, name: "Platinum", min: 5001, max: 10000, range: "5,001 - 10,000 Tk", sub: "Platinum unlocks special top-up rates.", grad: "linear-gradient(135deg,#0369a1 0%,#0284c7 50%,#1e3a8a 100%)", fill: "#0284c7", rim: "#7dd3fc", core: "#f0f9ff" },
+    { level: 5, name: "Diamond", min: 10001, max: 25000, range: "10,001 - 25,000 Tk", sub: "Diamond members enjoy VIP discounts & perks.", grad: "linear-gradient(135deg,#6d28d9 0%,#9333ea 50%,#4c1d95 100%)", fill: "#7c3aed", rim: "#d8b4fe", core: "#faf5ff" },
+    { level: 6, name: "Heroic", min: 25001, max: 50000, range: "25,001 - 50,000 Tk", sub: "Heroic champions get elite priority access.", grad: "linear-gradient(135deg,#b91c1c 0%,#dc2626 50%,#7f1d1d 100%)", fill: "#dc2626", rim: "#fca5a5", core: "#fef2f2" },
+    { level: 7, name: "Master", min: 50001, max: 100000, range: "50,001 - 100,000 Tk", sub: "Master rank commands top store privileges.", grad: "linear-gradient(135deg,#c2410c 0%,#ea580c 50%,#7c2d12 100%)", fill: "#ea580c", rim: "#fdba74", core: "#fff7ed" },
+    { level: 8, name: "Grand Master", min: 100001, max: null, range: "100,000+ Tk", sub: "Grand Master — supreme Crazy_Top_Up (24) legend!", grad: "linear-gradient(135deg,#b45309 0%,#dc2626 52%,#581c87 100%)", fill: "#b91c1c", rim: "#facc15", core: "#fef08a" }
+  ];
+  function rankShieldSvg(r, sz) {
+    return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 44 44\" aria-hidden=\"true\">" +
+      "<path d=\"M22 4l13 5.2v10.6c0 9.4-5.7 16.5-13 19.7-7.3-3.2-13-10.3-13-19.7V9.2L22 4z\" fill=\"" + r.fill + "\" stroke=\"" + r.rim + "\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
+      "<path d=\"M22 13l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7-3.4-3.3 4.7-.7L22 13z\" fill=\"" + r.core + "\"/>" +
+    "</svg>";
+  }
+  function computePin6(seed) {
+    var s = String(seed || "guest").toLowerCase();
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return String(100000 + (Math.abs(h) % 899999));
+  }
+
+  var RECENT_ORDERS_SEED = [
+    { id: "ro-1", customerName: "Shsbj", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+    { id: "ro-2", customerName: "asadul islam", packageLabel: "Weekly", finalPrice: 158, status: "Done" },
+    { id: "ro-3", customerName: "MR RADUWAN FF RX", packageLabel: "25 Diamond", finalPrice: 22, status: "Done" },
+    { id: "ro-4", customerName: "Sp Ff", packageLabel: "505 Diamond", finalPrice: 336, status: "Done" },
+    { id: "ro-5", customerName: "Md Sohel Rana", packageLabel: "50 Diamond", finalPrice: 37, status: "Done" },
+    { id: "ro-6", customerName: "nayeem Ahmed", packageLabel: "Level Up Package - Level 6", finalPrice: 40, status: "In Progress" },
+    { id: "ro-7", customerName: "Shamim Khan", packageLabel: "850 Diamond", finalPrice: 558, status: "Done" },
+    { id: "ro-8", customerName: "Bdudu Hdudud", packageLabel: "115 Diamond", finalPrice: 79, status: "Done" },
+    { id: "ro-9", customerName: "Borno Hasan", packageLabel: "Level Up Package - Level 25", finalPrice: 75, status: "In Progress" },
+    { id: "ro-10", customerName: "Sajjad Vai", packageLabel: "240 Diamond", finalPrice: 158, status: "Done" }
+  ];
+  var liveRecentOrders = RECENT_ORDERS_SEED.slice();
+  var RO_COLORS = ["#e11d74", "#4f46e5", "#0f766e", "#0284c7", "#854d0e", "#7c3aed", "#16a34a", "#d97706"];
+  function renderRecentOrdersLive() {
+    var box = document.getElementById("roList");
+    if (!box) return;
+    box.innerHTML = liveRecentOrders.map(function (o, i) {
+      var nm = String(o.customerName || "Player");
+      var ini = (nm.trim().charAt(0) || "P").toUpperCase();
+      var col = RO_COLORS[i % RO_COLORS.length];
+      var isDone = o.status === "Done" || o.status === "Completed";
+      var pill = isDone
+        ? "<span class=\"ro-pill done\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"#16a34a\"/><polyline points=\"8 12.5 11 15.5 16.5 9.5\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span>Done</span></span>"
+        : "<span class=\"ro-pill prog\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#d97706\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2\"/></svg><span>In Progress</span></span>";
+      return "<div class=\"ro-item\">" +
+        "<div class=\"ro-left\">" +
+          "<div class=\"ro-av\" style=\"background:" + col + ";\">" + esc(ini) + "</div>" +
+          "<div class=\"ro-txt\"><b>" + esc(nm) + "</b><small>" + esc(o.packageLabel || "") + " - ৳" + Number(o.finalPrice || 0) + "</small></div>" +
+        "</div>" +
+        pill +
+      "</div>";
+    }).join("");
+  }
+  function initRecentOrdersSection() {
+    renderRecentOrdersLive();
+    var rf = document.getElementById("roRefreshBtn");
+    if (rf && !rf.dataset.wired) {
+      rf.dataset.wired = "1";
+      rf.onclick = function () {
+        rf.classList.remove("spin");
+        void rf.offsetWidth;
+        rf.classList.add("spin");
+        fetchPublicFeed();
+      };
+    }
+    var appBtn = document.getElementById("roAppBtn");
+    if (appBtn && !appBtn.dataset.wired) {
+      appBtn.dataset.wired = "1";
+      appBtn.onclick = handleMobileAppDownload;
+    }
+  }
+
+  function renderMyAccountRankView() {
+    var acView = document.getElementById("acView");
+    if (!acView) return;
+    var ordersArr = Array.isArray(state.orders) ? state.orders : [];
+    var orderSum = ordersArr.reduce(function (acc, o) {
+      return (o && o.status !== "Rejected") ? acc + Number(o.finalPrice || 0) : acc;
+    }, 0);
+    var totalSpend = Math.max(Math.round(Number(state.lifetimeSpendBdt || 0)), Math.round(orderSum));
+    var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var weeklySpend = ordersArr.reduce(function (acc, o) {
+      if (!o || o.status === "Rejected") return acc;
+      var t = new Date(o.createdAt || 0).getTime();
+      return t >= weekAgo ? acc + Number(o.finalPrice || 0) : acc;
+    }, 0);
+    var cur = ACCOUNT_RANKS[0];
+    for (var i = ACCOUNT_RANKS.length - 1; i >= 0; i--) {
+      if (totalSpend >= ACCOUNT_RANKS[i].min) { cur = ACCOUNT_RANKS[i]; break; }
+    }
+    var next = null;
+    for (var j = 0; j < ACCOUNT_RANKS.length; j++) {
+      if (ACCOUNT_RANKS[j].level === cur.level + 1) { next = ACCOUNT_RANKS[j]; break; }
+    }
+    var pct = 100, need = 0;
+    if (next) {
+      var span = Math.max(1, next.min - cur.min);
+      pct = Math.max(1, Math.min(99, Math.round((Math.max(0, totalSpend - cur.min) / span) * 100)));
+      if (totalSpend === 0) pct = 1;
+      need = Math.max(0, next.min - totalSpend);
+    }
+    var nameEl = document.getElementById("acName");
+    var nm = (nameEl && nameEl.textContent) || "Guest";
+    var mailEl = document.getElementById("acMail");
+    var mailTxt = (mailEl && mailEl.textContent) || "";
+    var avEl = document.getElementById("acAvatar");
+    if (avEl && !avEl.querySelector("img")) {
+      avEl.textContent = (nm.trim().charAt(0) || "G").toUpperCase();
+    }
+    var pin = computePin6(mailTxt && mailTxt.indexOf("লগইন") === -1 ? mailTxt : nm);
+    var pinEl = document.getElementById("acPin");
+    if (pinEl && !pinEl.textContent.trim()) pinEl.textContent = pin;
+    var infoUid = document.getElementById("acInfoUid");
+    if (infoUid) infoUid.textContent = (pinEl && pinEl.textContent) || pin;
+    var infoNm = document.getElementById("acInfoName");
+    if (infoNm) infoNm.textContent = nm;
+    var infoPh = document.getElementById("acInfoPhone");
+    if (infoPh) infoPh.textContent = /^\+?\d{7,15}$/.test(mailTxt.trim()) ? mailTxt.trim() : "Not added";
+    var accBadge = document.getElementById("acAccBadge");
+    if (accBadge) accBadge.innerHTML = "<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"#94a3b8\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg><span>" + (isUserSignedIn() ? "Verified Account" : "Guest Session") + "</span>";
+
+    var chipShield = document.getElementById("acChipShield");
+    if (chipShield) chipShield.innerHTML = rankShieldSvg(cur, 22);
+    var chipTitle = document.getElementById("acChipTitle");
+    if (chipTitle) chipTitle.textContent = cur.name + " Member";
+    var chipSub = document.getElementById("acChipSub");
+    if (chipSub) chipSub.textContent = "Level " + cur.level + " / Current Rank";
+
+    var rh = document.getElementById("acRankHero");
+    if (rh) rh.style.background = cur.grad;
+    var hs = document.getElementById("acHeroShield");
+    if (hs) hs.innerHTML = rankShieldSvg(cur, 38);
+    var hl = document.getElementById("acHeroLvl");
+    if (hl) hl.textContent = "Level " + cur.level;
+    var hn = document.getElementById("acHeroName");
+    if (hn) hn.textContent = cur.name;
+    var hsub = document.getElementById("acHeroSub");
+    if (hsub) hsub.textContent = cur.sub;
+    var hr = document.getElementById("acHeroRange");
+    if (hr) hr.textContent = cur.range;
+    var hp = document.getElementById("acHeroPct");
+    if (hp) hp.textContent = pct + "%";
+    var hf = document.getElementById("acHeroFill");
+    if (hf) hf.style.width = pct + "%";
+    var hdot = document.getElementById("acHeroDot");
+    if (hdot) hdot.style.left = "calc(" + Math.min(96, Math.max(2, pct)) + "% - 6px)";
+    var hneed = document.getElementById("acHeroNeed");
+    if (hneed) hneed.innerHTML = next ? ("Need only <b>" + need + " Tk</b> to unlock <b>" + next.name + "</b>") : "<b>Grand Master maximum rank unlocked!</b>";
+
+    var ordEl = document.getElementById("acOrders");
+    if (ordEl) ordEl.textContent = String(ordersArr.length || Number(ordEl.textContent || 0));
+    var ordMini = document.getElementById("acOrdersMini");
+    if (ordMini && ordEl) ordMini.textContent = ordEl.textContent;
+    var tsEl = document.getElementById("acTotalSpend");
+    if (tsEl) tsEl.textContent = totalSpend + " Tk";
+    var wsEl = document.getElementById("acWeeklySpend");
+    if (wsEl) wsEl.textContent = Math.round(weeklySpend) + " Tk";
+    var srEl = document.getElementById("acStatRank");
+    if (srEl) srEl.textContent = cur.name;
+    var pcEl = document.getElementById("acPathCount");
+    if (pcEl) pcEl.textContent = cur.level + "/8";
+
+    var listEl = document.getElementById("acRankList");
+    if (listEl) {
+      listEl.innerHTML = ACCOUNT_RANKS.map(function (r) {
+        var isCur = r.level === cur.level;
+        var isUnl = r.level < cur.level;
+        var badgeCls = isCur ? "cur" : (isUnl ? "unl" : "");
+        var chkIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><polyline points=\"20 6 9 17 4 12\"/></svg>";
+        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>";
+        var badgeTxt = isCur ? (chkIco + "Current") : (isUnl ? (chkIco + "Unlocked") : (lockIco + "Locked"));
+        return "<div class=\"ac2-j-item" + (isCur ? " is-cur" : "") + "\">" +
+          "<div class=\"ac2-j-left\">" +
+            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, 24) + "</div>" +
+            "<div><b>" + r.name + "</b><small>" + r.range + "</small></div>" +
+          "</div>" +
+          "<span class=\"ac2-j-pill " + badgeCls + "\">" + badgeTxt + "</span>" +
+        "</div>";
+      }).join("");
+    }
+  }
+
   function initAddMoneyPage() {
     var view = document.getElementById('amView');
     if (!view || view.dataset.wired === '1') return;
@@ -3748,6 +4319,7 @@
     var step2 = document.getElementById('amStep2');
     var step3Qr = document.getElementById('amStep3Qr');
     var step3Mfs = document.getElementById('amStep3Mfs');
+    var step3Eps = document.getElementById('amStep3Eps');
     var hero = view.querySelector('.am-hero');
     var amtInp = document.getElementById('amAmtInput');
     var err1 = document.getElementById('amErr1');
@@ -3763,12 +4335,22 @@
 
     function showAmStep(mode) {
       stopQrTimer();
-      if (hero) hero.hidden = (mode !== 1);
-      step1.hidden = (mode !== 1);
+      var isGw = (mode !== 1);
+      document.body.classList.toggle('am-gateway-mode', isGw);
+      if (hero) hero.hidden = isGw;
+      step1.hidden = isGw;
       step2.hidden = (mode !== 2);
       if (step3Qr) step3Qr.hidden = (mode !== 'qr');
       if (step3Mfs) step3Mfs.hidden = (mode !== 'mfs');
+      if (step3Eps) step3Eps.hidden = (mode !== 'eps');
+      if (isGw) {
+        var pCard = document.getElementById('amPendingCard');
+        if (pCard) { pCard.hidden = true; pCard.style.display = 'none'; }
+      } else {
+        renderAmPendingCard();
+      }
     }
+    window.__amShowStep = showAmStep;
 
     function getActiveNumber(m) {
       var bkNum = (paymentNumbers && paymentNumbers.bkash) || '01700-000000';
@@ -3802,11 +4384,382 @@
       }, 1000);
     }
 
+
+    var epsTab = "WALLET";
+    var epsChannel = "";
+    var EPS_CHANNELS = {
+      WALLET: [
+        {
+          id: "bKash",
+          render: function (on) {
+            var c = on ? "#e2136e" : "#475569";
+            return "<div style=\"display:flex;align-items:center;gap:4px;color:" + c + ";\">" +
+              "<span style=\"font-size:12.5px;font-weight:700;letter-spacing:-0.02em;\">bKash</span>" +
+              "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"" + c + "\"><path d=\"M3 10l9-6 3 6 6 2-7 5-5 4-1-6-5-5Z\"/></svg></div>";
+          }
+        },
+        {
+          id: "নগদ",
+          render: function (on) {
+            var ring = on ? "#f59e0b" : "#64748b";
+            var flame = on ? "#dc2626" : "#64748b";
+            var bg = on ? "#fef3c7" : "none";
+            var sub = on ? "<div style=\"font-size:5.5px;font-weight:700;color:#dc2626;margin-top:1px;white-space:nowrap;\">ডাক বিভাগের ডিজিটাল লেনদেন</div>" : "";
+            return "<div style=\"display:flex;align-items:center;gap:5px;\">" +
+              "<svg width=\"22\" height=\"22\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"" + bg + "\" stroke=\"" + ring + "\" stroke-width=\"2.8\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"" + flame + "\"/></svg>" +
+              "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:13.5px;font-weight:900;color:" + flame + ";\">নগদ</div>" + sub + "</div></div>";
+          }
+        },
+        {
+          id: "উপায়",
+          render: function (on) {
+            var bowl = on ? "#facc15" : "#94a3b8";
+            var dot = on ? "#1e3a8a" : "#475569";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;color:" + dot + ";\">" +
+              "<svg width=\"24\" height=\"16\" viewBox=\"0 0 48 32\"><path d=\"M8 6c0 12 6 20 16 20s16-8 16-20h-7c0 8-3.5 13-9 13s-9-5-9-13H8Z\" fill=\"" + bowl + "\"/><circle cx=\"15\" cy=\"6\" r=\"3.5\" fill=\"" + dot + "\"/><circle cx=\"33\" cy=\"6\" r=\"3.5\" fill=\"" + dot + "\"/></svg>" +
+              "<span style=\"font-size:10px;font-weight:900;margin-top:2px;\">উপায়</span></div>";
+          }
+        },
+        {
+          id: "OK Wallet",
+          render: function (on) {
+            var c = on ? "#d97706" : "#334155";
+            return "<div style=\"display:flex;align-items:center;gap:3px;color:" + c + ";font-weight:900;font-size:13px;\">" +
+              "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9.5\"/><circle cx=\"9\" cy=\"10\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"15\" cy=\"10\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M8.5 14.5c1 1.6 2.2 2.2 3.5 2.2s2.5-.6 3.5-2.2\"/></svg><span>OK</span></div>";
+          }
+        },
+        {
+          id: "mCash",
+          render: function (on) {
+            var c = on ? "#007b40" : "#475569";
+            return "<div style=\"display:flex;align-items:center;gap:4px;color:" + c + ";\">" +
+              "<span style=\"width:19px;height:22px;background:" + c + ";color:#fff;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border-radius:2px;\">M</span>" +
+              "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:10px;font-weight:900;\">এম</div><div style=\"font-size:9px;font-weight:700;\">ক্যাশ</div></div></div>";
+          }
+        },
+        {
+          id: "Islamic Wallet",
+          render: function (on) {
+            var c1 = on ? "#00875a" : "#475569";
+            var c2 = on ? "#059669" : "#94a3b8";
+            return "<div style=\"text-align:center;line-height:1;\"><div style=\"font-size:11.5px;font-weight:900;font-style:italic;color:" + c1 + ";\">Islamic</div><div style=\"font-size:9px;font-weight:700;color:" + c2 + ";\">Wallet</div></div>";
+          }
+        },
+        {
+          id: "Meghna Pay",
+          render: function (on) {
+            var c1 = on ? "#0284c7" : "#475569";
+            var c2 = on ? "#0369a1" : "#475569";
+            return "<div style=\"text-align:left;line-height:1;\"><div style=\"font-size:9px;font-weight:700;font-style:italic;color:" + c1 + ";\">meghna</div><div style=\"font-size:14px;font-weight:900;font-style:italic;margin-top:-1px;color:" + c2 + ";\">pay</div></div>";
+          }
+        }
+      ],
+      BANK: [
+        {
+          id: "Islami Bank Bangladesh",
+          render: function (on) {
+            var ring = on ? "#007b40" : "#475569";
+            var core = on ? "#007b40" : "#64748b";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;\">" +
+              "<svg width=\"54\" height=\"36\" viewBox=\"0 0 80 46\"><ellipse cx=\"40\" cy=\"23\" rx=\"32\" ry=\"17\" fill=\"none\" stroke=\"" + ring + "\" stroke-width=\"2.4\" stroke-dasharray=\"4 2\"/><circle cx=\"40\" cy=\"23\" r=\"11\" fill=\"" + core + "\"/><path d=\"M35 27v-7l5-4 5 4v7h-10Z\" fill=\"#ffffff\"/></svg></div>";
+          }
+        },
+        {
+          id: "Southeast Bank PLC",
+          render: function (on) {
+            var sCol = on ? "#1e3a8a" : "#475569";
+            var bCol = on ? "#dc2626" : "#475569";
+            var tCol = on ? "#0f172a" : "#475569";
+            return "<div style=\"display:flex;flex-direction:column;align-items:center;line-height:1;\">" +
+              "<div style=\"font-size:18px;font-weight:900;letter-spacing:-0.04em;\"><span style=\"color:" + sCol + ";\">S</span><span style=\"color:" + bCol + ";\">B</span></div>" +
+              "<div style=\"font-size:7.5px;font-weight:800;margin-top:2px;white-space:nowrap;color:" + tCol + ";\">Southeast Bank PLC</div></div>";
+          }
+        },
+        {
+          id: "Citytouch",
+          render: function (on) {
+            var c1 = on ? "#dc2626" : "#475569";
+            var c2 = on ? "#b91c1c" : "#94a3b8";
+            return "<div style=\"text-align:center;line-height:1.1;\"><div style=\"font-size:11.5px;font-weight:900;color:" + c1 + ";\">Citytouch</div><div style=\"font-size:8px;font-weight:700;color:" + c2 + ";\">City Bank</div></div>";
+          }
+        }
+      ]
+    };
+    var CHK_BADGE_HTML = "<span class=\"eps-ch-chk\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg></span>";
+    function renderEpsGrid() {
+      var grid = document.getElementById("epsGrid");
+      if (!grid) return;
+      if (epsTab === "CARD") {
+        grid.className = "eps-card-form";
+        grid.innerHTML =
+          "<div class=\"eps-card-top\"><span class=\"eps-visa\">VISA</span><span class=\"eps-mc\"><i></i><i></i></span><span class=\"eps-other-cards\">Other Cards</span></div>" +
+          "<input class=\"eps-card-inp\" type=\"text\" placeholder=\"Enter Card Number\">" +
+          "<div class=\"eps-card-row2\"><input class=\"eps-card-inp\" type=\"text\" placeholder=\"MM/YY\"><input class=\"eps-card-inp\" type=\"text\" placeholder=\"CVC/CVV\"></div>" +
+          "<input class=\"eps-card-inp\" type=\"text\" placeholder=\"Card Holder Name\">" +
+          "<label class=\"eps-card-save\"><input type=\"checkbox\" style=\"accent-color:#006a4e;\"><span>Save &amp; remember me</span></label>";
+        return;
+      }
+      grid.className = "eps-grid";
+      var items = EPS_CHANNELS[epsTab] || EPS_CHANNELS.WALLET;
+      grid.innerHTML = items.map(function (it) {
+        var isOn = epsChannel === it.id;
+        return "<button type=\"button\" class=\"eps-ch" + (isOn ? " on" : "") + "\" data-ch=\"" + esc(it.id) + "\">" +
+          (isOn ? CHK_BADGE_HTML : "") +
+          it.render(isOn) +
+        "</button>";
+      }).join("");
+      grid.querySelectorAll(".eps-ch").forEach(function (b) {
+        b.onclick = function () {
+          epsChannel = b.getAttribute("data-ch") || "";
+          document.getElementById("epsErr").style.display = "none";
+          document.getElementById("epsChLbl").textContent = epsChannel;
+          document.getElementById("epsNumLbl").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
+          renderEpsGrid();
+          if (epsChannel && typeof startEpsConnecting === "function") {
+            if (epsPickTimer) clearTimeout(epsPickTimer);
+            epsPickTimer = setTimeout(function () {
+              epsPickTimer = null;
+              startEpsConnecting();
+            }, 220);
+          }
+        };
+      });
+    }
+    function openEpsStep(amt) {
+      epsTab = "WALLET"; epsChannel = "";
+      document.getElementById("epsPayAmt").textContent = amt + ".00";
+      document.getElementById("epsTrxBox").style.display = "none";
+      document.getElementById("epsErr").style.display = "none";
+      document.getElementById("epsOk").style.display = "none";
+      document.getElementById("epsChLbl").textContent = "bKash";
+      document.getElementById("epsNumLbl").textContent = getActiveNumber("bKash");
+      document.querySelectorAll("#amStep3Eps .eps-tabs button").forEach(function (tb) {
+        tb.classList.toggle("on", tb.getAttribute("data-epstab") === "WALLET");
+      });
+      renderEpsGrid();
+      showAmStep("eps");
+    }
+    if (step3Eps) {
+      step3Eps.querySelectorAll(".eps-tabs button").forEach(function (tb) {
+        tb.onclick = function () {
+          epsTab = tb.getAttribute("data-epstab") || "WALLET";
+          step3Eps.querySelectorAll(".eps-tabs button").forEach(function (x) { x.classList.toggle("on", x === tb); });
+          epsChannel = epsTab === "CARD" ? "VISA/Mastercard" : "";
+          document.getElementById("epsTrxBox").style.display = "none";
+          document.getElementById("epsErr").style.display = "none";
+          renderEpsGrid();
+        };
+      });
+      step3Eps.querySelectorAll(".eps-lang button").forEach(function (lb) {
+        lb.onclick = function () {
+          step3Eps.querySelectorAll(".eps-lang button").forEach(function (x) { x.classList.toggle("on", x === lb); });
+        };
+      });
+      document.getElementById("epsCloseBtn").onclick = function () { showAmStep(2); };
+      document.getElementById("epsLogBtn").onclick = function () { showAmStep(2); };
+      document.getElementById("epsSupBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "হেল্পলাইন: " + getActiveNumber("bKash") + " (bKash) / " + getActiveNumber("Nagad") + " (Nagad)";
+        ok.style.display = "block";
+      };
+      document.getElementById("epsFaqBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "ওয়ালেট সিলেক্ট করে PAY বাটনে চাপুন, টাকা পাঠিয়ে TrxID দিয়ে Verify করুন।";
+        ok.style.display = "block";
+      };
+      document.getElementById("epsOffBtn").onclick = function () {
+        var ok = document.getElementById("epsOk");
+        ok.textContent = "Crazy_Top_Up (24) অ্যাড মানিতে ৩% ক্যাশব্যাক ও স্পিন অফার চালু আছে!";
+        ok.style.display = "block";
+      };
+      var epsConnTimer = null;
+      var epsPickTimer = null;
+      var epsEasyLang = "en";
+      function startEpsConnecting() {
+        var err = document.getElementById("epsErr");
+        if (!epsChannel) {
+          err.textContent = "দয়া করে আগে একটি ওয়ালেট বা ব্যাংক সিলেক্ট করুন।";
+          err.style.display = "block";
+          return;
+        }
+        if (epsPickTimer) { clearTimeout(epsPickTimer); epsPickTimer = null; }
+        err.style.display = "none";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        var chLbl = epsChannel === "নগদ" ? "Nagad" : epsChannel;
+        var connLogo = document.getElementById("epsConnLogo");
+        connLogo.innerHTML = epsChannel === "নগদ"
+          ? "<div style=\"display:flex;align-items:center;gap:5px;\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"#fef3c7\" stroke=\"#f59e0b\" stroke-width=\"2.8\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"#dc2626\"/></svg><div style=\"text-align:left;line-height:1;\"><div style=\"font-size:15px;font-weight:900;color:#dc2626;\">নগদ</div><div style=\"font-size:5.5px;font-weight:700;color:#dc2626;\">ডাক বিভাগের ডিজিটাল লেনদেন</div></div></div>"
+          : ("<b style=\"font-size:13px;color:#006a4e;\">" + esc(epsChannel) + "</b>");
+        document.getElementById("epsConnTitle").textContent = "Connecting to " + chLbl;
+        document.getElementById("epsConnOv").style.display = "flex";
+        if (epsConnTimer) clearTimeout(epsConnTimer);
+        epsConnTimer = setTimeout(function () {
+          document.getElementById("epsConnOv").style.display = "none";
+          document.getElementById("epsEasyCard").style.background = getEasyBg(epsChannel);
+          document.getElementById("epsEasyInv").textContent = "261120" + String(Date.now()).slice(-6) + "TW";
+          document.getElementById("epsEasyAmt").textContent = "BDT " + amt + ".00";
+          document.getElementById("epsEasyPhoneStep").style.display = "block";
+          document.getElementById("epsEasyTrxStep").style.display = "none";
+          document.getElementById("epsEasyErr").style.display = "none";
+          buildEpsSegInputs();
+          updateEasyTexts();
+          document.getElementById("epsEasyFoot").innerHTML = epsChannel === "নগদ"
+            ? "<svg width=\"26\" height=\"26\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"16\" fill=\"#ffffff\"/><path d=\"M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z\" fill=\"#dc2626\"/></svg><div style=\"text-align:left;line-height:1;\"><div style=\"font-size:16px;font-weight:900;color:#ffffff;\">নগদ</div><div style=\"font-size:5.5px;color:rgba(255,255,255,0.85);\">ডাক বিভাগের ডিজিটাল লেনদেন</div></div>"
+            : "<div style=\"text-align:center;line-height:1.15;\"><div style=\"font-size:15px;font-weight:900;color:#ffffff;\">" + esc(epsChannel) + "</div><div style=\"font-size:7px;letter-spacing:0.06em;color:rgba(255,255,255,0.82);text-transform:uppercase;\">Easy Payment System</div></div>";
+          document.getElementById("epsEasyOv").style.display = "flex";
+        }, 1600);
+      }
+      function buildEpsSegInputs() {
+        var row = document.getElementById("epsSegRow");
+        if (!row) return;
+        var out = "";
+        for (var k = 0; k < 11; k++) {
+          if (k === 3 || k === 7) out += "<span>-</span>";
+          out += "<input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" class=\"eps-seg-inp\" data-sidx=\"" + k + "\">";
+        }
+        row.innerHTML = out;
+        var inputs = row.querySelectorAll(".eps-seg-inp");
+        inputs.forEach(function (inp, idx) {
+          inp.oninput = function () {
+            inp.value = inp.value.replace(/\D/g, "").slice(-1);
+            document.getElementById("epsEasyErr").style.display = "none";
+            if (inp.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+          };
+          inp.onkeydown = function (e) {
+            if (e.key === "Backspace" && !inp.value && idx > 0) inputs[idx - 1].focus();
+          };
+          inp.onpaste = function (e) {
+            var txt = (e.clipboardData && e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 11);
+            if (!txt) return;
+            e.preventDefault();
+            for (var p = 0; p < inputs.length; p++) inputs[p].value = txt[p] || "";
+          };
+        });
+      }
+      function getEasyBg(ch) {
+        if (ch === "bKash") return "radial-gradient(circle at 50% 45%, #e11d74 0%, #9b0b48 75%, #750735 100%)";
+        if (ch === "উপায়" || ch === "Meghna Pay") return "radial-gradient(circle at 50% 45%, #1d4ed8 0%, #1e3a8a 75%, #172554 100%)";
+        if (String(ch).indexOf("Bank") !== -1 || ch === "mCash" || ch === "Islamic Wallet") return "radial-gradient(circle at 50% 45%, #007b40 0%, #00553e 75%, #003828 100%)";
+        return "radial-gradient(circle at 50% 45%, #dc2626 0%, #991b1b 72%, #780f0f 100%)";
+      }
+      function updateEasyTexts() {
+        var chLbl = epsChannel === "নগদ" ? "Nagad" : epsChannel;
+        document.getElementById("epsEasyHeadTitle").textContent = epsEasyLang === "bn" ? "ইজি পেমেন্ট সিস্টেম" : "Easy Payment System";
+        document.getElementById("epsEasyAccLbl").textContent = epsEasyLang === "bn"
+          ? ("আপনার " + epsChannel + " অ্যাকাউন্ট নম্বর")
+          : ("Your " + chLbl + " Account Number");
+      }
+      document.querySelectorAll("#epsEasyOv .eps-easy-lang button").forEach(function (lb) {
+        lb.onclick = function () {
+          epsEasyLang = lb.getAttribute("data-elang") || "en";
+          document.querySelectorAll("#epsEasyOv .eps-easy-lang button").forEach(function (x) { x.classList.toggle("on", x === lb); });
+          updateEasyTexts();
+        };
+      });
+      document.getElementById("epsEasyClose").onclick = function () {
+        document.getElementById("epsEasyOv").style.display = "none";
+      };
+      document.getElementById("epsEasyProceed").onclick = function () {
+        var num = "";
+        document.querySelectorAll("#epsSegRow .eps-seg-inp").forEach(function (i) { num += i.value; });
+        var err = document.getElementById("epsEasyErr");
+        if (num.length < 11) {
+          err.textContent = "সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন।";
+          err.style.display = "block";
+          return;
+        }
+        err.style.display = "none";
+        document.getElementById("epsEasyChTxt").textContent = epsChannel;
+        document.getElementById("epsEasyNumTxt").textContent = epsChannel === "নগদ" ? getActiveNumber("Nagad") : getActiveNumber("bKash");
+        document.getElementById("epsEasyTrxErr").style.display = "none";
+        document.getElementById("epsEasyTrxOk").style.display = "none";
+        document.getElementById("epsEasyPhoneStep").style.display = "none";
+        document.getElementById("epsEasyTrxStep").style.display = "block";
+      };
+      document.getElementById("epsEasyBack").onclick = function () {
+        document.getElementById("epsEasyTrxStep").style.display = "none";
+        document.getElementById("epsEasyPhoneStep").style.display = "block";
+      };
+      document.getElementById("epsEasyCopyBtn").onclick = function () {
+        var t = document.getElementById("epsEasyNumTxt").textContent;
+        if (navigator.clipboard && t) navigator.clipboard.writeText(t).then(function () { showSiteToast("কপি হয়েছে: " + t); }).catch(function () {});
+      };
+      document.getElementById("epsEasyConfirm").onclick = function () {
+        var trx = (document.getElementById("epsEasyTrxInp").value || "").trim().toUpperCase();
+        var err = document.getElementById("epsEasyTrxErr");
+        var ok = document.getElementById("epsEasyTrxOk");
+        if (trx.length < 4) { err.textContent = "সঠিক ট্রানজেকশন আইডি দিন।"; err.style.display = "block"; return; }
+        err.style.display = "none"; ok.style.display = "none";
+        var sender = "";
+        document.querySelectorAll("#epsSegRow .eps-seg-inp").forEach(function (i) { sender += i.value; });
+        var btn = document.getElementById("epsEasyConfirm");
+        btn.disabled = true; btn.textContent = "...";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        fetch("/api/wallet/deposit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identifier: getUserKey(),
+            method: "EPS (" + epsChannel + ")",
+            amountBdt: amt,
+            senderNumber: sender || ("EPS " + epsChannel),
+            trxId: trx
+          })
+        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+          .then(function (res) {
+            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
+            applyServerPayload(res.data, true);
+            document.getElementById("epsEasyTrxInp").value = "";
+            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " সফলভাবে জমা হয়েছে!");
+            ok.style.display = "block";
+          }).catch(function () {
+            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
+          }).finally(function () { btn.disabled = false; btn.textContent = "Confirm"; });
+      };
+      document.getElementById("epsPayBtn").onclick = function () {
+        startEpsConnecting();
+      };
+      document.getElementById("epsCopyBtn").onclick = function () {
+        var num = document.getElementById("epsNumLbl").textContent;
+        if (navigator.clipboard && num) navigator.clipboard.writeText(num).then(function () { showSiteToast("কপি হয়েছে: " + num); }).catch(function () {});
+      };
+      document.getElementById("epsVerifyBtn").onclick = function () {
+        var trx = (document.getElementById("epsTrxInp").value || "").trim().toUpperCase();
+        var err = document.getElementById("epsErr");
+        var ok = document.getElementById("epsOk");
+        if (trx.length < 4) { err.textContent = "সঠিক ট্রানজেকশন আইডি দিন।"; err.style.display = "block"; return; }
+        err.style.display = "none"; ok.style.display = "none";
+        var btn = document.getElementById("epsVerifyBtn");
+        btn.disabled = true; btn.textContent = "...";
+        var amt = Math.round(Number(amtInp.value)) || 50;
+        fetch("/api/wallet/deposit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identifier: getUserKey(),
+            method: "EPS (" + epsChannel + ")",
+            amountBdt: amt,
+            senderNumber: "EPS " + epsChannel,
+            trxId: trx
+          })
+        }).then(function (r) { return r.json().then(function (res) { return { ok: r.ok, data: res }; }); })
+          .then(function (res) {
+            if (!res.ok) { err.textContent = (res.data && res.data.error) || "ভেরিফাই ব্যর্থ হয়েছে।"; err.style.display = "block"; return; }
+            applyServerPayload(res.data, true);
+            document.getElementById("epsTrxInp").value = "";
+            ok.textContent = (res.data && res.data.autoApproved) ? ("✅ অটো-ভেরিফাই সফল! EPS (" + epsChannel + ") ৳" + amt + ".00 সাথে সাথে ওয়ালেটে যোগ হয়েছে!") : ("✅ EPS (" + epsChannel + ") ৳" + amt + ".00 TrxID " + trx + " ভেরিফাইয়ের জন্য জমা হয়েছে!");
+            ok.style.display = "block";
+          }).catch(function () {
+            err.textContent = "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।"; err.style.display = "block";
+          }).finally(function () { btn.disabled = false; btn.textContent = "Verify"; });
+      };
+    }
+
     function openMfsStep(m, amt) {
       var num = getActiveNumber(m);
       var cfg = {
         Nagad: { ussd: '*167#', app: 'NAGAD', bg: '#d81b27', btn: '#b90e1c', logo: '<div class="am-m-nagad"><svg width="28" height="28" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#FFF7ED" stroke="#EA580C" stroke-width="2.4"/><path d="M12 24c3-7 9-12 16-11-3 2-5 5-5 8 2-2 4-3 6-3-2 4-6 8-12 9-2 0-4-1-5-3Z" fill="#DC2626"/></svg><span>নগদ</span></div>' },
-        Rocket: { ussd: '*322#', app: 'ROCKET', bg: '#7c3aed', btn: '#5b21b6', logo: '<div class="am-m-rocket"><small>ROCKET 🚀</small><b>রকেট</b></div>' },
+        Rocket: { ussd: '*322#', app: 'ROCKET', bg: '#7c3aed', btn: '#5b21b6', logo: '<div class="am-m-rocket"><small style="display:inline-flex;align-items:center;gap:3px;">ROCKET <svg width="13" height="13" viewBox="0 0 24 24" fill="#7C3AED"><path d="M14 2c3.5 0 6.5 1 8 2.5-1.5 1.5-3 4.5-3 8l-5 5-4-4 4-11.5ZM7 13l4 4-3 3H4v-4l3-3Z"/></svg></small><b>রকেট</b></div>' },
         Upay: { ussd: '*268#', app: 'UPAY', bg: '#0f4eb8', btn: '#0b3a8c', logo: '<div class="am-m-upay"><b style="color:#1E3A8A;font-size:15px;">উপায় (Upay)</b></div>' },
         EPS: { ussd: '*247# / *167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<div class="am-m-eps"><div class="am-m-eps-top"><small>PAY WITH</small> <b>≡EPS</b></div></div>' }
       }[m] || { ussd: '*167#', app: 'MFS', bg: '#1d4ed8', btn: '#1e3a8a', logo: '<b>' + esc(m) + '</b>' };
@@ -3820,7 +4773,7 @@
       document.getElementById('amMfsList').innerHTML =
         '<li>• ' + cfg.ussd + ' ডায়াল করে আপনার ' + cfg.app + ' মোবাইল মেনুতে যান অথবা ' + cfg.app + ' অ্যাপে যান।</li>' +
         '<li>• Send Money -এ ক্লিক করুন।</li>' +
-        '<li>• এই নম্বরে টাকা পাঠান <b style="color:#fde047;">' + esc(num) + '</b> <button type="button" class="am-mfs-copy" id="amMfsCopyBtn">কপি</button></li>' +
+        '<li>• এই নম্বরে টাকা পাঠান <b style="color:#fde047;">' + esc(num) + '</b> <button type="button" class="am-mfs-copy" id="amMfsCopyBtn" style="display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>কপি</span></button></li>' +
         '<li>• টাকার পরিমাণঃ <b style="color:#fde047;">' + amt + '</b></li>' +
         '<li>• নিশ্চিত করে এখন আপনার ' + cfg.app + ' মোবাইল মেনু PIN লিখুন।</li>' +
         '<li>• টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</li>' +
@@ -3851,27 +4804,49 @@
         return;
       }
       err1.style.display = 'none';
+      amOpenedDirectlyToGateway = false;
       if (chosenAmt) chosenAmt.textContent = 'Amount: ৳' + amt;
+      var payBar = document.getElementById('amGwPayBar');
+      if (payBar) payBar.textContent = 'Pay ' + amt + '.00';
       showAmStep(2);
     };
 
+    function exitGatewayToOrigin(forceHome) {
+      if (amOpenedDirectlyToGateway && pendingProductOrder) {
+        var ret = (!forceHome && pendingProductOrder.returnHash) ? pendingProductOrder.returnHash.replace(/^#/, '') : '';
+        pendingProductOrder = null;
+        amOpenedDirectlyToGateway = false;
+        showAmStep(1);
+        location.hash = ret;
+        return;
+      }
+      amOpenedDirectlyToGateway = false;
+      if (forceHome) {
+        showAmStep(1);
+      } else {
+        showAmStep(1);
+        location.hash = '';
+      }
+    }
+
     var gwHome = document.getElementById('amGwHome');
-    if (gwHome) gwHome.onclick = function () { showAmStep(1); };
+    if (gwHome) gwHome.onclick = function () { exitGatewayToOrigin(true); };
     var gwClose = document.getElementById('amGwClose');
-    if (gwClose) gwClose.onclick = function () { showAmStep(1); location.hash = ''; };
+    if (gwClose) gwClose.onclick = function () { exitGatewayToOrigin(false); };
 
     view.querySelectorAll('.am-gw-card').forEach(function (btn) {
       btn.onclick = function () {
         selectedMethod = btn.getAttribute('data-method') || 'bKash';
         var amt = Math.round(Number(amtInp.value)) || 50;
         if (selectedMethod === 'bKash') openQrStep(amt);
+        else if (selectedMethod === 'EPS') openEpsStep(amt);
         else openMfsStep(selectedMethod, amt);
       };
     });
 
     document.getElementById('amQrBack').onclick = function () { showAmStep(2); };
     document.getElementById('amMfsBack').onclick = function () { showAmStep(2); };
-    document.getElementById('amMfsClose').onclick = function () { showAmStep(1); location.hash = ''; };
+    document.getElementById('amMfsClose').onclick = function () { exitGatewayToOrigin(false); };
 
     document.getElementById('amQrDlBtn').onclick = function () {
       var c = document.getElementById('amQrCanvas');
@@ -3911,7 +4886,7 @@
           if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
           applyServerPayload(res.data, true);
           document.getElementById('amQrDigits').value = '';
-          ok.textContent = '✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!';
+          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + '.00 BDT সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + '.00 BDT ভেরিফাই রিকোয়েস্ট পাঠানো হয়েছে (' + uniqueTrx + ')!');
           ok.style.display = 'block';
         }).catch(function () {
           err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
@@ -3946,7 +4921,7 @@
           if (!res.ok) { err.textContent = (res.data && res.data.error) || 'ভেরিফাই ব্যর্থ হয়েছে।'; err.style.display = 'block'; return; }
           applyServerPayload(res.data, true);
           document.getElementById('amMfsTrxInp').value = '';
-          ok.textContent = '✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!';
+          ok.textContent = (res.data && res.data.autoApproved) ? ('✅ অটো-ভেরিফাই সফল! ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' সাথে সাথে ওয়ালেটে যোগ হয়েছে!') : ('✅ ৳' + amt + ' (' + selectedMethod + ') TrxID ' + trx + ' ভেরিফাইয়ের জন্য জমা হয়েছে!');
           ok.style.display = 'block';
         }).catch(function () {
           err.textContent = 'নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; err.style.display = 'block';
@@ -3959,6 +4934,8 @@
     startJsMarqueeLoop();
     initGoogleAuthSession();
     initAddMoneyPage();
+    initRecentOrdersSection();
+    renderMyAccountRankView();
     if (!bannerTimerStarted) {
       bannerTimerStarted = true;
       setInterval(function () {

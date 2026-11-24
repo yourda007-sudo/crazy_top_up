@@ -63,7 +63,8 @@
         <span>Crazy_top_up (24)</span>
         <span class="badge">Admin Panel</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <a href="/crazy-topup-spin.zip" download="crazy-topup-spin.zip" class="btn btn-sky">⬇ Download GitHub Zip</a>
         <a href="/" class="btn btn-slate">← Back to Store</a>
         <button type="button" id="refreshBtn" class="btn btn-slate" style="display:none;">↻ Refresh</button>
         <button type="button" id="saveAllBtn" class="btn btn-gold" style="display:none;">Save All Settings</button>
@@ -233,6 +234,188 @@
 
       <div class="card" style="margin-bottom:18px;">
         <div class="card-hd">
+          <h2>Auto-SMS TrxID Webhook (Android Sync)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span id="smsEnvNote" style="font-size:11px;color:#94a3b8;">Instant bKash / Nagad / Rocket / Upay Auto-Verify</span>
+            <button type="button" id="smsTestBtn" class="btn btn-emerald" style="padding:6px 11px;font-size:11.5px;">Simulate SMS</button>
+          </div>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:14px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">Webhook Endpoint URL (POST JSON)</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="smsWebhookUrl" class="inp mono" readonly />
+                <button type="button" id="copySmsUrlBtn" class="btn btn-slate">Copy</button>
+              </div>
+            </div>
+            <div>
+              <label class="lbl">Webhook Secret Key (x-webhook-key / secret)</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="smsWebhookSecret" class="inp mono" placeholder="Min 8 characters" />
+                <button type="button" id="genSmsSecretBtn" class="btn btn-slate">Regenerate</button>
+                <button type="button" id="copySmsSecretBtn" class="btn btn-slate">Copy</button>
+              </div>
+            </div>
+            <div style="background:#0b1017;border:1px solid #1e293b;border-radius:10px;padding:10px;font-size:11.5px;color:#cbd5e1;line-height:1.55;">
+              <div style="font-weight:800;color:#fcd34d;margin-bottom:4px;">Android App Setup (SMS Forwarder / MacroDroid):</div>
+              <div>1. Filter incoming SMS from <b>bKash</b>, <b>Nagad</b>, <b>16216</b> (Rocket), or <b>Upay</b>.</div>
+              <div>2. Set HTTP Method: <b>POST</b> to the Webhook URL above (Content-Type: <span class="mono">application/json</span>).</div>
+              <div>3. JSON Body: <code id="smsJsonSample" class="mono" style="color:#7dd3fc;">{"secret":"...","sender":"{from}","text":"{body}"}</code></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">Test Simulator — Sender ID</label>
+              <input type="text" id="smsTestSender" class="inp mono" value="bKash" />
+            </div>
+            <div>
+              <label class="lbl">Test Simulator — Sample MFS SMS Text</label>
+              <textarea id="smsTestBody" class="inp mono" rows="3" placeholder="You have received Tk 100.00 from 01711000024. TrxID DEMO9281A">You have received Tk 100.00 from 01711000024. Fee Tk 0.00. Balance Tk 1500.00. TrxID DEMO9281A at 20/11/2026</textarea>
+            </div>
+            <div id="smsStatus" class="msg"></div>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" style="max-height:260px;">
+          <table>
+            <thead>
+              <tr><th>Provider</th><th>Amount</th><th>TrxID</th><th>Sender</th><th>Status</th><th>Time</th></tr>
+            </thead>
+            <tbody id="smsPaymentsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="siteSettingsCard" style="margin-bottom:18px;border-color:#1e3a5f;">
+        <div class="card-hd">
+          <h2>🎨 Site Branding, Hero Banners, Popup, Links &amp; App Download</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span id="siteSettingsStatus" class="msg" style="margin:0;"></span>
+            <button type="button" id="saveSiteSettingsBtn" class="btn btn-gold">💾 Save Site Branding &amp; Links</button>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:14px;">
+          <div style="background:#0b1017;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:12.5px;font-weight:800;color:#fcd34d;">1. Website Name &amp; Main Logo</div>
+            <div>
+              <label class="lbl">Website Name</label>
+              <input type="text" id="ssSiteName" class="inp" placeholder="Crazy_Top_Up (24)" />
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <img id="ssLogoPreview" src="Main logo.jpg" alt="Logo preview" style="width:52px;height:52px;border-radius:12px;object-fit:cover;border:1px solid #334155;background:#121923;flex-shrink:0;" onerror="this.style.opacity='0.3'" />
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+                <label class="lbl" style="margin:0;">Logo URL or Upload from Gallery</label>
+                <div style="display:flex;gap:6px;">
+                  <input type="text" id="ssLogoUrl" class="inp mono" placeholder="Main logo.jpg or https://..." />
+                  <label class="btn btn-sky" style="white-space:nowrap;cursor:pointer;">
+                    📷 Upload
+                    <input type="file" id="ssLogoFile" accept="image/*" style="display:none;" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid #1e293b;padding-top:10px;font-size:12.5px;font-weight:800;color:#fcd34d;">2. Welcome Popup Notification</div>
+            <div class="field-grid">
+              <div>
+                <label class="lbl">Popup Status</label>
+                <select id="ssPopupActive" class="inp">
+                  <option value="1">Active (Show on Visit)</option>
+                  <option value="0">Hidden (Off)</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Popup Image URL or Upload</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <img id="ssPopupPreview" src="Notification.jpg" alt="Popup preview" style="width:36px;height:36px;border-radius:8px;object-fit:cover;border:1px solid #334155;flex-shrink:0;" onerror="this.style.opacity='0.3'" />
+                  <input type="text" id="ssPopupImg" class="inp mono" placeholder="Notification.jpg or https://..." />
+                  <label class="btn btn-sky" style="white-space:nowrap;cursor:pointer;padding:7px 9px;">
+                    📷
+                    <input type="file" id="ssPopupFile" accept="image/*" style="display:none;" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="lbl">Popup Message Text (supports multiple lines)</label>
+              <textarea id="ssPopupText" class="inp" rows="3" placeholder="Write welcome popup message..."></textarea>
+            </div>
+          </div>
+
+          <div style="background:#0b1017;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:12.5px;font-weight:800;color:#7dd3fc;">3. Telegram, Group, YouTube &amp; HelpLine Links</div>
+            <div class="field-grid">
+              <div><label class="lbl">Telegram Channel / Join Telegram URL</label><input type="text" id="ssTgChannel" class="inp" placeholder="https://t.me/your_channel" /></div>
+              <div><label class="lbl">Join Group URL</label><input type="text" id="ssTgGroup" class="inp" placeholder="https://t.me/your_group" /></div>
+              <div><label class="lbl">YouTube Channel URL</label><input type="text" id="ssYtChannel" class="inp" placeholder="https://youtube.com/@yourchannel" /></div>
+              <div><label class="lbl">Telegram HelpLine Title</label><input type="text" id="ssHelpTitle" class="inp" placeholder="Telegram HelpLine" /></div>
+              <div style="grid-column:span 2 / span 2;"><label class="lbl">HelpLine Active Hours</label><input type="text" id="ssHelpHours" class="inp" placeholder="সকাল ৮টা থেকে রাত ১২টা" /></div>
+            </div>
+
+            <div style="border-top:1px solid #1e293b;padding-top:10px;font-size:12.5px;font-weight:800;color:#34d399;">4. Download Our Mobile App Action</div>
+            <div class="field-grid">
+              <div>
+                <label class="lbl">App Button Behavior</label>
+                <select id="ssAppMode" class="inp">
+                  <option value="auto">Auto Install App (PWA / Direct Download)</option>
+                  <option value="play_store">Open Google Play Store Link</option>
+                  <option value="direct_apk">Direct APK File Download</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Button Label</label>
+                <input type="text" id="ssAppLabel" class="inp" placeholder="Google Play" />
+              </div>
+              <div style="grid-column:span 2 / span 2;">
+                <label class="lbl">Play Store Link or Direct APK URL (used when Play Store / APK selected or fallback)</label>
+                <input type="text" id="ssAppUrl" class="inp mono" placeholder="https://play.google.com/store/apps/details?id=... or https://.../app.apk" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:14px;">
+          <div style="background:#0b1017;border:1px solid #1e293b;border-radius:12px;padding:12px;">
+            <div style="font-size:12.5px;font-weight:800;color:#fcd34d;margin-bottom:8px;">5. Footer Notice &amp; Special Alert Box</div>
+            <div class="field-grid">
+              <div><label class="lbl">Notice Title</label><input type="text" id="ssNoticeTitle" class="inp" placeholder="নোটিশ:" /></div>
+              <div><label class="lbl">Alert Title</label><input type="text" id="ssAlertTitle" class="inp" placeholder="বিশেষ সতর্কতা:" /></div>
+              <div style="grid-column:span 2 / span 2;"><label class="lbl">Notice Message</label><textarea id="ssNoticeText" class="inp" rows="2"></textarea></div>
+              <div style="grid-column:span 2 / span 2;"><label class="lbl">Special Alert Message</label><textarea id="ssAlertText" class="inp" rows="2"></textarea></div>
+            </div>
+          </div>
+
+          <div style="background:#0b1017;border:1px solid #1e293b;border-radius:12px;padding:12px;">
+            <div style="font-size:12.5px;font-weight:800;color:#fcd34d;margin-bottom:8px;">6. Homepage Main Hero Slider Banners</div>
+            <div id="heroBannersAdminList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:10px;max-height:220px;overflow-y:auto;"></div>
+            <div style="border-top:1px solid #1e293b;padding-top:8px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <img id="hbNewPreview" src="" alt="" style="width:56px;height:32px;border-radius:6px;object-fit:cover;border:1px solid #334155;display:none;" />
+                <input type="text" id="hbNewImg" class="inp mono" placeholder="Banner Image URL or Upload..." />
+                <label class="btn btn-sky" style="white-space:nowrap;cursor:pointer;">
+                  📷 Upload
+                  <input type="file" id="hbNewFile" accept="image/*" style="display:none;" />
+                </label>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input type="text" id="hbNewLink" class="inp" placeholder="Optional Click URL (e.g. https://t.me/... or #uid-topup)" />
+                <button type="button" id="addHeroBannerBtn" class="btn btn-gold" style="white-space:nowrap;">+ Add Banner</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#0b1017;border:1px solid #1e293b;border-radius:12px;padding:12px;">
+          <div style="font-size:12.5px;font-weight:800;color:#7dd3fc;margin-bottom:8px;">7. Homepage Top-Up Game Cards (Image &amp; Title)</div>
+          <div id="productCardsAdminList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-hd">
           <h2>📢 Live Notice Bar &amp; Auto-Slider Banners</h2>
           <button type="button" id="saveNoticeBannersBtn" class="btn btn-emerald">Save Notice &amp; Banners</button>
         </div>
@@ -355,6 +538,8 @@
     var currentPromoCodes = [];
     var currentCatalog = { games: [], packages: [] };
     var currentBanners = [];
+    var currentHeroBanners = [];
+    var currentProductCards = [];
     var selectedCatalogGameId = '';
     window._ordersMap = {};
     window._depositsMap = {};
@@ -565,6 +750,7 @@
         '<div class="stat-card"><div class="stat-lbl">Total Orders</div><div class="stat-val">' + data.stats.totalOrders + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Discounts Given</div><div class="stat-val">৳' + data.stats.totalDiscountGiven + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Pending Deposits</div><div class="stat-val">' + (data.stats.pendingDeposits || 0) + '</div></div>' +
+        '<div class="stat-card"><div class="stat-lbl">Auto-SMS Matched</div><div class="stat-val" style="color:#34d399;">' + (data.stats.smsMatchedCount || 0) + ' / ' + (data.stats.smsReceivedCount || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-lbl">Duplicate TrxID Blocked</div><div class="stat-val" style="color:#f87171;">' + (data.stats.blockedDuplicates || 0) + '</div></div>';
 
       renderWeights('regWeightsList', data.regularWedges, 'reg');
@@ -607,6 +793,21 @@
       document.getElementById('tgToken').value = c.telegramBotToken || '';
       document.getElementById('tgChatId').value = c.telegramChatId || '';
 
+      var whUrl = window.location.origin + '/api/sms-webhook';
+      var secVal = c.smsWebhookSecret || '';
+      document.getElementById('smsWebhookUrl').value = whUrl;
+      var secInp = document.getElementById('smsWebhookSecret');
+      secInp.value = secVal;
+      secInp.readOnly = Boolean(c.smsSecretFromEnv);
+      document.getElementById('smsEnvNote').textContent = c.smsSecretFromEnv
+        ? 'Managed by SMS_WEBHOOK_SECRET env variable'
+        : 'Instant bKash / Nagad / Rocket / Upay Auto-Verify';
+      document.getElementById('smsJsonSample').textContent = JSON.stringify({
+        secret: secVal || 'YOUR_SECRET',
+        sender: '{from}',
+        text: '{body}'
+      });
+
       var ann = c.announcement || {};
       document.getElementById('noticeActive').value = ann.active === false ? '0' : '1';
       document.getElementById('noticeTag').value = ann.tagLabel || 'NOTICE';
@@ -614,6 +815,31 @@
 
       currentBanners = Array.isArray(c.banners) ? c.banners : [];
       renderBannersAdmin();
+
+      var ss = c.siteSettings || {};
+      document.getElementById('ssSiteName').value = ss.siteName || 'Crazy_Top_Up (24)';
+      document.getElementById('ssLogoUrl').value = ss.logoUrl || 'Main logo.jpg';
+      updateImgPreview('ssLogoPreview', ss.logoUrl || 'Main logo.jpg');
+      document.getElementById('ssPopupActive').value = ss.popupActive === false ? '0' : '1';
+      document.getElementById('ssPopupImg').value = ss.popupImageUrl || 'Notification.jpg';
+      updateImgPreview('ssPopupPreview', ss.popupImageUrl || 'Notification.jpg');
+      document.getElementById('ssPopupText').value = ss.popupText || '';
+      document.getElementById('ssTgChannel').value = ss.telegramChannel || sup.telegram || '';
+      document.getElementById('ssTgGroup').value = ss.telegramGroup || '';
+      document.getElementById('ssYtChannel').value = ss.youtubeChannel || '';
+      document.getElementById('ssHelpTitle').value = ss.helplineTitle || 'Telegram HelpLine';
+      document.getElementById('ssHelpHours').value = ss.helplineHours || 'সকাল ৮টা থেকে রাত ১২টা';
+      document.getElementById('ssAppMode').value = ss.appDownloadMode || 'auto';
+      document.getElementById('ssAppUrl').value = ss.appDownloadUrl || '';
+      document.getElementById('ssAppLabel').value = ss.appStoreLabel || 'Google Play';
+      document.getElementById('ssNoticeTitle').value = ss.footerNoticeTitle || 'নোটিশ:';
+      document.getElementById('ssNoticeText').value = ss.footerNoticeText || '';
+      document.getElementById('ssAlertTitle').value = ss.footerAlertTitle || 'বিশেষ সতর্কতা:';
+      document.getElementById('ssAlertText').value = ss.footerAlertText || '';
+      currentHeroBanners = Array.isArray(ss.heroBanners) ? ss.heroBanners : [];
+      currentProductCards = Array.isArray(ss.productCards) ? ss.productCards : [];
+      renderHeroBannersAdmin();
+      renderProductCardsAdmin();
 
       window._ordersMap = {};
       (data.ordersLog || []).forEach(function (o) { window._ordersMap[o.id] = o; });
@@ -673,6 +899,23 @@
               '<td class="mono">' + (u.referredCount || 0) + ' / ' + (u.ordersCount || 0) + '</td></tr>';
           }).join('');
 
+      document.getElementById('smsPaymentsBody').innerHTML = (data.smsPayments || []).length === 0
+        ? '<tr><td colspan="6" style="color:#94a3b8;text-align:center;">No MFS SMS received yet. Forward bKash/Nagad/Rocket SMS or click Simulate SMS.</td></tr>'
+        : data.smsPayments.map(function (s) {
+            var isMatched = s.status === 'Matched';
+            var statusHtml = isMatched
+              ? '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:800;background:rgba(16,185,129,0.16);color:#6ee7b7;border:1px solid rgba(16,185,129,0.45);">Matched · ' + esc(s.matchedRefId || '') + '</span>'
+              : '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:800;background:rgba(148,163,184,0.14);color:#cbd5e1;border:1px solid rgba(148,163,184,0.3);">Unused</span>';
+            return '<tr>' +
+              '<td><b>' + esc(s.provider) + '</b></td>' +
+              '<td class="mono" style="color:#fcd34d;font-weight:800;">৳' + Number(s.amountBdt || 0) + '</td>' +
+              '<td class="mono" style="color:#7dd3fc;">' + esc(s.trxId) + '</td>' +
+              '<td class="mono" style="font-size:11px;color:#cbd5e1;">' + esc(s.sender) + '</td>' +
+              '<td>' + statusHtml + '</td>' +
+              '<td class="mono" style="font-size:11px;color:#94a3b8;">' + esc(s.receivedAt) + '</td>' +
+              '</tr>';
+          }).join('');
+
       document.getElementById('activityLogBody').innerHTML = (data.activityLog || []).length === 0
         ? '<tr><td colspan="4" style="color:#94a3b8;text-align:center;">No security or admin events recorded yet</td></tr>'
         : data.activityLog.map(function (a) {
@@ -712,6 +955,137 @@
       }).join('');
     }
 
+    function updateImgPreview(imgId, url) {
+      var img = document.getElementById(imgId);
+      if (!img) return;
+      if (url && String(url).trim()) {
+        img.src = String(url).trim();
+        img.style.display = 'block';
+        img.style.opacity = '1';
+      } else {
+        img.style.opacity = '0.3';
+      }
+    }
+
+    function compressAdminImage(file, maxW, quality, isPngKeep) {
+      return new Promise(function (resolve, reject) {
+        if (!file) { reject(new Error('No file')); return; }
+        var reader = new FileReader();
+        reader.onload = function () {
+          var img = new Image();
+          img.onload = function () {
+            var w = img.width || maxW;
+            var h = img.height || maxW;
+            if (w > maxW) {
+              h = Math.round((h * maxW) / w);
+              w = maxW;
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            var mime = (isPngKeep || file.type === 'image/png') && w <= 512 ? 'image/webp' : 'image/jpeg';
+            var dataUrl = canvas.toDataURL(mime, quality || 0.84);
+            if (!dataUrl || dataUrl.length < 20) dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve(dataUrl);
+          };
+          img.onerror = function () { reject(new Error('Invalid image file')); };
+          img.src = String(reader.result || '');
+        };
+        reader.onerror = function () { reject(new Error('Could not read file')); };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderHeroBannersAdmin() {
+      var el = document.getElementById('heroBannersAdminList');
+      if (!el) return;
+      if (!currentHeroBanners.length) {
+        el.innerHTML = '<div style="font-size:11.5px;color:#94a3b8;">No hero slider images configured. Add one below.</div>';
+        return;
+      }
+      el.innerHTML = currentHeroBanners.map(function (hb, idx) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;background:#121923;border:1px solid #1e293b;">' +
+          '<img src="' + esc(hb.imageUrl) + '" alt="Slide" style="width:64px;height:36px;border-radius:6px;object-fit:cover;border:1px solid #334155;flex-shrink:0;" />' +
+          '<div style="flex:1;min-width:0;">' +
+            '<input type="text" class="inp mono" style="padding:5px 8px;font-size:11px;margin-bottom:4px;" value="' + esc(hb.linkUrl || '') + '" placeholder="Optional click link..." onchange="updHeroBannerField(' + idx + ', \'linkUrl\', this.value)" />' +
+          '</div>' +
+          '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+            '<button type="button" class="btn btn-slate" style="padding:4px 7px;font-size:10.5px;" onclick="moveHeroBanner(' + idx + ', -1)">↑</button>' +
+            '<button type="button" class="btn btn-slate" style="padding:4px 7px;font-size:10.5px;" onclick="moveHeroBanner(' + idx + ', 1)">↓</button>' +
+            '<button type="button" class="btn ' + (hb.active !== false ? 'btn-emerald' : 'btn-slate') + '" style="padding:4px 7px;font-size:10.5px;" onclick="toggleHeroBanner(' + idx + ')">' + (hb.active !== false ? 'On' : 'Off') + '</button>' +
+            '<button type="button" class="btn btn-red" style="padding:4px 7px;font-size:10.5px;" onclick="deleteHeroBanner(' + idx + ')">✕</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    window.updHeroBannerField = function (idx, field, val) {
+      if (currentHeroBanners[idx]) currentHeroBanners[idx][field] = val;
+    };
+    window.toggleHeroBanner = function (idx) {
+      if (currentHeroBanners[idx]) {
+        currentHeroBanners[idx].active = currentHeroBanners[idx].active === false ? true : false;
+        renderHeroBannersAdmin();
+      }
+    };
+    window.moveHeroBanner = function (idx, dir) {
+      var target = idx + dir;
+      if (target < 0 || target >= currentHeroBanners.length) return;
+      var tmp = currentHeroBanners[idx];
+      currentHeroBanners[idx] = currentHeroBanners[target];
+      currentHeroBanners[target] = tmp;
+      renderHeroBannersAdmin();
+    };
+    window.deleteHeroBanner = function (idx) {
+      currentHeroBanners.splice(idx, 1);
+      renderHeroBannersAdmin();
+    };
+
+    function renderProductCardsAdmin() {
+      var el = document.getElementById('productCardsAdminList');
+      if (!el) return;
+      if (!currentProductCards.length) {
+        el.innerHTML = '<div style="font-size:11.5px;color:#94a3b8;">No product cards loaded yet.</div>';
+        return;
+      }
+      el.innerHTML = currentProductCards.map(function (pc, idx) {
+        return '<div style="display:flex;align-items:center;gap:9px;padding:9px;border-radius:10px;background:#121923;border:1px solid #1e293b;">' +
+          '<img id="pcPrev-' + idx + '" src="' + esc(pc.imageUrl) + '" alt="' + esc(pc.title) + '" style="width:48px;height:48px;border-radius:9px;object-fit:cover;border:1px solid #334155;flex-shrink:0;" />' +
+          '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;">' +
+            '<input type="text" class="inp" style="padding:5px 8px;font-size:11.5px;font-weight:700;" value="' + esc(pc.title) + '" onchange="updProductCard(' + idx + ', \'title\', this.value)" />' +
+            '<div style="display:flex;gap:5px;">' +
+              '<input type="text" id="pcUrl-' + idx + '" class="inp mono" style="padding:5px 8px;font-size:10.5px;" value="' + esc(pc.imageUrl) + '" onchange="updProductCard(' + idx + ', \'imageUrl\', this.value); updateImgPreview(\'pcPrev-' + idx + '\', this.value);" />' +
+              '<label class="btn btn-sky" style="padding:4px 8px;font-size:10.5px;cursor:pointer;white-space:nowrap;">📷<input type="file" accept="image/*" style="display:none;" onchange="handleProductCardUpload(' + idx + ', this)" /></label>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    window.updProductCard = function (idx, field, val) {
+      if (currentProductCards[idx]) currentProductCards[idx][field] = val;
+    };
+    window.handleProductCardUpload = async function (idx, input) {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        var url = await compressAdminImage(file, 480, 0.84, false);
+        if (currentProductCards[idx]) {
+          currentProductCards[idx].imageUrl = url;
+          var urlEl = document.getElementById('pcUrl-' + idx);
+          if (urlEl) urlEl.value = url;
+          updateImgPreview('pcPrev-' + idx, url);
+        }
+      } catch (e) {
+        var st = document.getElementById('siteSettingsStatus');
+        if (st) { st.className = 'msg err'; st.textContent = '❌ ' + e.message; }
+      } finally {
+        input.value = '';
+      }
+    };
+
     window.toggleBanner = function (idx) {
       if (currentBanners[idx]) {
         currentBanners[idx].active = currentBanners[idx].active === false ? true : false;
@@ -727,6 +1101,8 @@
       var regWeights = {}, goldWeights = {};
       document.querySelectorAll('input[data-w-group="reg"]').forEach(function (i) { regWeights[i.getAttribute('data-w-id')] = Math.max(0, Number(i.value) || 0); });
       document.querySelectorAll('input[data-w-group="gold"]').forEach(function (i) { goldWeights[i.getAttribute('data-w-id')] = Math.max(0, Number(i.value) || 0); });
+      var tgChVal = document.getElementById('ssTgChannel').value.trim();
+      var supTgVal = tgChVal || document.getElementById('supTelegram').value.trim();
       var payload = {
         regularWeights: regWeights,
         goldenWeights: goldWeights,
@@ -744,7 +1120,7 @@
         },
         support: {
           whatsapp: document.getElementById('supWhatsapp').value.trim(),
-          telegram: document.getElementById('supTelegram').value.trim()
+          telegram: supTgVal
         },
         walletCashbackPercent: Math.max(0, Number(document.getElementById('walletCashback').value) || 0),
         flashSale: {
@@ -761,14 +1137,39 @@
           text: document.getElementById('noticeText').value.trim()
         },
         banners: currentBanners,
+        siteSettings: {
+          siteName: document.getElementById('ssSiteName').value.trim() || 'Crazy_Top_Up (24)',
+          logoUrl: document.getElementById('ssLogoUrl').value.trim() || 'Main logo.jpg',
+          heroBanners: currentHeroBanners,
+          popupActive: document.getElementById('ssPopupActive').value === '1',
+          popupImageUrl: document.getElementById('ssPopupImg').value.trim() || 'Notification.jpg',
+          popupText: document.getElementById('ssPopupText').value,
+          telegramChannel: tgChVal,
+          telegramGroup: document.getElementById('ssTgGroup').value.trim(),
+          youtubeChannel: document.getElementById('ssYtChannel').value.trim(),
+          helplineTitle: document.getElementById('ssHelpTitle').value.trim() || 'Telegram HelpLine',
+          helplineHours: document.getElementById('ssHelpHours').value.trim() || 'সকাল ৮টা থেকে রাত ১২টা',
+          appDownloadMode: document.getElementById('ssAppMode').value || 'auto',
+          appDownloadUrl: document.getElementById('ssAppUrl').value.trim(),
+          appStoreLabel: document.getElementById('ssAppLabel').value.trim() || 'Google Play',
+          footerNoticeTitle: document.getElementById('ssNoticeTitle').value.trim() || 'নোটিশ:',
+          footerNoticeText: document.getElementById('ssNoticeText').value.trim(),
+          footerAlertTitle: document.getElementById('ssAlertTitle').value.trim() || 'বিশেষ সতর্কতা:',
+          footerAlertText: document.getElementById('ssAlertText').value.trim(),
+          productCards: currentProductCards
+        },
         telegramBotToken: document.getElementById('tgToken').value.trim(),
-        telegramChatId: document.getElementById('tgChatId').value.trim()
+        telegramChatId: document.getElementById('tgChatId').value.trim(),
+        smsWebhookSecret: document.getElementById('smsWebhookSecret').value.trim()
       };
+      var ssSt = document.getElementById('siteSettingsStatus');
+      if (ssSt) { ssSt.className = 'msg'; ssSt.textContent = '⏳ Saving...'; }
       await api('/api/admin/config', { method: 'POST', body: JSON.stringify(payload) });
       var b = document.getElementById('saveBanner');
       b.className = 'msg';
       b.textContent = '✅ All settings saved!';
-      setTimeout(function () { b.textContent = ''; }, 3500);
+      if (ssSt) { ssSt.className = 'msg'; ssSt.textContent = '✅ Saved live!'; }
+      setTimeout(function () { b.textContent = ''; if (ssSt) ssSt.textContent = ''; }, 3500);
       await loadDashboard();
     }
 
@@ -796,6 +1197,59 @@
     document.getElementById('saveAllBtn').onclick = saveConfig;
     document.getElementById('saveCatalogBtn').onclick = saveConfig;
     document.getElementById('saveNoticeBannersBtn').onclick = saveConfig;
+    document.getElementById('saveSiteSettingsBtn').onclick = saveConfig;
+    document.getElementById('ssLogoUrl').addEventListener('input', function () { updateImgPreview('ssLogoPreview', this.value); });
+    document.getElementById('ssPopupImg').addEventListener('input', function () { updateImgPreview('ssPopupPreview', this.value); });
+    document.getElementById('hbNewImg').addEventListener('input', function () { updateImgPreview('hbNewPreview', this.value); });
+    document.getElementById('ssLogoFile').addEventListener('change', async function (e) {
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      try {
+        var u = await compressAdminImage(f, 512, 0.88, true);
+        document.getElementById('ssLogoUrl').value = u;
+        updateImgPreview('ssLogoPreview', u);
+      } catch (err) {
+        var st = document.getElementById('siteSettingsStatus');
+        if (st) { st.className = 'msg err'; st.textContent = '❌ ' + err.message; }
+      } finally { e.target.value = ''; }
+    });
+    document.getElementById('ssPopupFile').addEventListener('change', async function (e) {
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      try {
+        var u = await compressAdminImage(f, 800, 0.85, false);
+        document.getElementById('ssPopupImg').value = u;
+        updateImgPreview('ssPopupPreview', u);
+      } catch (err) {
+        var st = document.getElementById('siteSettingsStatus');
+        if (st) { st.className = 'msg err'; st.textContent = '❌ ' + err.message; }
+      } finally { e.target.value = ''; }
+    });
+    document.getElementById('hbNewFile').addEventListener('change', async function (e) {
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      try {
+        var u = await compressAdminImage(f, 1100, 0.84, false);
+        document.getElementById('hbNewImg').value = u;
+        updateImgPreview('hbNewPreview', u);
+      } catch (err) {
+        var st = document.getElementById('siteSettingsStatus');
+        if (st) { st.className = 'msg err'; st.textContent = '❌ ' + err.message; }
+      } finally { e.target.value = ''; }
+    });
+    document.getElementById('addHeroBannerBtn').onclick = function () {
+      var img = document.getElementById('hbNewImg').value.trim();
+      if (!img) return;
+      currentHeroBanners.push({
+        id: 'hb-' + Date.now().toString(36),
+        imageUrl: img,
+        linkUrl: document.getElementById('hbNewLink').value.trim(),
+        alt: 'Banner ' + (currentHeroBanners.length + 1),
+        active: true
+      });
+      document.getElementById('hbNewImg').value = '';
+      document.getElementById('hbNewLink').value = '';
+      var pv = document.getElementById('hbNewPreview');
+      if (pv) pv.style.display = 'none';
+      renderHeroBannersAdmin();
+    };
     document.getElementById('addBannerBtn').onclick = function () {
       var title = document.getElementById('bnNewTitle').value.trim();
       if (!title) return;
@@ -890,6 +1344,62 @@
       } catch (e) {
         st.className = 'msg err';
         st.textContent = '❌ Telegram Error: ' + e.message;
+      }
+    };
+
+    document.getElementById('copySmsUrlBtn').onclick = function () {
+      var v = document.getElementById('smsWebhookUrl').value;
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
+      var st = document.getElementById('smsStatus');
+      st.className = 'msg';
+      st.textContent = 'Webhook URL copied!';
+    };
+    document.getElementById('copySmsSecretBtn').onclick = function () {
+      var v = document.getElementById('smsWebhookSecret').value;
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
+      var st = document.getElementById('smsStatus');
+      st.className = 'msg';
+      st.textContent = 'Webhook Secret copied!';
+    };
+    document.getElementById('genSmsSecretBtn').onclick = function () {
+      var inp = document.getElementById('smsWebhookSecret');
+      if (inp.readOnly) return;
+      var bytes = new Uint8Array(16);
+      if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(bytes);
+      } else {
+        for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+      }
+      var hex = Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+      inp.value = hex;
+      var st = document.getElementById('smsStatus');
+      st.className = 'msg';
+      st.textContent = 'Generated new secret — click Save All Settings to apply.';
+    };
+    document.getElementById('smsTestBtn').onclick = async function () {
+      var st = document.getElementById('smsStatus');
+      st.className = 'msg';
+      st.textContent = 'Simulating SMS webhook...';
+      try {
+        var resp = await api('/api/admin/sms/test', {
+          method: 'POST',
+          body: JSON.stringify({
+            sender: document.getElementById('smsTestSender').value.trim(),
+            text: document.getElementById('smsTestBody').value.trim()
+          })
+        });
+        st.className = 'msg';
+        if (resp.matched && resp.matchedRefId) {
+          st.textContent = 'Matched & Auto-Approved: ' + resp.matchedRefId + ' (TrxID ' + resp.sms.trxId + ', ৳' + resp.sms.amountBdt + ')';
+        } else if (resp.duplicate) {
+          st.textContent = 'TrxID ' + resp.sms.trxId + ' already recorded earlier (Status: ' + resp.sms.status + ').';
+        } else {
+          st.textContent = 'SMS Stored: ' + resp.sms.provider + ' ৳' + resp.sms.amountBdt + ' · TrxID ' + resp.sms.trxId + ' (Ready to auto-match when user submits!).';
+        }
+        await loadDashboard();
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = 'SMS Error: ' + e.message;
       }
     };
 

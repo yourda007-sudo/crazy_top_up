@@ -5,19 +5,19 @@
   "description": "Gaming top-up store with Spin & Win discounts, Wallet cashback, VIP tiers, and instant support.",
   "start_url": "/FFX.html",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "theme_color": "#0c1118",
   "background_color": "#0c1118",
   "icons": [
     {
-      "src": "/pwa-192x192.png",
-      "sizes": "192x192",
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pwa-512x512.png",
-      "sizes": "512x512",
+      "src": "https://i.ibb.co/ynKvZhby/Main-logo.png",
+      "sizes": "2048x2048",
       "type": "image/png",
       "purpose": "any"
     },
@@ -26,6 +26,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
