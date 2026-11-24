@@ -3579,8 +3579,8 @@ setInterval(fetchFreshAccountConfig, 15000);
   function withIcon(tag,cls,icon,text){ var e=mk(tag,cls); e.innerHTML=PI(icon); e.appendChild(document.createTextNode(text)); return e; }
   var H3ICON={'\uD83D\uDCCB':'clip','\uD83C\uDFF0':'guild','\uD83C\uDF92':'bag','\uD83D\uDC3E':'paw'};
   function h3(t){ var m=/^(\S+)\s+([\s\S]*)$/.exec(t), ic=m&&H3ICON[m[1]]; return ic ? withIcon('h3','',ic,m[2]) : mk('h3','',t); }
-  var TIERS={bronze:['#c2773a','#78350f'],silver:['#9aa9bd','#475569'],gold:['#f5b324','#b45309'],platinum:['#22d3ee','#0e7490'],diamond:['#60a5fa','#1d4ed8'],heroic:['#f472b6','#be185d'],master:['#a78bfa','#6d28d9'],grandmaster:['#f87171','#b91c1c'],unranked:['#94a3b8','#334155']};
-  function tierColor(t){ var k=String(t||'').toLowerCase().replace(/[^a-z]/g,''); for(var n in TIERS){ if(k.indexOf(n)===0) return TIERS[n]; } return TIERS.unranked; }
+  var TIERS={bronze:['#c2773a','#78350f'],silver:['#9aa9bd','#475569'],gold:['#f5b324','#b45309'],platinum:['#22d3ee','#0e7490'],diamond:['#60a5fa','#1d4ed8'],heroic:['#f43f5e','#be123c'],eliteheroic:['#e879f9','#9d174d'],master:['#a78bfa','#6d28d9'],elitemaster:['#c084fc','#4c1d95'],grandmaster:['#f87171','#991b1b'],unranked:['#94a3b8','#334155']};
+  function tierColor(t){ var k=String(t||'').toLowerCase().replace(/[^a-z]/g,''); if(TIERS[k]) return TIERS[k]; for(var n in TIERS){ if(k.indexOf(n)===0) return TIERS[n]; } return TIERS.unranked; }
   var EMBLEM='<svg viewBox="0 0 64 64"><path d="M32 4l22 8v18c0 15-9.5 26-22 30C19.500 56 10 45 10 30V12z" fill="rgba(255,255,255,.28)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M32 18l4.200 8.600 9.500 1.400-6.900 6.700 1.600 9.400L32 39.600l-8.400 4.500 1.600-9.400-6.900-6.700 9.500-1.400z" fill="#fff"/></svg>';
   function copyText(t,done){
     function fb(){ var ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done(); }
@@ -3661,18 +3661,105 @@ setInterval(fetchFreshAccountConfig, 15000);
     if(tl.length){ var tiles=mk('div','tiles'), cnt=[]; var n3=(tl.length===5)?3:((tl.length%3===1||tl.length===2)?-1:0); tl.forEach(function(t,ix){ var x=mk('div','tile'+((tl.length===5&&ix>=3)||tl.length===4||tl.length===2?' w3':'')); x.style.setProperty('--k',t[3]); var ic=mk('i'); ic.innerHTML=PI(t[0]); x.appendChild(ic); var bb=mk('b','',clean(t[2])); x.appendChild(bb); x.appendChild(mk('span','',t[1])); tiles.appendChild(x); cnt.push([bb,clean(t[2])]); copyAll.push(t[1]+': '+clean(t[2])); });
       add(tiles); setTimeout(function(){ cnt.forEach(function(x){ countUp(x[0],x[1]); }); },350); }
     // RANKS
+    var RANK_NAMES={301:'Bronze I',302:'Bronze II',303:'Bronze III',304:'Silver I',305:'Silver II',306:'Silver III',307:'Gold I',308:'Gold II',309:'Gold III',310:'Gold IV',311:'Platinum I',312:'Platinum II',313:'Platinum III',314:'Platinum IV',315:'Diamond I',316:'Diamond II',317:'Diamond III',318:'Diamond IV',319:'Heroic',320:'Elite Heroic',321:'Master',322:'Elite Master',323:'Grandmaster'};
+    function rankIdName(v){
+      var c0=clean(v); if(!c0) return '';
+      var n=Number(c0);
+      if(isFinite(n)&&n>=301) return RANK_NAMES[n]||(n>=323?'Grandmaster':'Rank '+n);
+      return c0;
+    }
+    function resolveBr(o){
+      var ptsRaw=pick(o.points,d.br_rank_point,p.br_rank_point,d.ranking_points,p.ranking_points);
+      var pts=ptsRaw!==''?Number(ptsRaw):NaN;
+      var cur=rankIdName(pick(o.current_rank,d.br_rank,p.br_rank));
+      var max=rankIdName(pick(o.max_rank,d.br_max_rank,p.br_max_rank));
+      var tier='', floor=0, ceil=0;
+      if(cur && !/^\d+$/.test(cur)) tier=cur;
+      if(!tier && isFinite(pts) && pts>0){
+        if(pts>=8500){ tier='Elite Master'; floor=8500; ceil=10000; }
+        else if(pts>=6000){ tier='Master'; floor=6000; ceil=8500; }
+        else if(pts>=4000){ tier='Elite Heroic'; floor=4000; ceil=6000; }
+        else if(pts>=3200){ tier='Heroic'; floor=3200; ceil=4000; }
+        else if(pts>=2975){ tier='Diamond IV'; floor=2975; ceil=3200; }
+        else if(pts>=2850){ tier='Diamond III'; floor=2850; ceil=2975; }
+        else if(pts>=2725){ tier='Diamond II'; floor=2725; ceil=2850; }
+        else if(pts>=2600){ tier='Diamond I'; floor=2600; ceil=2725; }
+        else if(pts>=2475){ tier='Platinum IV'; floor=2475; ceil=2600; }
+        else if(pts>=2350){ tier='Platinum III'; floor=2350; ceil=2475; }
+        else if(pts>=2225){ tier='Platinum II'; floor=2225; ceil=2350; }
+        else if(pts>=2100){ tier='Platinum I'; floor=2100; ceil=2225; }
+        else if(pts>=1975){ tier='Gold IV'; floor=1975; ceil=2100; }
+        else if(pts>=1850){ tier='Gold III'; floor=1850; ceil=1975; }
+        else if(pts>=1725){ tier='Gold II'; floor=1725; ceil=1850; }
+        else if(pts>=1600){ tier='Gold I'; floor=1600; ceil=1725; }
+        else if(pts>=1500){ tier='Silver III'; floor=1500; ceil=1600; }
+        else if(pts>=1400){ tier='Silver II'; floor=1400; ceil=1500; }
+        else if(pts>=1300){ tier='Silver I'; floor=1300; ceil=1400; }
+        else if(pts>=1200){ tier='Bronze III'; floor=1200; ceil=1300; }
+        else if(pts>=1100){ tier='Bronze II'; floor=1100; ceil=1200; }
+        else{ tier='Bronze I'; floor=1000; ceil=1100; }
+      }
+      if(!tier) tier=clean(o.tier)||'Unranked';
+      var pct=0;
+      if(isFinite(pts)&&pts>0){
+        pct=ceil>floor?Math.max(8,Math.min(100,Math.round((pts-floor)/(ceil-floor)*100))):Math.min(100,Math.round(pts/Math.max(Number(o.peak_points)||pts,2000)*100));
+      }
+      return {
+        label:'BATTLE ROYALE', tier:tier,
+        sub1:isFinite(pts)&&pts>0?'পয়েন্ট: '+pts:'',
+        sub2:max?'Max: '+max:'',
+        pct:pct, pts:isFinite(pts)?pts:0
+      };
+    }
+    function resolveCs(o){
+      var ptsRaw=pick(o.points,d.cs_rank_point,p.cs_rank_point,d.cs_points,p.cs_points);
+      var pts=ptsRaw!==''?Number(ptsRaw):NaN;
+      var cur=rankIdName(pick(o.current_rank,d.cs_rank,p.cs_rank));
+      var max=rankIdName(pick(o.max_rank,d.cs_max_rank,p.cs_max_rank));
+      var tier='', floor=0, ceil=0, starsText='';
+      if(cur && !/^\d+$/.test(cur)) tier=cur;
+      if(isFinite(pts)&&pts>=0 && !(pts===0 && String(o.tier||'').toLowerCase()==='unranked')){
+        if(pts>=172){ var hs=pts-72; if(!tier) tier='Elite Master'; floor=172; ceil=222; starsText='স্টার: '+hs+'★ (মোট '+pts+')'; }
+        else if(pts>=122){ var hs=pts-72; if(!tier) tier='Master'; floor=122; ceil=172; starsText='স্টার: '+hs+'★ (মোট '+pts+')'; }
+        else if(pts>=97){ var hs=pts-72; if(!tier) tier='Elite Heroic'; floor=97; ceil=122; starsText='স্টার: '+hs+'★ (মোট '+pts+')'; }
+        else if(pts>=73){ var hs=pts-72; if(!tier) tier='Heroic'; floor=73; ceil=97; starsText='স্টার: '+hs+'★ (মোট '+pts+')'; }
+        else{
+          var csMap=[[68,73,'Diamond IV'],[63,68,'Diamond III'],[58,63,'Diamond II'],[53,58,'Diamond I'],[49,53,'Platinum IV'],[45,49,'Platinum III'],[41,45,'Platinum II'],[37,41,'Platinum I'],[33,37,'Gold IV'],[29,33,'Gold III'],[25,29,'Gold II'],[21,25,'Gold I'],[17,21,'Silver III'],[13,17,'Silver II'],[9,13,'Silver I'],[6,9,'Bronze III'],[3,6,'Bronze II'],[0,3,'Bronze I']];
+          for(var ci=0;ci<csMap.length;ci++){
+            if(pts>=csMap[ci][0]){
+              if(!tier) tier=csMap[ci][2];
+              floor=csMap[ci][0]; ceil=csMap[ci][1];
+              starsText='স্টার: '+(pts-floor)+'★ (মোট '+pts+')';
+              break;
+            }
+          }
+        }
+      }
+      if(!tier) tier=(clean(o.tier)&&clean(o.tier)!=='Bronze')?clean(o.tier):'Unranked';
+      var pct=0;
+      if(isFinite(pts)&&pts>0){
+        pct=ceil>floor?Math.max(10,Math.min(100,Math.round((pts-floor)/(ceil-floor)*100))):Math.min(100,Math.round(pts/Math.max(Number(o.peak_points)||pts,172)*100));
+      }
+      return {
+        label:'CLASH SQUAD', tier:tier,
+        sub1:starsText||(isFinite(pts)&&pts>0?'স্টার: '+pts:''),
+        sub2:max?'Max: '+max:'',
+        pct:pct, pts:isFinite(pts)?pts:0
+      };
+    }
     var rk=mk('div','rk'), hasRk=false;
-    [['BATTLE ROYALE',g],['CLASH SQUAD',c]].forEach(function(r){
-      var o=r[1]; if(!clean(o.tier)&&!clean(o.points)&&!clean(o.max_rank)) return; hasRk=true;
-      var col=tierColor(o.tier), card=mk('div','rc'); card.style.setProperty('--c1',col[0]); card.style.setProperty('--c2',col[1]);
+    [resolveBr(g),resolveCs(c)].forEach(function(info){
+      if(!info.tier && !info.sub1 && !info.sub2) return;
+      hasRk=true;
+      var col=tierColor(info.tier), card=mk('div','rc');
+      card.style.setProperty('--c1',col[0]); card.style.setProperty('--c2',col[1]);
       var em=mk('div'); em.innerHTML=EMBLEM; card.appendChild(em.firstChild);
-      card.appendChild(mk('small','',r[0])); card.appendChild(mk('strong','',clean(o.tier)||'—'));
-      if(clean(o.points)) card.appendChild(mk('em','','পয়েন্ট: '+o.points));
-      if(clean(o.current_rank)) card.appendChild(mk('em','','র‍্যাঙ্ক: '+o.current_rank));
-      if(clean(o.max_rank)) card.appendChild(mk('em','','Max: '+o.max_rank));
-      var pts=Number(o.points), mx=Number(o.peak_points)||Math.max(pts,2000);
-      if(pts>0){ var bar=mk('div','bar'), u=mk('u'); u.style.width=Math.min(100,Math.round(pts/mx*100))+'%'; bar.appendChild(u); card.appendChild(bar); }
-      rk.appendChild(card); copyAll.push(r[0]+': '+(clean(o.tier)||'-')+' ('+(clean(o.points)||0)+' pts)');
+      card.appendChild(mk('small','',info.label));
+      card.appendChild(mk('strong','',info.tier||'Unranked'));
+      if(info.sub1) card.appendChild(mk('em','',info.sub1));
+      if(info.sub2) card.appendChild(mk('em','',info.sub2));
+      if(info.pct>0){ var bar=mk('div','bar'), u=mk('u'); u.style.width=info.pct+'%'; bar.appendChild(u); card.appendChild(bar); }
+      rk.appendChild(card); copyAll.push(info.label+': '+info.tier+(info.sub1?' ('+info.sub1+')':''));
     });
     if(hasRk) add(rk);
     // INFO
