@@ -4369,7 +4369,7 @@
 
 
   var ACCOUNT_RANKS = [
-    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "linear-gradient(142deg,#5c3312 0%,#864e21 48%,#bc7a3b 100%)", fill: "#8c4a1b", rim: "#f2a86b", core: "#ffffff" },
+    { level: 1, name: "Bronze", min: 0, max: 100, range: "0 - 100 Tk", sub: "Start your journey from Bronze.", grad: "radial-gradient(circle at 90% 88%, rgba(226, 152, 74, 0.56) 0%, rgba(196, 122, 52, 0.22) 38%, transparent 66%), radial-gradient(circle at 50% 20%, rgba(255, 206, 145, 0.14) 0%, transparent 46%), linear-gradient(148deg, #47250d 0%, #7a451c 52%, #b57034 100%)", fill: "#8c4a1b", rim: "#f2a86b", core: "#ffffff" },
     { level: 2, name: "Silver", min: 101, max: 1000, range: "101 - 1,000 Tk", sub: "Silver members unlock priority delivery.", grad: "linear-gradient(135deg,#334155 0%,#64748b 50%,#94a3b8 100%)", fill: "#64748b", rim: "#e2e8f0", core: "#f8fafc" },
     { level: 3, name: "Gold", min: 1001, max: 5000, range: "1,001 - 5,000 Tk", sub: "Gold tier boosts your spin luck and savings.", grad: "linear-gradient(135deg,#92400e 0%,#d97706 50%,#f59e0b 100%)", fill: "#d97706", rim: "#fde047", core: "#fef9c3" },
     { level: 4, name: "Platinum", min: 5001, max: 10000, range: "5,001 - 10,000 Tk", sub: "Platinum unlocks special top-up rates.", grad: "linear-gradient(135deg,#1e3a8a 0%,#0284c7 50%,#38bdf8 100%)", fill: "#1d4ed8", rim: "#7dd3fc", core: "#f0f9ff" },
@@ -4381,70 +4381,90 @@
   function rankShieldSvg(r, sz, isJourneyCurrent) {
     if (isJourneyCurrent) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 44 44\" aria-hidden=\"true\">" +
-        "<path d=\"M12 10h4v3h12v-3h4v22l-10 5.5L12 32V10z\" fill=\"#ffffff\"/>" +
+        "<path d=\"M11 8.5h4.8l1.6 2.2h9.2l1.6-2.2H33v21.8l-11 6.7-11-6.7V8.5z\" fill=\"#ffffff\"/>" +
+        "<path d=\"M8.5 11.5l3 2v6l-3-1.8v-6.2zm27 0l-3 2v6l3-1.8v-6.2z\" fill=\"#ffffff\"/>" +
       "</svg>";
     }
     var lvl = r && r.level ? Number(r.level) : 1;
+    var uid = "rk" + lvl + "_" + sz;
     if (lvl === 1) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M14 10h9l3 5h12l3-5h9v34L32 56 14 44V10z\" fill=\"#b8682e\" stroke=\"#f3ba7d\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M19 15h26v26L32 49 19 41V15z\" fill=\"#3b1a07\" stroke=\"#d48342\" stroke-width=\"1.6\"/>" +
-        "<path d=\"M26 21l12-4v5l-12 4v-5zm0 8l12-4v5l-12 4v-5zm0 8l12-4v5l-12 4v-5z\" fill=\"#ffffff\"/>" +
-        "<path d=\"M12 12l5 4v7l-5-3v-8zm40 0l-5 4v7l5-3v-8z\" fill=\"#f5c085\"/>" +
+        "<defs>" +
+          "<linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">" +
+            "<stop offset=\"0%\" stop-color=\"#f9ca92\"/><stop offset=\"45%\" stop-color=\"#c06b2a\"/><stop offset=\"100%\" stop-color=\"#6a2f0b\"/>" +
+          "</linearGradient>" +
+          "<linearGradient id=\"" + uid + "b\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">" +
+            "<stop offset=\"0%\" stop-color=\"#3b1806\"/><stop offset=\"100%\" stop-color=\"#1a0902\"/>" +
+          "</linearGradient>" +
+        "</defs>" +
+        "<path d=\"M11 9h9l2.5 5h19L44 9h9v16l-3.5 3.5V44L32 57 14.5 44V28.5L11 25V9z\" fill=\"url(#" + uid + "a)\" stroke=\"#fbd4a0\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M19 16h26v25.5L32 51 19 41.5V16z\" fill=\"url(#" + uid + "b)\" stroke=\"#da8946\" stroke-width=\"1.4\"/>" +
+        "<path d=\"M26 22.5l12-4.6v4.6l-12 4.6v-4.6zm0 7.6l12-4.6v4.6l-12 4.6v-4.6zm0 7.6l12-4.6v4.6l-12 4.6v-4.6z\" fill=\"#ffffff\"/>" +
+        "<path d=\"M9 12.5l5.5 3.5v8L9 20.5v-8zm46 0l-5.5 3.5v8l5.5-3.5v-8z\" fill=\"#f5be82\" stroke=\"#7c3610\" stroke-width=\"0.9\"/>" +
+        "<polygon points=\"32,53 35.5,56.5 32,60 28.5,56.5\" fill=\"#f7c589\"/>" +
       "</svg>";
     }
     if (lvl === 2) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M10 14l10 4 12-7 12 7 10-4-4 28-18 14-18-14-4-28z\" fill=\"#94a3b8\" stroke=\"#f1f5f9\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M17 19l15 5 15-5-3 21-12 10-12-10-3-21z\" fill=\"#1e293b\" stroke=\"#cbd5e1\" stroke-width=\"1.5\"/>" +
-        "<path d=\"M23 25l9 4 9-4v4l-9 4-9-4v-4zm0 8l9 4 9-4v4l-9 4-9-4v-4z\" fill=\"#e2e8f0\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#f8fafc\"/><stop offset=\"50%\" stop-color=\"#94a3b8\"/><stop offset=\"100%\" stop-color=\"#475569\"/></linearGradient></defs>" +
+        "<path d=\"M8 12l12 4 12-7 12 7 12-4-5 29-19 16-19-16-5-29z\" fill=\"url(#" + uid + "a)\" stroke=\"#ffffff\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 19l15 5 15-5-3.5 21L32 50 20.5 40 17 19z\" fill=\"#0f172a\" stroke=\"#cbd5e1\" stroke-width=\"1.4\"/>" +
+        "<path d=\"M23 24.5l9 4.5 9-4.5v4.2l-9 4.5-9-4.5v-4.2zm0 8l9 4.5 9-4.5v4.2l-9 4.5-9-4.5v-4.2z\" fill=\"#f1f5f9\"/>" +
+        "<polygon points=\"32,12 35,16 32,20 29,16\" fill=\"#e2e8f0\"/>" +
       "</svg>";
     }
     if (lvl === 3) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M11 16l9-4 12-5 12 5 9 4-4 26-17 15-17-15-4-26z\" fill=\"#d97706\" stroke=\"#fde047\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M18 20l14-5 14 5-3 20-11 10-11-10-3-20z\" fill=\"#451a03\" stroke=\"#facc15\" stroke-width=\"1.5\"/>" +
-        "<polygon points=\"32,20 38,31 32,42 26,31\" fill=\"#fef08a\" stroke=\"#f59e0b\" stroke-width=\"1.5\"/>" +
-        "<circle cx=\"32\" cy=\"31\" r=\"3\" fill=\"#ffffff\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#fef08a\"/><stop offset=\"45%\" stop-color=\"#f59e0b\"/><stop offset=\"100%\" stop-color=\"#92400e\"/></linearGradient></defs>" +
+        "<path d=\"M9 13l11-2 12-6 12 6 11 2-5 28-18 16-18-16-5-28z\" fill=\"url(#" + uid + "a)\" stroke=\"#fef9c3\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M18 19.5l14-5 14 5-3.5 20L32 49.5 21.5 39.5 18 19.5z\" fill=\"#3b1704\" stroke=\"#facc15\" stroke-width=\"1.5\"/>" +
+        "<polygon points=\"32,19 39,30.5 32,42 25,30.5\" fill=\"#fef08a\" stroke=\"#d97706\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,24 35.5,30.5 32,37 28.5,30.5\" fill=\"#ffffff\"/>" +
       "</svg>";
     }
     if (lvl === 4) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M10 15l11-4 11-5 11 5 11 4-5 27-17 15-17-15-5-27z\" fill=\"#1d4ed8\" stroke=\"#e2e8f0\" stroke-width=\"2.3\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M18 20l14-6 14 6-3 19-11 10-11-10-3-19z\" fill=\"#0f172a\" stroke=\"#60a5fa\" stroke-width=\"1.5\"/>" +
-        "<polygon points=\"32,20 40,30 32,43 24,30\" fill=\"#38bdf8\" stroke=\"#e0f2fe\" stroke-width=\"1.4\"/>" +
-        "<polygon points=\"32,24 36,30 32,37 28,30\" fill=\"#ffffff\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#e0f2fe\"/><stop offset=\"45%\" stop-color=\"#2563eb\"/><stop offset=\"100%\" stop-color=\"#1e3a8a\"/></linearGradient></defs>" +
+        "<path d=\"M7 13l13 1 12-8 12 8 13-1-6 28-19 16-19-16-6-28z\" fill=\"url(#" + uid + "a)\" stroke=\"#e2e8f0\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 20l15-6 15 6-4 19-11 10-11-10-4-19z\" fill=\"#08142c\" stroke=\"#60a5fa\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,19 41,30 32,43 23,30\" fill=\"#38bdf8\" stroke=\"#e0f2fe\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,24 36.5,30 32,37.5 27.5,30\" fill=\"#ffffff\"/>" +
+        "<path d=\"M23 47l9 6 9-6\" fill=\"none\" stroke=\"#facc15\" stroke-width=\"2\" stroke-linecap=\"round\"/>" +
       "</svg>";
     }
     if (lvl === 5) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M9 14l13 2 10-10 10 10 13-2-6 27-17 16-17-16-6-27z\" fill=\"#7e22ce\" stroke=\"#e9d5ff\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M18 21l14-6 14 6-4 19-10 10-10-10-4-19z\" fill=\"#2e1065\" stroke=\"#c084fc\" stroke-width=\"1.5\"/>" +
-        "<polygon points=\"32,19 41,29 32,43 23,29\" fill=\"#d8b4fe\" stroke=\"#ffffff\" stroke-width=\"1.4\"/>" +
-        "<polygon points=\"32,24 36,29 32,37 28,29\" fill=\"#ffffff\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#f5d0fe\"/><stop offset=\"48%\" stop-color=\"#9333ea\"/><stop offset=\"100%\" stop-color=\"#4c1d95\"/></linearGradient></defs>" +
+        "<path d=\"M6 12l15 4 11-10 11 10 15-4-6 29-20 16-20-16-6-29z\" fill=\"url(#" + uid + "a)\" stroke=\"#f3e8ff\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M17 20l15-6 15 6-4 19-11 10-11-10-4-19z\" fill=\"#210945\" stroke=\"#c084fc\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,18 42,29.5 32,43.5 22,29.5\" fill=\"#e879f9\" stroke=\"#ffffff\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,23.5 36.5,29.5 32,37 27.5,29.5\" fill=\"#ffffff\"/>" +
       "</svg>";
     }
     if (lvl === 6) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M7 13l15 5 10-11 10 11 15-5-6 27-19 16-19-16-6-27z\" fill=\"#dc2626\" stroke=\"#ffffff\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M17 21l15-5 15 5-4 18-11 10-11-10-4-18z\" fill=\"#450a0a\" stroke=\"#fca5a5\" stroke-width=\"1.4\"/>" +
-        "<path d=\"M21 24l11 5 11-5-4 13-7 6-7-6-4-13z\" fill=\"#f8fafc\"/>" +
-        "<polygon points=\"32,25 36,31 32,37 28,31\" fill=\"#ef4444\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#fca5a5\"/><stop offset=\"45%\" stop-color=\"#dc2626\"/><stop offset=\"100%\" stop-color=\"#7f1d1d\"/></linearGradient></defs>" +
+        "<path d=\"M4 11l17 7 11-12 11 12 17-7-7 29-21 17-21-17-7-29z\" fill=\"url(#" + uid + "a)\" stroke=\"#ffffff\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M16 20l16-5 16 5-4.5 19L32 49.5 20.5 39 16 20z\" fill=\"#3f0606\" stroke=\"#fca5a5\" stroke-width=\"1.4\"/>" +
+        "<path d=\"M20 23.5l12 5.5 12-5.5-4.5 14L32 44l-7.5-6.5L20 23.5z\" fill=\"#ffffff\"/>" +
+        "<polygon points=\"32,24 36.5,31 32,38 27.5,31\" fill=\"#ef4444\"/>" +
       "</svg>";
     }
     if (lvl === 7) {
       return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-        "<path d=\"M8 14l14 3 10-12 10 12 14-3-5 27-19 16-19-16-5-27z\" fill=\"#ea580c\" stroke=\"#fde047\" stroke-width=\"2.3\" stroke-linejoin=\"round\"/>" +
-        "<path d=\"M17 20l15-6 15 6-4 19-11 10-11-10-4-19z\" fill=\"#431407\" stroke=\"#fb923c\" stroke-width=\"1.5\"/>" +
-        "<polygon points=\"32,18 39,28 36,41 32,45 28,41 25,28\" fill=\"#fde047\"/>" +
-        "<polygon points=\"32,23 36,29 32,37 28,29\" fill=\"#ffffff\"/>" +
+        "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#fde047\"/><stop offset=\"45%\" stop-color=\"#ea580c\"/><stop offset=\"100%\" stop-color=\"#7c2d12\"/></linearGradient></defs>" +
+        "<path d=\"M5 12l16 5 11-12 11 12 16-5-6 29-21 17-21-17-6-29z\" fill=\"url(#" + uid + "a)\" stroke=\"#fef08a\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>" +
+        "<path d=\"M16 19.5l16-6 16 6-4.5 19.5L32 50 20.5 39 16 19.5z\" fill=\"#3b0e04\" stroke=\"#fb923c\" stroke-width=\"1.4\"/>" +
+        "<polygon points=\"32,17 40,28 36.5,41.5 32,45.5 27.5,41.5 24,28\" fill=\"#fde047\"/>" +
+        "<polygon points=\"32,23 36.5,29 32,37 27.5,29\" fill=\"#ffffff\"/>" +
       "</svg>";
     }
     return "<svg width=\"" + sz + "\" height=\"" + sz + "\" viewBox=\"0 0 64 64\" aria-hidden=\"true\">" +
-      "<path d=\"M6 12l15 5 11-12 11 12 15-5-6 28-20 17-20-17-6-28z\" fill=\"#b45309\" stroke=\"#fde047\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>" +
-      "<path d=\"M16 19l16-6 16 6-4 20-12 11-12-11-4-20z\" fill=\"#450a0a\" stroke=\"#facc15\" stroke-width=\"1.6\"/>" +
-      "<path d=\"M21 25l11-7 11 7-4 14-7 6-7-6-4-14z\" fill=\"#facc15\"/>" +
-      "<polygon points=\"32,22 36,30 32,39 28,30\" fill=\"#ffffff\"/>" +
+      "<defs><linearGradient id=\"" + uid + "a\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0%\" stop-color=\"#fef08a\"/><stop offset=\"45%\" stop-color=\"#f59e0b\"/><stop offset=\"100%\" stop-color=\"#991b1b\"/></linearGradient></defs>" +
+      "<path d=\"M4 10l16 6 12-12 12 12 16-6-6 30-22 18-22-18-6-30z\" fill=\"url(#" + uid + "a)\" stroke=\"#fef9c3\" stroke-width=\"2\" stroke-linejoin=\"round\"/>" +
+      "<path d=\"M15 19l17-6.5L49 19l-4.5 20.5L32 51 19.5 39.5 15 19z\" fill=\"#420808\" stroke=\"#facc15\" stroke-width=\"1.6\"/>" +
+      "<path d=\"M20 25l12-8 12 8-4.5 14L32 45l-7.5-6L20 25z\" fill=\"#fde047\"/>" +
+      "<polygon points=\"32,21 37,29.5 32,39 27,29.5\" fill=\"#ffffff\"/>" +
     "</svg>";
   }
   function computePin6(seed) {
@@ -4566,7 +4586,7 @@
     var rh = document.getElementById("acRankHero");
     if (rh) rh.style.background = cur.grad;
     var hs = document.getElementById("acHeroShield");
-    if (hs) hs.innerHTML = rankShieldSvg(cur, 44, false);
+    if (hs) hs.innerHTML = rankShieldSvg(cur, 52, false);
     var hl = document.getElementById("acHeroLvl");
     if (hl) hl.textContent = "Level " + cur.level;
     var hn = document.getElementById("acHeroName");
@@ -4580,7 +4600,7 @@
     var hf = document.getElementById("acHeroFill");
     if (hf) hf.style.width = pct + "%";
     var hdot = document.getElementById("acHeroDot");
-    if (hdot) hdot.style.left = "calc(" + Math.min(96, Math.max(2, pct)) + "% - 6px)";
+    if (hdot) hdot.style.left = pct <= 3 ? "0px" : ("calc(" + Math.min(96, pct) + "% - 5px)");
     var hneed = document.getElementById("acHeroNeed");
     if (hneed) hneed.innerHTML = next ? ("Need only <b>" + need + " Tk</b> to unlock <b>" + next.name + "</b>") : "<b>Grand Master maximum rank unlocked!</b>";
 
@@ -4603,12 +4623,12 @@
         var isCur = r.level === cur.level;
         var isUnl = r.level < cur.level;
         var badgeCls = isCur ? "cur" : (isUnl ? "unl" : "");
-        var chkIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:3px;\"><polyline points=\"20 6 9 17 4 12\"/></svg>";
-        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"currentColor\" style=\"vertical-align:-1px;margin-right:3px;\"><path d=\"M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z\"/></svg>";
+        var chkIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-1px;margin-right:2px;\"><polyline points=\"20 6 9 17 4 12\"/></svg>";
+        var lockIco = "<svg width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"currentColor\" style=\"vertical-align:-1px;margin-right:2px;\"><path d=\"M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z\"/></svg>";
         var badgeTxt = isCur ? (chkIco + "Current") : (isUnl ? (chkIco + "Unlocked") : (lockIco + "Locked"));
         return "<div class=\"ac2-j-item" + (isCur ? " is-cur" : "") + "\">" +
           "<div class=\"ac2-j-left\">" +
-            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, isCur ? 22 : 28, isCur) + "</div>" +
+            "<div class=\"ac2-j-badge\">" + rankShieldSvg(r, isCur ? 24 : 30, isCur) + "</div>" +
             "<div><b>" + r.name + "</b><small>" + r.range + "</small></div>" +
           "</div>" +
           "<span class=\"ac2-j-pill " + badgeCls + "\">" + badgeTxt + "</span>" +
