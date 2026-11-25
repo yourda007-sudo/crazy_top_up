@@ -53,7 +53,8 @@ var DEFAULT_CATALOG = {
     { id: 'wl', name: 'Weekly Lite', publisher: 'Free Fire Lite', currencyName: 'Weekly Lite', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
     { id: 'lu', name: 'Level Up Pass', publisher: 'Free Fire Pass', currencyName: 'Level Up Pass', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
     { id: 'likes', name: 'FF Likes', publisher: 'Profile Boost', currencyName: 'FF Likes', uidLabel: 'Player UID', uidPlaceholder: 'e.g. 2149083712', active: true },
-    { id: 'indo', name: 'Indonesia Server', publisher: 'FF Indo Region', currencyName: 'Indo Diamonds', uidLabel: 'Indonesia UID', uidPlaceholder: 'e.g. 2149083712', active: true }
+    { id: 'indo', name: 'Indonesia Server', publisher: 'FF Indo Region', currencyName: 'Indo Diamonds', uidLabel: 'Indonesia UID', uidPlaceholder: 'e.g. 2149083712', active: true },
+    { id: 'guild-glory-bot', name: 'Guild Glory Bot', publisher: 'Special Product', currencyName: 'Glory Bot', uidLabel: 'Guild ID', uidPlaceholder: 'এখানে আপনার Guild ID লিখুন...', active: true }
   ],
   packages: [
     { id: 'bd-25', gameId: 'uid-bd', amountLabel: '25 Diamond', bonusLabel: 'Instant UID Delivery', priceBdt: 22, popular: false, inStock: true },
@@ -86,7 +87,12 @@ var DEFAULT_CATALOG = {
     { id: 'in-50', gameId: 'indo', amountLabel: '50 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 65, popular: false, inStock: true },
     { id: 'in-140', gameId: 'indo', amountLabel: '140 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 180, popular: true, inStock: true },
     { id: 'in-355', gameId: 'indo', amountLabel: '355 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 445, popular: false, inStock: true },
-    { id: 'in-720', gameId: 'indo', amountLabel: '720 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 890, popular: false, inStock: true }
+    { id: 'in-720', gameId: 'indo', amountLabel: '720 Diamond (Indo)', bonusLabel: 'Indo Server', priceBdt: 890, popular: false, inStock: true },
+
+    { id: 'gb-4', gameId: 'guild-glory-bot', amountLabel: '4 Glory Bot', bonusLabel: 'Auto Glory Squad', priceBdt: 145, popular: false, inStock: true },
+    { id: 'gb-8', gameId: 'guild-glory-bot', amountLabel: '8 Glory Bot', bonusLabel: 'Auto Glory Squad', priceBdt: 290, popular: true, inStock: true },
+    { id: 'gb-12', gameId: 'guild-glory-bot', amountLabel: '12 Glory Bot', bonusLabel: 'Auto Glory Squad', priceBdt: 430, popular: false, inStock: true },
+    { id: 'gb-16', gameId: 'guild-glory-bot', amountLabel: '16 Glory Bot', bonusLabel: 'Auto Glory Squad', priceBdt: 560, popular: false, inStock: true }
   ]
 };
 
@@ -120,6 +126,7 @@ var DEFAULT_SITE_SETTINGS = {
     { id: 'weekly-lite', title: 'Weekly Lite', imageUrl: 'WEEKLY LITE.jpg' },
     { id: 'level-up-pass', title: 'Level Up Pass', imageUrl: 'LEVEL UP PASS.jpg' },
     { id: 'indonesia-server', title: 'Indonesia Server', imageUrl: 'INDONESIA SERVER.jpg' },
+    { id: 'guild-glory-bot', title: 'Guild Glory Bot', imageUrl: 'guild-glory-bot.png' },
     { id: 'uid-checker', title: 'UID Checker', imageUrl: 'uid checker.jpg' }
   ]
 };
@@ -141,6 +148,12 @@ function validatePlayerUid(gameId, rawUid) {
   if (gid === 'mlbb') {
     if (!/^\d{5,12}\s*[\(\s-]?\d{3,6}\)?$/.test(uid)) {
       return { ok: false, error: 'MLBB ID ফরম্যাট: UserID (ZoneID), যেমন 123456789 (1234)।' };
+    }
+    return { ok: true, uid: uid };
+  }
+  if (gid === 'guild-glory-bot') {
+    if (!/^[A-Za-z0-9-]+$/.test(uid) || uid.length < 5) {
+      return { ok: false, error: 'সঠিক Guild ID দিন (ন্যূনতম ৫ অক্ষরের Guild ID)।' };
     }
     return { ok: true, uid: uid };
   }
@@ -514,6 +527,15 @@ function loadDb() {
     if (!Array.isArray(p.config.promoCodes)) p.config.promoCodes = def.config.promoCodes;
     if (!p.config.catalog || !Array.isArray(p.config.catalog.games) || !Array.isArray(p.config.catalog.packages)) {
       p.config.catalog = def.config.catalog;
+    } else {
+      if (!p.config.catalog.games.some(function (g) { return g && g.id === 'guild-glory-bot'; })) {
+        p.config.catalog.games.push(JSON.parse(JSON.stringify(DEFAULT_CATALOG.games.find(function (g) { return g.id === 'guild-glory-bot'; }))));
+      }
+      DEFAULT_CATALOG.packages.filter(function (pk) { return pk.gameId === 'guild-glory-bot'; }).forEach(function (pk) {
+        if (!p.config.catalog.packages.some(function (ep) { return ep && ep.id === pk.id; })) {
+          p.config.catalog.packages.push(JSON.parse(JSON.stringify(pk)));
+        }
+      });
     }
     p.users = p.users || {};
     Object.keys(p.users).forEach(function (k) {
@@ -537,6 +559,9 @@ function loadDb() {
     p.config.siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS, rawSs);
     p.config.siteSettings.heroBanners = (Array.isArray(rawSs.heroBanners) && rawSs.heroBanners.length) ? rawSs.heroBanners : JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS.heroBanners));
     p.config.siteSettings.productCards = (Array.isArray(rawSs.productCards) && rawSs.productCards.length) ? rawSs.productCards : JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS.productCards));
+    if (!p.config.siteSettings.productCards.some(function (pc) { return pc && pc.id === 'guild-glory-bot'; })) {
+      p.config.siteSettings.productCards.splice(Math.max(0, p.config.siteSettings.productCards.length - 1), 0, { id: 'guild-glory-bot', title: 'Guild Glory Bot', imageUrl: 'guild-glory-bot.png' });
+    }
     return p;
   } catch (e) {
     return defaultDb();

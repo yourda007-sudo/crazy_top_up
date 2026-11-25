@@ -159,6 +159,13 @@ header{position:sticky;top:0;z-index:40;background:#ffffff;border-bottom:1px sol
 .sec h2{font-size:21px;font-weight:800;letter-spacing:-.5px}
 .sec h2 em{font-style:normal;background:linear-gradient(90deg,#3b82f6,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
 .sec:after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--bd),transparent)}
+.sec.sec-special:before{background:linear-gradient(#a78bfa,#6d28d9)}
+.sec.sec-special h2{color:#0f172a}
+.sec.sec-special h2 em{background:linear-gradient(90deg,#7c3aed,#6d28d9);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card.special-card{border-color:#4c1d95;box-shadow:0 5px 0 #4c1d95,0 10px 20px -3px rgba(109,40,217,.22)}
+.card.special-card:hover{box-shadow:0 8px 0 #4c1d95,0 18px 28px -4px rgba(109,40,217,.32)}
+.card.special-card:active{box-shadow:0 2px 0 #4c1d95,0 6px 12px rgba(109,40,217,.22)}
+.card.special-card p{text-transform:none;font-size:12px;letter-spacing:0;color:#1e293b}
 
 /* cards */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -486,6 +493,30 @@ footer .about h2{margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-.
 #wlView{padding-left:10px;padding-right:10px;padding-bottom:120px}
 #luView{padding-left:10px;padding-right:10px;padding-bottom:120px}
 #inView{padding-left:10px;padding-right:10px;padding-bottom:120px}
+#gbView{padding-left:10px;padding-right:10px;padding-bottom:120px}
+#gbView .pv-hero{background:linear-gradient(135deg,#fff,#f3effe);border-color:#e4dafc;box-shadow:0 10px 26px -14px rgba(109,40,217,.32)}
+#gbView .pv-hero:after{background:rgba(124,58,237,.1)}
+#gbView .pv-pill{background:#f3edff;border-color:#dfd1fe;color:#6d28d9}
+#gbView .pv-head .n{background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 6px 14px -4px rgba(109,40,217,.55)}
+#gbView .inp{border-color:#d8ccf8}
+#gbView .inp:focus{border-color:#6d28d9;box-shadow:0 0 0 4px rgba(109,40,217,.14)}
+#gbView .po.on{border-color:#6d28d9;box-shadow:0 0 0 2px rgba(109,40,217,.16),0 12px 24px -12px rgba(109,40,217,.45)}
+#gbView .po.on .pft{background:#ede9fe;color:#5b21b6}
+#gbView .po.on:before{border-color:#6d28d9 transparent transparent transparent}
+#gbView .btn.login{background:linear-gradient(135deg,#7c3aed,#5b21b6);box-shadow:0 10px 22px -10px rgba(91,33,182,.85)}
+#gbPkGrid{gap:8px;margin:-3px}
+#gbView .pk{min-height:68px;padding:10px 8px;gap:4px;justify-content:center;border-radius:12px;border-width:1.5px;box-shadow:0 2px 6px -4px rgba(20,40,90,.2)}
+#gbView .pk:hover{border-color:#a78bfa}
+#gbView .pk span{font-size:14.5px;font-weight:700;line-height:1.3;color:#0f1f4d;letter-spacing:-.1px;pointer-events:none}
+#gbView .pk b{font-size:13px;font-weight:700;line-height:1.3;color:#6d28d9;pointer-events:none}
+#gbView .pk.on{border-color:#6d28d9;background:linear-gradient(160deg,#f5f3ff,#fff);box-shadow:0 0 0 3px rgba(109,40,217,.15),0 8px 16px -10px rgba(109,40,217,.6)}
+#gbView .pk.on:after{top:-7px;right:-5px;background:linear-gradient(135deg,#7c3aed,#5b21b6)}
+#gbView .pk:active{transform:none;background:#f5f3ff}
+#gbView .pv-head.rh svg{color:#6d28d9}
+.gb-rules{display:grid;gap:12px;font-size:13.5px;line-height:1.75;color:#334155}
+.gb-rules p{margin:0}
+.gb-rules .gb-approval{display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;font-weight:600;color:#1e293b}
+.gb-rules .gb-note-end{padding-top:4px;font-weight:600;color:#1e293b}
 .how{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:4px 2px;font-size:14px;font-weight:700;color:var(--v)}
 .how svg{font-size:18px;flex-shrink:0}
 .how .ar{font-size:17px;stroke-width:2.4}
@@ -875,6 +906,11 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
     <a class="card" href="#weekly-lite" data-open="weekly-lite"><div class="thumb ph"><img src="WEEKLY LITE.jpg" alt="Weekly Lite" loading="lazy" decoding="async"></div><p>Weekly Lite</p></a>
     <a class="card" href="#level-up-pass" data-open="level-up-pass"><div class="thumb ph"><img src="LEVEL UP PASS.jpg" alt="Level Up Pass" loading="lazy" decoding="async"></div><p>Level Up Pass</p></a>
     <a class="card" href="#indonesia-server" data-open="indonesia-server"><div class="thumb ph"><img src="INDONESIA SERVER.jpg" alt="Indonesia Server" loading="lazy" decoding="async"></div><p>Indonesia Server</p></a>
+  </div>
+
+  <div class="sec sec-special"><h2>SPECIAL <em>PRODUCT</em></h2></div>
+  <div class="grid">
+    <a class="card special-card" href="#guild-glory-bot" data-open="guild-glory-bot"><div class="thumb ph"><img src="guild-glory-bot.png" alt="Guild Glory Bot" loading="lazy" decoding="async"></div><p>Guild Glory Bot</p></a>
   </div>
 
   <div class="sec"><h2><em>UID CHECKER</em></h2></div>
@@ -1407,6 +1443,96 @@ html,body,.pk,.po,.btn,.pay,.q,.card,.nav a,.pv-back{touch-action:manipulation}
         <li>একবার অর্ডার সাবমিট করার পর বাতিল বা রিফান্ড করা হয় না।</li>
         <li>যেকোনো সমস্যায় অর্ডারের স্ক্রিনশট সহ টেলিগ্রামে যোগাযোগ করুন।</li>
       </ul>
+    </div>
+  </section>
+
+  <section class="pv-contact">
+    <h2>Contact Us</h2>
+    <a class="pv-help" href="#" data-link="telegram-channel">
+      <span class="ti"><svg class="f"><use href="#tg"/></svg></span>
+      <span><b>Telegram HelpLine <svg class="vb" viewBox="0 0 24 24"><path fill="#2979ff" d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.67-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.34 2.19c-1.39-.46-2.9-.2-3.91.81s-1.27 2.52-.81 3.91C2.63 9.33 1.75 10.57 1.75 12s.88 2.67 2.19 3.34c-.46 1.39-.2 2.9.81 3.91s2.52 1.27 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.67-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z"/><polygon fill="#fff" points="9.65 16.4 5.8 12.55 7.2 11.15 9.65 13.6 16.8 6.45 18.2 7.85"/></svg></b><p>সকাল ৮টা থেকে রাত ১২টা</p></span>
+    </a>
+  </section>
+</main>
+
+<!-- GUILD GLORY BOT PAGE -->
+<main class="wrap" id="gbView" hidden>
+  <button class="pv-back" type="button" id="gbBack"><svg class="i"><use href="#arr"/></svg>Back</button>
+
+  <section class="pv-hero">
+    <div class="pv-img"><div class="thumb ph"><img src="guild-glory-bot.png" alt="Guild Glory Bot"></div></div>
+    <div class="pv-info">
+      <h1>Guild Glory Bot</h1>
+      <span class="pv-pill"><svg viewBox="0 0 24 24"><use href="#bolt"/></svg>২ সেকেন্ডে টপআপ</span>
+    </div>
+  </section>
+
+  <section class="pv-box">
+    <div class="pv-head"><span class="n">1</span><h2>Select Recharge</h2></div>
+    <div class="pv-body">
+      <div class="pk-grid" id="gbPkGrid">
+        <button type="button" class="pk" data-name="4 Glory Bot" data-price="145"><span>4 Glory Bot</span><b>BDT 145</b></button>
+        <button type="button" class="pk" data-name="8 Glory Bot" data-price="290"><span>8 Glory Bot</span><b>BDT 290</b></button>
+        <button type="button" class="pk" data-name="12 Glory Bot" data-price="430"><span>12 Glory Bot</span><b>BDT 430</b></button>
+        <button type="button" class="pk" data-name="16 Glory Bot" data-price="560"><span>16 Glory Bot</span><b>BDT 560</b></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="pv-box">
+    <div class="pv-head"><span class="n">2</span><h2>Account Info</h2></div>
+    <div class="pv-body">
+      <label class="lbl" for="gbInp">এখানে আপনার Guild ID লিখুন...</label>
+      <input class="inp" id="gbInp" type="text" inputmode="numeric" autocomplete="off" placeholder="এখানে আপনার Guild ID লিখুন...">
+    </div>
+  </section>
+
+  <section class="pv-box">
+    <div class="pv-head"><span class="n">3</span><h2>Select one option</h2></div>
+    <div class="pv-body">
+      <div class="po-grid" id="gbPo">
+        <div role="button" tabindex="0" class="po on" data-pay="Wallet Pay">
+          <div class="pbx"><img src="wallet.jpg" alt="" onerror="this.style.display='none'"></div>
+          <div class="pft">Wallet Pay</div>
+        </div>
+        <div role="button" tabindex="0" class="po" data-pay="Instant Pay">
+          <div class="pbx"><img src="andmoney.jpg" alt="" onerror="this.style.display='none'"></div>
+          <div class="pft">Instant Pay</div>
+        </div>
+      </div>
+
+      <div class="bal" id="gbBalRow" style="display:none">
+        <svg class="i"><use href="#info"/></svg>
+        <span>আপনার অ্যাকাউন্ট ব্যালেন্স <b>৳ <em id="gbBal">0.00</em></b></span>
+        <button type="button" class="rf" id="gbRf" aria-label="Refresh"><svg class="i"><use href="#refresh"/></svg></button>
+      </div>
+      <p class="hint need"><svg class="i"><use href="#info"/></svg><span>প্রোডাক্ট কিনতে আপনার প্রয়োজন <b id="gbNeed">0</b> ৳ ।</span></p>
+      <p class="hint warnx" id="gbLoginWarn"><svg class="i"><use href="#info"/></svg><span>Please Login To Purchase</span></p>
+      <a class="btn login" id="gbBuy" href="#">Login</a>
+    </div>
+  </section>
+
+  <section class="pv-box rules">
+    <div class="pv-head rh"><svg class="i"><use href="#doc"/></svg><h2>Rules &amp; Conditions</h2></div>
+    <div class="pv-body">
+      <div class="gb-rules">
+        <p>অবশ্যই আপনার গিল্ডের Approval Method হতে হবে নিম্নরূপ :</p>
+        <div class="gb-approval">
+          <div>Auto Approval : OFF</div>
+          <div>Lv.: Default</div>
+          <div>BR-RANKED: Default</div>
+          <div>CS-RANKED: Default</div>
+          <div>Guild Invitation List: No Join Request</div>
+        </div>
+        <p>যদি আপনার গিল্ডে ইতিমধ্যেই কিছু সংখ্যক প্লেয়ার জয়েন রিকোয়েস্ট দিয়ে থাকে তাহলে সেগুলো বাতিল বা কেটে দিতে হবে অথবা চাইলে একসেপ্ট করতে পারেন কিন্তু গিল্ড এ্যাপ্লিকেশনে কোনো প্লেয়ারকে ঝুলিয়ে রাখা যাবে না!</p>
+        <p>আমাদের গিল্ড বট আপনার গিল্ডে জয়েন হওয়ার ৩০ মিনিটের মধ্যে কাজ শুরু করে দেবে, ৩০ মিনিটের মধ্যে যদি কোন গিল্ড গ্লোরি না আসে তাহলে আমাদের টেলিগ্রাম (Telegram) বা WhatsApp সাপোর্টে এ যোগাযোগ করবেন।</p>
+        <p>আমাদের Squad 1 এর চারটি বট দিয়ে ১ গ্লোরি থেকে ২ লক্ষ + গ্লোরি এড হতে পারে, এটা আপনার ভাগ্যের উপর নির্ভর করবে। (নতুন আপডেটের পর গ্লোরি অনেক কম দিচ্ছে আগের তুলনায়)</p>
+        <p>Guild Glory Bot যদি শূন্য গ্লোরি (Glory) দেয় সেই ক্ষেত্রে আপনাকে পুনরায় আরেকটি স্কোয়াড (1 Squad Bot) প্রদান করা হবে কিন্তু যদি ১ গ্লোরিও প্রদান করে সেই ক্ষেত্রে পুনরায় কোন স্কোয়াড (1 Squad Bot) দেওয়া হবে না বা কোন ধরনের রিফান্ড পাওয়া যাবে না।</p>
+        <p>যদি কখনো গিল্ড গ্লোরি বট, গ্লোরি দিতে ব্যর্থ হয় অথবা শূন্য গ্লোরি দেয়, সেই ক্ষেত্রে অবশ্যই ২ ঘন্টার মধ্যে যোগাযোগ করতে হবে অন্যথায় এর দায়ভার <b data-site-name>Crazy_Top_Up (24)</b> কর্তৃপক্ষের নয়। যদি কেউ যোগাযোগ না করে সেই ক্ষেত্রে কোন ধরনের রিফান্ড বা টাকা ফিরিয়ে দেওয়ার রাস্তা থাকবে না।</p>
+        <p>আমাদের গ্লোরি বট চার ঘন্টা থেকে ৬ ঘন্টা এরমধ্যে সব গ্লোরি দেওয়া সম্পূর্ণ করে দেবে। আপনি চাইলে সোমবারে গিল্ড গ্লোরি কাউন্ট (যোগ) হওয়ার পর, বট আইডি গুলোকে কিক বা গিল্ড থেকে বের করে দিতে পারেন!</p>
+        <p>যদি ভুলক্রমে গিল্ড গ্লোরি যুক্ত হওয়ার আগেই গিল্ড বট গুলোকে কিক বা গিল্ড থেকে বের করে দেন তাহলে কর্তৃপক্ষ দায়ী থাকবে না।</p>
+        <p class="gb-note-end">Order cancel হলে কারণ Order History-তে দেখুন এবং সঠিক তথ্য দিয়ে আবার অর্ডার করুন।</p>
+      </div>
     </div>
   </section>
 
@@ -2845,8 +2971,8 @@ setInterval(fetchFreshAccountConfig, 15000);
   var toastEl=document.getElementById('toast'), tt;
   function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2400)}
   function route(){
-    var onFF=location.hash==='#ff-likes', onUid=location.hash==='#uid-topup', onWm=location.hash==='#weekly-monthly', onWl=location.hash==='#weekly-lite', onLu=location.hash==='#level-up-pass', onIn=location.hash==='#indonesia-server', onOr=location.hash==='#my-orders', onCd=location.hash==='#my-codes', onAc=location.hash==='#account', onTr=location.hash==='#my-transaction', onCt=location.hash==='#contact-us', onUc=location.hash==='#uid-checker', onAm=location.hash==='#add-money';
-    home.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm; foot.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onOr||onCd||onAc||onTr||onCt||onUc||onAm;
+    var onFF=location.hash==='#ff-likes', onUid=location.hash==='#uid-topup', onWm=location.hash==='#weekly-monthly', onWl=location.hash==='#weekly-lite', onLu=location.hash==='#level-up-pass', onIn=location.hash==='#indonesia-server', onGb=location.hash==='#guild-glory-bot', onOr=location.hash==='#my-orders', onCd=location.hash==='#my-codes', onAc=location.hash==='#account', onTr=location.hash==='#my-transaction', onCt=location.hash==='#contact-us', onUc=location.hash==='#uid-checker', onAm=location.hash==='#add-money';
+    home.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onGb||onOr||onCd||onAc||onTr||onCt||onUc||onAm; foot.hidden=onFF||onUid||onWm||onWl||onLu||onIn||onGb||onOr||onCd||onAc||onTr||onCt||onUc||onAm;
     var amv=document.getElementById('amView'); if(amv) amv.hidden=!onAm; if(!onAm){document.body.classList.remove('am-gateway-mode');}
     var tv=document.getElementById('trView'); if(tv) tv.hidden=!onTr;
     var ctv=document.getElementById('ctView'); if(ctv) ctv.hidden=!onCt;
@@ -2859,6 +2985,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     var lv=document.getElementById('wlView'); if(lv) lv.hidden=!onWl;
     var uv2=document.getElementById('luView'); if(uv2) uv2.hidden=!onLu;
     var uv3=document.getElementById('inView'); if(uv3) uv3.hidden=!onIn;
+    var gbv=document.getElementById('gbView'); if(gbv) gbv.hidden=!onGb;
     window.scrollTo(0,0);
   }
   document.querySelectorAll('[data-open="ff-likes"]').forEach(function(a){
@@ -3328,6 +3455,75 @@ setInterval(fetchFreshAccountConfig, 15000);
   window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
   upd();
 })();
+// ==========================================
+// 9b. GUILD GLORY BOT PRODUCT VIEW
+// ==========================================
+(function(){
+  var isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn);
+  var LOGIN_URL='#';
+  var BALANCE=0;
+
+  var sel={name:'',price:0,pay:'Wallet Pay'};
+  var toastEl=document.getElementById('toast'), tt;
+  function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2400)}
+
+  document.querySelectorAll('[data-open="guild-glory-bot"]').forEach(function(a){
+    a.addEventListener('click',function(e){e.preventDefault();location.hash='guild-glory-bot';});
+  });
+  document.getElementById('gbBack').onclick=function(){ if(history.length>1&&location.hash==='#guild-glory-bot'){history.back();}else{location.hash='';} };
+
+  var buy=document.getElementById('gbBuy'), warn=document.getElementById('gbLoginWarn');
+  var balRow=document.getElementById('gbBalRow'), rf=document.getElementById('gbRf');
+  function upd(){
+    document.getElementById('gbNeed').textContent=sel.price;
+    document.getElementById('gbBal').textContent=BALANCE.toFixed(2);
+    if(isLoggedIn){warn.style.display='none';balRow.style.display='flex';buy.textContent='Buy Now';buy.href='#';}
+    else{warn.style.display='flex';balRow.style.display='none';buy.textContent='Login';buy.href=LOGIN_URL;}
+  }
+  rf.onclick=function(){
+    rf.classList.remove('spin'); void rf.offsetWidth; rf.classList.add('spin');
+    upd();
+  };
+  var pks=document.querySelectorAll('#gbPkGrid .pk');
+  var pkGrid=document.getElementById('gbPkGrid');
+  function pickPk(e){
+    var b=e.target.closest ? e.target.closest('.pk') : null;
+    if(!b || !pkGrid.contains(b)) return;
+    pks.forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on'); sel.name=b.dataset.name; sel.price=+b.dataset.price; upd();
+  }
+  pkGrid.addEventListener('click',pickPk);
+  (function(){
+    var sx=0, sy=0, down=false;
+    pkGrid.addEventListener('pointerdown',function(e){ down=true; sx=e.clientX; sy=e.clientY; });
+    pkGrid.addEventListener('pointercancel',function(){ down=false; });
+    pkGrid.addEventListener('pointerup',function(e){
+      if(!down) return; down=false;
+      if(Math.abs(e.clientX-sx)>10 || Math.abs(e.clientY-sy)>10) return;
+      pickPk(e);
+    });
+  })();
+  var pos=document.querySelectorAll('#gbPo .po');
+  pos.forEach(function(b){
+    b.onclick=function(){
+      pos.forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on'); sel.pay=b.dataset.pay;
+    };
+  });
+  var inp=document.getElementById('gbInp');
+  inp.addEventListener('input',function(){this.value=this.value.replace(/[^A-Za-z0-9-]/g,'');});
+  buy.addEventListener('click',function(e){
+    if(!isLoggedIn){ e.preventDefault(); if(typeof window.openGoogleLoginModal==='function')window.openGoogleLoginModal(); return; }
+    e.preventDefault();
+    var gid=inp.value.trim();
+    if(!sel.name){toast('আগে একটি রিচার্জ প্যাকেজ সিলেক্ট করুন');return;}
+    if(gid.length<5){toast('সঠিক Guild ID দিন');inp.focus();return;}
+    if(window.SPIN_SYSTEM) return;
+    location.hash='add-money';
+  });
+  window.addEventListener('crazy-auth-change',function(){ isLoggedIn=!!(window.__CRAZY_USER__&&window.__CRAZY_USER__.loggedIn); upd(); });
+  upd();
+})();
 </script>
 <script>
 // ==========================================
@@ -3393,7 +3589,7 @@ setInterval(fetchFreshAccountConfig, 15000);
     if(on){ closePanel(); if(typeof window.__syncMyOrders==='function') window.__syncMyOrders(); }
     if(navOrders) navOrders.classList.toggle('on',on);
     if(on){ if(navHome) navHome.classList.remove('on'); if(navAcc) navAcc.classList.remove('on'); }
-    else if(navHome && !panel.classList.contains('show') && !/^#(ff-likes|uid-topup|weekly-monthly|weekly-lite|level-up-pass|indonesia-server|my-codes|my-transaction|contact-us|uid-checker|add-money)$/.test(location.hash)) navHome.classList.add('on');
+    else if(navHome && !panel.classList.contains('show') && !/^#(ff-likes|uid-topup|weekly-monthly|weekly-lite|level-up-pass|indonesia-server|guild-glory-bot|my-codes|my-transaction|contact-us|uid-checker|add-money)$/.test(location.hash)) navHome.classList.add('on');
   }
   function go(e){ e.preventDefault(); e.stopImmediatePropagation(); location.hash='my-orders'; sync(); }
   if(navOrders) navOrders.addEventListener('click',go);
@@ -3944,6 +4140,6 @@ setInterval(fetchFreshAccountConfig, 15000);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js").catch(function(){});}</script>
-<script src="spin-system.js?v=27"></script>
+<script src="spin-system.js?v=28"></script>
 </body>
 </html>
