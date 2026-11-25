@@ -18,6 +18,7 @@ GitHub Repo (yourda007-sudo/crazy_top_up) e upload korar niyom:
    - manifest.json
    - sw.js
    - apple-touch-icon.png
+   - guild-glory-bot.png
    - icon.svg
    - pwa-192x192.png
    - pwa-512x512.png

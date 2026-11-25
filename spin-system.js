@@ -2427,7 +2427,7 @@
     if (titleEl) titleEl.textContent = opts.title || 'নিরাপদ পেমেন্ট গেটওয়ে চালু হচ্ছে...';
     if (subEl) subEl.textContent = opts.subtitle || 'অনুগ্রহ করে অপেক্ষা করুন, এনক্রিপ্টেড কানেকশন যাচাই হচ্ছে।';
     if (badgeEl) {
-      badgeEl.innerHTML = opts.badgeHtml || '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1565d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>';
+      badgeEl.innerHTML = opts.badgeHtml || '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>';
     }
     var dur = Math.max(360, Number(opts.duration || 760));
     if (progEl) {
