@@ -6,8 +6,8 @@
   "start_url": "/FFX.html",
   "scope": "/",
   "display": "fullscreen",
-  "theme_color": "#7c3aed",
-  "background_color": "#7c3aed",
+  "theme_color": "#d97706",
+  "background_color": "#d97706",
   "icons": [
     {
       "src": "/pwa-512x512.png",
