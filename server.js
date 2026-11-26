@@ -99,6 +99,8 @@ var DEFAULT_CATALOG = {
 var DEFAULT_SITE_SETTINGS = {
   siteName: 'Crazy_Top_Up (24)',
   logoUrl: 'Main logo.jpg',
+  themeColor: '#d97706',
+  themeAccent: '#f59e0b',
   heroBanners: [
     { id: 'hb-1', imageUrl: 'Banner 1.jpg', linkUrl: '', alt: 'Banner 1', active: true },
     { id: 'hb-2', imageUrl: 'Banner 2.jpg', linkUrl: '', alt: 'Banner 2', active: true },
@@ -311,6 +313,88 @@ function verifySmsWebhookSecret(req, d) {
   return timingSafeEqualsStr(candidate, expected);
 }
 
+function isDisallowedPrivateHost(hostname) {
+  var h = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (!h) return true;
+  if (h === 'localhost' || h.slice(-6) === '.local' || h.slice(-9) === '.internal') return true;
+  if (h === '::1' || h === '::' || h.indexOf('fe80:') === 0 || h.indexOf('fc') === 0 || h.indexOf('fd') === 0) return true;
+  var m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    var a = Number(m[1]);
+    var b = Number(m[2]);
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+  }
+  return false;
+}
+
+function validateUddoktaBaseUrl(rawUrl) {
+  var s = String(rawUrl || '').trim();
+  if (!s) return '';
+  try {
+    var u = new URL(s);
+    if (u.protocol !== 'https:') return '';
+    if (u.username || u.password) return '';
+    if (isDisallowedPrivateHost(u.hostname)) return '';
+    var cleaned = u.origin + u.pathname.replace(/\/+$/, '');
+    cleaned = cleaned.replace(/\/api(?:\/(?:checkout-v2|verify-payment))?$/i, '');
+    return cleaned.slice(0, 200);
+  } catch (e) {
+    return '';
+  }
+}
+
+function getUddoktaCredentials(d) {
+  var envKey = String(process.env.UDDOKTAPAY_API_KEY || '').trim();
+  var envBase = validateUddoktaBaseUrl(process.env.UDDOKTAPAY_BASE_URL || '');
+  var cfg = (d && d.config && d.config.uddoktapay) || { enabled: false, explicitlyDisabled: false, baseUrl: '', apiKey: '' };
+  var dbBase = validateUddoktaBaseUrl(cfg.baseUrl || '');
+  var dbKey = String(cfg.apiKey || '').trim();
+  var apiKey = envKey || dbKey;
+  var baseUrl = envBase || dbBase;
+  var envManaged = Boolean(envKey && envBase);
+  var enabled = envManaged
+    ? !cfg.explicitlyDisabled
+    : Boolean(cfg.enabled && apiKey && baseUrl);
+  return {
+    enabled: enabled,
+    baseUrl: baseUrl,
+    apiKey: apiKey,
+    envManaged: envManaged
+  };
+}
+
+function isUddoktaReady(d) {
+  var c = getUddoktaCredentials(d);
+  return Boolean(c.enabled && c.baseUrl && c.apiKey);
+}
+
+function sanitizeReturnHash(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return '';
+  if (s === '#spin-checkout' || s === '#add-money' || s === '#orders' || s === '#wallet') {
+    return s;
+  }
+  return '';
+}
+
+function getSafeRequestOrigin(req) {
+  var envOrigin = String(process.env.APP_URL || '').trim().replace(/\/+$/, '');
+  if (envOrigin) {
+    try {
+      var parsed = new URL(envOrigin);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.origin;
+    } catch (e) {}
+  }
+  var xfProto = String((req.headers && req.headers['x-forwarded-proto']) || req.protocol || 'https').split(',')[0].trim();
+  var proto = xfProto === 'http' ? 'http' : 'https';
+  var host = String((req.headers && (req.headers['x-forwarded-host'] || req.get('host'))) || 'localhost:3000').split(',')[0].trim();
+  return proto + '://' + host;
+}
+
 function parseMobileBankingSms(payload) {
   payload = payload || {};
   var rawSender = String(payload.sender != null ? payload.sender : (payload.from != null ? payload.from : (payload.phone != null ? payload.phone : (payload.address != null ? payload.address : '')))).trim().slice(0, 64);
@@ -489,7 +573,13 @@ function defaultDb() {
       siteSettings: JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS)),
       telegramBotToken: '',
       telegramChatId: '',
-      smsWebhookSecret: crypto.randomBytes(16).toString('hex')
+      smsWebhookSecret: crypto.randomBytes(16).toString('hex'),
+      uddoktapay: {
+        enabled: false,
+        explicitlyDisabled: false,
+        baseUrl: '',
+        apiKey: ''
+      }
     },
     users: {},
     recentWinners: [
@@ -502,6 +592,7 @@ function defaultDb() {
     ordersLog: [],
     walletDeposits: [],
     smsPayments: [],
+    uddoktaPayments: [],
     activityLog: [],
     duplicateTrxBlockedCount: 0
   };
@@ -550,6 +641,8 @@ function loadDb() {
     p.ordersLog = Array.isArray(p.ordersLog) ? p.ordersLog : [];
     p.walletDeposits = Array.isArray(p.walletDeposits) ? p.walletDeposits : [];
     p.smsPayments = Array.isArray(p.smsPayments) ? p.smsPayments : [];
+    p.uddoktaPayments = Array.isArray(p.uddoktaPayments) ? p.uddoktaPayments : [];
+    p.config.uddoktapay = Object.assign({ enabled: false, explicitlyDisabled: false, baseUrl: '', apiKey: '' }, p.config.uddoktapay || {});
     if (typeof p.config.smsWebhookSecret !== 'string' || p.config.smsWebhookSecret.trim().length < 8) p.config.smsWebhookSecret = def.config.smsWebhookSecret;
     p.activityLog = Array.isArray(p.activityLog) ? p.activityLog : [];
     p.duplicateTrxBlockedCount = Number(p.duplicateTrxBlockedCount || 0);
@@ -803,6 +896,7 @@ function serializeUser(u) {
     announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
     banners: db.config.banners || DEFAULT_BANNERS,
     siteSettings: db.config.siteSettings || DEFAULT_SITE_SETTINGS,
+    uddoktapayEnabled: isUddoktaReady(db),
     leaderboard: buildLeaderboard()
   };
 }
@@ -854,6 +948,7 @@ app.get('/api/public/feed', function (req, res) {
     announcement: db.config.announcement || DEFAULT_ANNOUNCEMENT,
     banners: db.config.banners || DEFAULT_BANNERS,
     siteSettings: db.config.siteSettings || DEFAULT_SITE_SETTINGS,
+    uddoktapayEnabled: isUddoktaReady(db),
     leaderboard: buildLeaderboard()
   });
 });
@@ -1393,6 +1488,470 @@ app.post('/api/sms-webhook', async function (req, res) {
   });
 });
 
+async function verifyAndFulfillUddoktaIntent(txRef, invoiceId, actor) {
+  if (!Array.isArray(db.uddoktaPayments)) db.uddoktaPayments = [];
+  var intent = db.uddoktaPayments.find(function (p) { return p.txRef === txRef; });
+  if (!intent) return { ok: false, error: 'PAYMENT_SESSION_NOT_FOUND' };
+  if (intent.status === 'Completed') {
+    var owner = db.users[String(intent.userIdentifier || '').toLowerCase()];
+    var existingOrd = (intent.kind === 'order' && intent.fulfilledRefId)
+      ? ((owner && (owner.orders || []).find(function (o) { return o.id === intent.fulfilledRefId; })) ||
+         db.ordersLog.find(function (o) { return o.id === intent.fulfilledRefId; }) || null)
+      : null;
+    var existingDep = (intent.kind === 'wallet' && intent.fulfilledRefId)
+      ? (db.walletDeposits.find(function (d) { return d.id === intent.fulfilledRefId; }) || null)
+      : null;
+    return { ok: true, alreadyCompleted: true, intent: intent, order: existingOrd, deposit: existingDep };
+  }
+  if (intent.status !== 'Pending') {
+    return { ok: false, error: 'PAYMENT_' + String(intent.status || 'ERROR').toUpperCase() };
+  }
+
+  var creds = getUddoktaCredentials(db);
+  if (!creds.enabled || !creds.baseUrl || !creds.apiKey) {
+    return { ok: false, error: 'UDDOKTAPAY_NOT_CONFIGURED' };
+  }
+
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 15000);
+  var verifyData = {};
+  try {
+    var resp = await fetch(creds.baseUrl + '/api/verify-payment', {
+      method: 'POST',
+      signal: ctrl ? ctrl.signal : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'RT-UDDOKTAPAY-API-KEY': creds.apiKey
+      },
+      body: JSON.stringify({ invoice_id: invoiceId })
+    });
+    verifyData = await resp.json().catch(function () { return {}; });
+    if (!resp.ok) {
+      return { ok: false, error: String(verifyData.message || ('VERIFY_HTTP_' + resp.status)) };
+    }
+  } catch (err) {
+    return { ok: false, error: (err && err.message) ? err.message : 'UDDOKTAPAY_VERIFY_FAILED' };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  var remoteStatus = String(verifyData.status || '').toUpperCase();
+  if (remoteStatus === 'PENDING') {
+    return { ok: false, pending: true, error: 'PAYMENT_STILL_PENDING', intent: intent };
+  }
+  if (remoteStatus !== 'COMPLETED') {
+    intent.status = 'Failed';
+    saveDb(db);
+    return { ok: false, error: 'GATEWAY_STATUS_' + (remoteStatus || 'ERROR'), intent: intent };
+  }
+
+  var meta = (verifyData.metadata && typeof verifyData.metadata === 'object') ? verifyData.metadata : {};
+  if (meta.tx_ref && String(meta.tx_ref) !== intent.txRef) {
+    logActivity(db, 'UddoktaPay Metadata Mismatch', 'Rejected txRef ' + intent.txRef + ' — gateway returned ' + String(meta.tx_ref), 'danger', 'Security Guard');
+    saveDb(db);
+    return { ok: false, error: 'METADATA_MISMATCH' };
+  }
+
+  var paidAmt = Math.round(Number(verifyData.amount || 0));
+  if (!isFinite(paidAmt) || paidAmt < Math.round(intent.amountBdt)) {
+    logActivity(db, 'UddoktaPay Amount Mismatch', 'Rejected ' + intent.txRef + ' — expected ৳' + intent.amountBdt + ', verified ৳' + paidAmt, 'danger', 'Security Guard');
+    saveDb(db);
+    return { ok: false, error: 'AMOUNT_MISMATCH' };
+  }
+
+  var gatewayMethod = String(verifyData.payment_method || 'MFS').trim().slice(0, 40);
+  var senderNum = String(verifyData.sender_number || '').trim().slice(0, 40);
+  var trxClean = normalizeTrxId(String(verifyData.transaction_id || invoiceId || intent.txRef));
+  if (trxClean) {
+    var dup = findDuplicateTrxId(db, trxClean);
+    if (dup) {
+      logActivity(db, 'Duplicate TrxID Blocked', 'UddoktaPay ' + intent.txRef + ' blocked — TrxID ' + trxClean + ' already used in ' + dup.refId, 'danger', 'Security Guard');
+      saveDb(db);
+      return { ok: false, error: 'DUPLICATE_TRXID_' + dup.refId };
+    }
+  }
+
+  // Atomic state transition before crediting wallet or creating order
+  intent.status = 'Completed';
+  intent.invoiceId = invoiceId;
+  intent.paymentMethod = gatewayMethod;
+  intent.senderNumber = senderNum;
+  intent.transactionId = trxClean;
+  intent.completedAt = getTodayBD() + ' ' + formatTimeBD();
+
+  var u = getOrCreateUser(intent.userIdentifier, intent.userName);
+
+  if (intent.kind === 'wallet') {
+    u.walletBalanceBdt = (u.walletBalanceBdt || 0) + intent.amountBdt;
+    var dep = {
+      id: 'DEP-' + Math.floor(100000 + Math.random() * 900000),
+      userIdentifier: u.identifier,
+      userName: u.name,
+      method: 'UddoktaPay (' + gatewayMethod + ')',
+      amountBdt: intent.amountBdt,
+      senderNumber: senderNum || gatewayMethod,
+      trxId: trxClean,
+      status: 'Approved',
+      autoMatched: true,
+      createdAt: getTodayBD() + ' ' + formatTimeBD()
+    };
+    intent.fulfilledRefId = dep.id;
+    u.walletRequests = [dep].concat(u.walletRequests || []).slice(0, 15);
+    db.walletDeposits.unshift(dep);
+    db.walletDeposits = db.walletDeposits.slice(0, 100);
+    logActivity(db, 'UddoktaPay Auto-Verified', 'Wallet ' + dep.id + ' · ৳' + dep.amountBdt + ' (' + gatewayMethod + ', TrxID: ' + trxClean + ') credited automatically to ' + u.name, 'success', actor);
+    saveDb(db);
+    await sendTelegram(
+      '⚡ <b>UddoktaPay Instant Wallet Deposit!</b>\n🆔 ID: <code>' + dep.id + '</code>\n👤 User: ' + u.name + ' (' + u.identifier + ')\n💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + gatewayMethod + ')\n📱 Sender: <code>' + dep.senderNumber + '</code>\n🧾 TrxID: <code>' + dep.trxId + '</code>'
+    );
+    return { ok: true, intent: intent, deposit: dep };
+  }
+
+  var draft = intent.orderDraft;
+  if (!draft) {
+    saveDb(db);
+    return { ok: false, error: 'ORDER_DRAFT_MISSING' };
+  }
+
+  if (draft.appliedOfferId) {
+    var offer = (u.offers || []).find(function (o) { return o.id === draft.appliedOfferId && !o.used; });
+    if (offer) offer.used = true;
+  }
+  if (draft.promoCodeUsed) {
+    var promo = (db.config.promoCodes || []).find(function (p) { return p.code.toUpperCase() === draft.promoCodeUsed.toUpperCase(); });
+    if (promo) promo.usedCount = (promo.usedCount || 0) + 1;
+  }
+
+  u.lifetimeSpendBdt = (u.lifetimeSpendBdt || 0) + draft.finalPrice;
+  u.spins += 1;
+  u.goldenSpins += 1;
+
+  var ord = {
+    id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    userIdentifier: u.identifier,
+    userName: u.name,
+    gameName: draft.gameName,
+    packageLabel: draft.packageLabel + (draft.bonusExtra || ''),
+    playerUid: draft.playerUid,
+    originalPrice: draft.originalPrice,
+    discountSaved: draft.discountSaved,
+    vipDiscountSaved: draft.vipDiscountSaved || 0,
+    promoDiscountSaved: draft.promoDiscountSaved || 0,
+    flashDiscountSaved: draft.flashDiscountSaved || 0,
+    finalPrice: draft.finalPrice,
+    appliedOfferCode: draft.appliedOfferCode || undefined,
+    promoCodeUsed: draft.promoCodeUsed || undefined,
+    paymentMethod: 'UddoktaPay (' + gatewayMethod + ')',
+    senderNumber: senderNum || gatewayMethod,
+    trxId: trxClean,
+    status: 'Processing',
+    autoMatched: true,
+    cashbackEarned: 0,
+    supportMessages: [],
+    createdAt: formatDateTimeBD()
+  };
+  intent.fulfilledRefId = ord.id;
+
+  if (draft.saveProfile && draft.gameId) {
+    if (!Array.isArray(u.savedProfiles)) u.savedProfiles = [];
+    var pNick = String((draft.saveProfile && draft.saveProfile.nickname) || '').trim().slice(0, 28) || 'Main ID';
+    var eIdx = u.savedProfiles.findIndex(function (p) { return p.gameId === draft.gameId && p.playerUid === ord.playerUid; });
+    var profObj = {
+      id: eIdx >= 0 ? u.savedProfiles[eIdx].id : ('uid-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5)),
+      gameId: draft.gameId,
+      playerUid: ord.playerUid,
+      nickname: pNick,
+      savedAt: formatTimeBD()
+    };
+    if (eIdx >= 0) u.savedProfiles.splice(eIdx, 1);
+    u.savedProfiles.unshift(profObj);
+    u.savedProfiles = u.savedProfiles.slice(0, 15);
+  }
+
+  u.orders.unshift(ord);
+  u.orders = u.orders.slice(0, 20);
+
+  if (!u.firstOrderCompleted) {
+    u.firstOrderCompleted = true;
+    if (u.referredBy && db.users[u.referredBy]) {
+      var ref = db.users[u.referredBy];
+      ref.scratchers += 1; ref.goldenSpins += 1; ref.referredCount += 1; ref.referralBonusEarned += 1;
+      u.scratchers += 1; u.goldenSpins += 1; u.referralBonusEarned += 1;
+    }
+  }
+
+  db.ordersLog.unshift(ord);
+  db.ordersLog = db.ordersLog.slice(0, 100);
+  logActivity(db, 'UddoktaPay Auto-Verified', 'Order ' + ord.id + ' · ৳' + ord.finalPrice + ' (' + gatewayMethod + ', TrxID: ' + trxClean + ') verified automatically for ' + u.name, 'success', actor);
+  saveDb(db);
+
+  await sendTelegram(
+    '⚡ <b>UddoktaPay Instant Verified Order!</b>\n🆔 Order: <code>' + ord.id + '</code> (Processing)\n👤 User: ' + u.name + ' (' + u.identifier + ')\n🎮 Game: ' + ord.gameName + '\n📦 Package: ' + ord.packageLabel + '\n🎯 UID: <code>' + ord.playerUid + '</code>\n✅ <b>Paid: ৳' + ord.finalPrice + '</b> (' + gatewayMethod + ')\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>'
+  );
+
+  return { ok: true, intent: intent, order: ord };
+}
+
+app.post('/api/uddoktapay/create-charge', async function (req, res) {
+  var creds = getUddoktaCredentials(db);
+  if (!creds.enabled || !creds.baseUrl || !creds.apiKey) {
+    return res.status(400).json({
+      error: 'UddoktaPay গেটওয়ে এখনও সেটআপ করা হয়নি। Admin Panel → UddoktaPay Auto Gateway থেকে Base URL ও API Key সেট করুন।'
+    });
+  }
+
+  var b = req.body || {};
+  if (!b.identifier || !String(b.identifier).trim()) {
+    return res.status(401).json({ error: 'অনুগ্রহ করে আগে Sign In করুন।' });
+  }
+
+  var kind = b.kind === 'wallet' ? 'wallet' : 'order';
+  var u = getOrCreateUser(b.identifier);
+  var returnHash = sanitizeReturnHash(b.returnHash);
+  var chargeAmount = 0;
+  var orderDraft;
+
+  if (kind === 'wallet') {
+    var amt = Math.round(Number(b.amountBdt || 0));
+    if (!isFinite(amt) || amt < 20 || amt > 100000) {
+      return res.status(400).json({ error: 'সর্বনিম্ন ৳২০ থেকে সর্বোচ্চ ৳১,০০,০০০ টাকা Add Money করা যাবে।' });
+    }
+    chargeAmount = amt;
+  } else {
+    if (!b.playerUid || !b.originalPrice) {
+      return res.status(400).json({ error: 'অর্ডারের তথ্য সম্পূর্ণ নয়।' });
+    }
+    var cat = db.config.catalog || DEFAULT_CATALOG;
+    var matchedPkg = b.packageId ? cat.packages.find(function (p) { return p.id === b.packageId; }) : null;
+    var matchedGame = matchedPkg
+      ? cat.games.find(function (g) { return g.id === matchedPkg.gameId; })
+      : (b.gameId ? cat.games.find(function (g) { return g.id === b.gameId; }) : cat.games.find(function (g) { return g.name === b.gameName; }));
+
+    if (matchedGame && matchedGame.active === false) {
+      return res.status(400).json({ error: matchedGame.name + ' বর্তমানে মেইনটেন্যান্সে আছে।' });
+    }
+    if (matchedPkg && matchedPkg.inStock === false) {
+      return res.status(400).json({ error: matchedPkg.amountLabel + ' প্যাকেজটি বর্তমানে Out of Stock!' });
+    }
+    var uidCheck = validatePlayerUid((matchedGame && matchedGame.id) || b.gameId || 'uid-bd', b.playerUid);
+    if (!uidCheck.ok) {
+      return res.status(400).json({ error: uidCheck.error });
+    }
+
+    var basePrice = matchedPkg ? Math.max(10, Number(matchedPkg.priceBdt)) : Math.max(10, Number(b.originalPrice));
+    var offerSaved = 0;
+    var codeUsed = '';
+    var appliedOfferId = '';
+    var bonusExtra = '';
+    if (b.appliedOfferId) {
+      var offer = (u.offers || []).find(function (o) { return o.id === b.appliedOfferId && !o.used; });
+      if (offer && (!offer.expiresAt || Date.now() < offer.expiresAt) && (!offer.minOrderBdt || basePrice >= offer.minOrderBdt)) {
+        if (offer.rewardType === 'percent_discount') {
+          offerSaved = Math.round((basePrice * offer.value) / 100);
+          if (offer.maxDiscountBdt > 0) offerSaved = Math.min(offerSaved, offer.maxDiscountBdt);
+        } else if (offer.rewardType === 'flat_discount') {
+          offerSaved = offer.value;
+          if (offer.maxDiscountBdt > 0) offerSaved = Math.min(offerSaved, offer.maxDiscountBdt);
+        } else {
+          bonusExtra = ' (+' + offer.value + '% Spin Bonus)';
+        }
+        appliedOfferId = offer.id;
+        codeUsed = offer.code;
+      }
+    }
+
+    var flashSaved = 0;
+    var fsCfg = db.config.flashSale;
+    if (fsCfg && fsCfg.active && fsCfg.extraPercent > 0 && (!fsCfg.endsAt || Date.now() < fsCfg.endsAt)) {
+      flashSaved = Math.round((basePrice * fsCfg.extraPercent) / 100);
+    }
+
+    var vipStatus = getVipSpendStatus(u.lifetimeSpendBdt || 0);
+    var vipSaved = vipStatus.discountPercent > 0 ? Math.round((basePrice * vipStatus.discountPercent) / 100) : 0;
+
+    var promoSaved = 0;
+    var promoCodeUsed = '';
+    if (b.promoCode && String(b.promoCode).trim()) {
+      var pEval = evaluatePromoCode(b.promoCode, basePrice);
+      if (pEval.ok && pEval.promo) {
+        promoSaved = pEval.discount;
+        promoCodeUsed = pEval.promo.code;
+      }
+    }
+
+    var totalDiscount = Math.min(Math.max(0, basePrice - 10), offerSaved + flashSaved + vipSaved + promoSaved);
+    var finalPrice = Math.max(10, basePrice - totalDiscount);
+    chargeAmount = finalPrice;
+
+    var saveProfObj = b.saveProfile === true
+      ? { nickname: String(b.profileNickname || 'Main ID') }
+      : (b.saveProfile && typeof b.saveProfile === 'object' ? b.saveProfile : undefined);
+
+    orderDraft = {
+      gameId: (matchedGame && matchedGame.id) || b.gameId,
+      gameName: String((matchedGame && matchedGame.name) || b.gameName || 'Game Top-Up').trim(),
+      packageId: (matchedPkg && matchedPkg.id) || b.packageId,
+      packageLabel: String((matchedPkg && matchedPkg.amountLabel) || b.packageLabel || 'Package').trim(),
+      playerUid: String(b.playerUid).trim(),
+      originalPrice: basePrice,
+      discountSaved: totalDiscount,
+      vipDiscountSaved: vipSaved,
+      promoDiscountSaved: promoSaved,
+      flashDiscountSaved: flashSaved,
+      finalPrice: finalPrice,
+      bonusExtra: bonusExtra,
+      appliedOfferId: appliedOfferId || undefined,
+      appliedOfferCode: codeUsed || undefined,
+      promoCodeUsed: promoCodeUsed || undefined,
+      saveProfile: saveProfObj
+    };
+  }
+
+  var txRef = 'UDP-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+  var origin = getSafeRequestOrigin(req);
+  var custEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.identifier) ? u.identifier : 'player@crazytopup24.local';
+
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 15000);
+  try {
+    var resp = await fetch(creds.baseUrl + '/api/checkout-v2', {
+      method: 'POST',
+      signal: ctrl ? ctrl.signal : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'RT-UDDOKTAPAY-API-KEY': creds.apiKey
+      },
+      body: JSON.stringify({
+        full_name: String(u.name || 'Player').slice(0, 60),
+        email: custEmail,
+        amount: String(chargeAmount),
+        metadata: {
+          tx_ref: txRef,
+          kind: kind,
+          identifier: u.identifier
+        },
+        redirect_url: origin + '/api/uddoktapay/callback/' + txRef,
+        return_type: 'GET',
+        cancel_url: origin + '/api/uddoktapay/cancel/' + txRef,
+        webhook_url: origin + '/api/uddoktapay/webhook'
+      })
+    });
+    var data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || !data.payment_url) {
+      logActivity(db, 'UddoktaPay Charge Failed', 'Checkout-v2 error for ' + u.identifier + ' (৳' + chargeAmount + '): ' + (data.message || ('HTTP ' + resp.status)), 'warning', 'UddoktaPay Gateway');
+      saveDb(db);
+      return res.status(502).json({
+        error: data.message || 'UddoktaPay পেমেন্ট লিংক তৈরি করতে পারেনি। Base URL ও API Key যাচাই করুন।'
+      });
+    }
+
+    if (!Array.isArray(db.uddoktaPayments)) db.uddoktaPayments = [];
+    db.uddoktaPayments.unshift({
+      txRef: txRef,
+      kind: kind,
+      userIdentifier: u.identifier,
+      userName: u.name,
+      amountBdt: chargeAmount,
+      status: 'Pending',
+      returnHash: returnHash,
+      createdAtMs: Date.now(),
+      orderDraft: orderDraft
+    });
+    db.uddoktaPayments = db.uddoktaPayments.slice(0, 300);
+    saveDb(db);
+
+    res.json({ ok: true, paymentUrl: data.payment_url, txRef: txRef, amountBdt: chargeAmount });
+  } catch (err) {
+    res.status(502).json({ error: 'UddoktaPay সংযোগ ব্যর্থ: ' + ((err && err.message) || 'Network error') });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+app.get('/api/uddoktapay/callback/:txRef', async function (req, res) {
+  var txRef = String((req.params && req.params.txRef) || '').trim();
+  var invoiceId = String((req.query && req.query.invoice_id) || '').trim();
+  var intent = (db.uddoktaPayments || []).find(function (p) { return p.txRef === txRef; });
+  var safeHash = sanitizeReturnHash(intent && intent.returnHash);
+
+  if (!txRef || !invoiceId || !intent) {
+    return res.redirect('/?uddokta=failed' + safeHash);
+  }
+
+  var result = await verifyAndFulfillUddoktaIntent(txRef, invoiceId, 'UddoktaPay Redirect');
+  if (result.ok) {
+    var refId = encodeURIComponent((result.intent && result.intent.fulfilledRefId) || '');
+    return res.redirect('/?uddokta=success&kind=' + encodeURIComponent(intent.kind) + '&txRef=' + encodeURIComponent(txRef) + '&refId=' + refId + safeHash);
+  }
+  if (result.pending) {
+    return res.redirect('/?uddokta=pending&txRef=' + encodeURIComponent(txRef) + safeHash);
+  }
+  return res.redirect('/?uddokta=failed&txRef=' + encodeURIComponent(txRef) + safeHash);
+});
+
+app.get('/api/uddoktapay/cancel/:txRef', function (req, res) {
+  var txRef = String((req.params && req.params.txRef) || '').trim();
+  var intent = (db.uddoktaPayments || []).find(function (p) { return p.txRef === txRef; });
+  var safeHash = sanitizeReturnHash(intent && intent.returnHash);
+  if (intent && intent.status === 'Pending') {
+    intent.status = 'Cancelled';
+    saveDb(db);
+  }
+  res.redirect('/?uddokta=cancelled' + safeHash);
+});
+
+app.post('/api/uddoktapay/webhook', async function (req, res) {
+  var creds = getUddoktaCredentials(db);
+  var hdrKey = String((req.headers && req.headers['rt-uddoktapay-api-key']) || '').trim();
+  if (!creds.apiKey || !timingSafeEqualsStr(hdrKey, creds.apiKey)) {
+    logActivity(db, 'Unauthorized UddoktaPay Webhook', 'Rejected /api/uddoktapay/webhook due to invalid RT-UDDOKTAPAY-API-KEY header.', 'warning', 'Security Guard');
+    saveDb(db);
+    return res.status(401).json({ ok: false, error: 'INVALID_API_KEY' });
+  }
+
+  var body = req.body || {};
+  var invoiceId = String(body.invoice_id || '').trim();
+  var txRef = String((body.metadata && body.metadata.tx_ref) || '').trim();
+  if (!invoiceId || !txRef) {
+    return res.status(400).json({ ok: false, error: 'MISSING_INVOICE_OR_TX_REF' });
+  }
+
+  var result = await verifyAndFulfillUddoktaIntent(txRef, invoiceId, 'UddoktaPay IPN Webhook');
+  if (!result.ok && !result.pending) {
+    return res.status(400).json({ ok: false, error: result.error || 'VERIFY_FAILED' });
+  }
+  res.json({
+    ok: true,
+    status: (result.intent && result.intent.status) || 'Pending',
+    fulfilledRefId: (result.intent && result.intent.fulfilledRefId) || null
+  });
+});
+
+app.get('/api/uddoktapay/status/:txRef', function (req, res) {
+  var txRef = String((req.params && req.params.txRef) || '').trim();
+  var intent = (db.uddoktaPayments || []).find(function (p) { return p.txRef === txRef; });
+  if (!intent) return res.status(404).json({ error: 'NOT_FOUND' });
+  var owner = db.users[String(intent.userIdentifier || '').toLowerCase()];
+  var order = (intent.kind === 'order' && intent.fulfilledRefId)
+    ? ((owner && (owner.orders || []).find(function (o) { return o.id === intent.fulfilledRefId; })) ||
+       db.ordersLog.find(function (o) { return o.id === intent.fulfilledRefId; }) || null)
+    : null;
+  var deposit = (intent.kind === 'wallet' && intent.fulfilledRefId)
+    ? (db.walletDeposits.find(function (d) { return d.id === intent.fulfilledRefId; }) || null)
+    : null;
+  res.json({
+    txRef: intent.txRef,
+    kind: intent.kind,
+    status: intent.status,
+    amountBdt: intent.amountBdt,
+    fulfilledRefId: intent.fulfilledRefId || null,
+    order: order,
+    deposit: deposit
+  });
+});
+
 app.post('/api/admin/login', function (req, res) {
   if (((req.body || {}).passkey || '').trim() === adminKey()) return res.json({ ok: true });
   res.status(401).json({ error: 'INVALID_PASSKEY' });
@@ -1418,10 +1977,17 @@ app.get('/api/admin/dashboard', function (req, res) {
       ordersCount: u.orders.length
     };
   });
+  var udpCreds = getUddoktaCredentials(db);
   res.json({
     config: Object.assign({}, db.config, {
       smsWebhookSecret: getSmsWebhookSecret(db),
-      smsSecretFromEnv: Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8)
+      smsSecretFromEnv: Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8),
+      uddoktapay: {
+        enabled: udpCreds.enabled,
+        baseUrl: udpCreds.baseUrl,
+        hasApiKey: Boolean(udpCreds.apiKey),
+        envManaged: udpCreds.envManaged
+      }
     }),
     regularWedges: REGULAR_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.regularWeights[w.id] != null ? db.config.regularWeights[w.id] : w.weight }; }),
     goldenWedges: GOLDEN_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.goldenWeights[w.id] != null ? db.config.goldenWeights[w.id] : w.weight }; }),
@@ -1433,7 +1999,8 @@ app.get('/api/admin/dashboard', function (req, res) {
       pendingDeposits: db.walletDeposits.filter(function (d) { return d.status === 'Pending'; }).length,
       blockedDuplicates: db.duplicateTrxBlockedCount || 0,
       smsReceivedCount: (db.smsPayments || []).length,
-      smsMatchedCount: (db.smsPayments || []).filter(function (s) { return s.status === 'Matched'; }).length
+      smsMatchedCount: (db.smsPayments || []).filter(function (s) { return s.status === 'Matched'; }).length,
+      uddoktapayCompletedCount: (db.uddoktaPayments || []).filter(function (p) { return p.status === 'Completed'; }).length
     },
     users: usersList,
     spinsLog: db.spinsLog.slice(0, 40),
@@ -1510,9 +2077,12 @@ app.post('/api/admin/config', function (req, res) {
     var s = b.siteSettings;
     var curSs = db.config.siteSettings || DEFAULT_SITE_SETTINGS;
     var cleanStr = function (v, max, fb) { return typeof v === 'string' ? v.trim().slice(0, max) : fb; };
+    var cleanHex = function (v, fb) { return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim())) ? v.trim().toLowerCase() : fb; };
     db.config.siteSettings = {
       siteName: cleanStr(s.siteName, 80, curSs.siteName) || DEFAULT_SITE_SETTINGS.siteName,
       logoUrl: (typeof s.logoUrl === 'string' && s.logoUrl.trim()) ? s.logoUrl.trim().slice(0, 1500000) : curSs.logoUrl,
+      themeColor: cleanHex(s.themeColor, curSs.themeColor || '#d97706'),
+      themeAccent: cleanHex(s.themeAccent, curSs.themeAccent || '#f59e0b'),
       heroBanners: Array.isArray(s.heroBanners)
         ? s.heroBanners.filter(function (hb) { return hb && typeof hb.imageUrl === 'string' && hb.imageUrl.trim(); }).slice(0, 12).map(function (hb, idx) {
             return {
@@ -1556,9 +2126,73 @@ app.post('/api/admin/config', function (req, res) {
   if (typeof b.telegramBotToken === 'string') db.config.telegramBotToken = b.telegramBotToken.trim();
   if (typeof b.telegramChatId === 'string') db.config.telegramChatId = b.telegramChatId.trim();
   if (typeof b.smsWebhookSecret === 'string' && b.smsWebhookSecret.trim().length >= 8) db.config.smsWebhookSecret = b.smsWebhookSecret.trim().slice(0, 128);
-  logActivity(db, 'Config Updated', 'Admin updated store settings / branding / banners / notice / catalog', 'info', 'Admin');
+  if (b.uddoktapay && typeof b.uddoktapay === 'object') {
+    var curUdp = db.config.uddoktapay || { enabled: false, explicitlyDisabled: false, baseUrl: '', apiKey: '' };
+    var nextEnabled = typeof b.uddoktapay.enabled === 'boolean' ? b.uddoktapay.enabled : curUdp.enabled;
+    var incomingBase = typeof b.uddoktapay.baseUrl === 'string' ? b.uddoktapay.baseUrl.trim() : curUdp.baseUrl;
+    var validatedBase = incomingBase ? validateUddoktaBaseUrl(incomingBase) : '';
+    if (incomingBase && !validatedBase) {
+      return res.status(400).json({
+        error: 'Invalid UddoktaPay Base URL. Must be a public https:// URL (e.g. https://sandbox.uddoktapay.com).'
+      });
+    }
+    var nextKey = (typeof b.uddoktapay.apiKey === 'string' && b.uddoktapay.apiKey.trim().length >= 8)
+      ? b.uddoktapay.apiKey.trim().slice(0, 256)
+      : curUdp.apiKey;
+    db.config.uddoktapay = {
+      enabled: nextEnabled,
+      explicitlyDisabled: !nextEnabled,
+      baseUrl: validatedBase,
+      apiKey: nextKey
+    };
+  }
+  logActivity(db, 'Config Updated', 'Admin updated store settings / gateway / branding / banners / notice / catalog', 'info', 'Admin');
   saveDb(db);
-  res.json({ ok: true, config: db.config });
+  var savedUdp = getUddoktaCredentials(db);
+  res.json({
+    ok: true,
+    config: Object.assign({}, db.config, {
+      smsWebhookSecret: getSmsWebhookSecret(db),
+      uddoktapay: {
+        enabled: savedUdp.enabled,
+        baseUrl: savedUdp.baseUrl,
+        hasApiKey: Boolean(savedUdp.apiKey),
+        envManaged: savedUdp.envManaged
+      }
+    })
+  });
+});
+
+app.post('/api/admin/uddoktapay/test', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var creds = getUddoktaCredentials(db);
+  if (!creds.baseUrl || !creds.apiKey) {
+    return res.status(400).json({ ok: false, error: 'Please enter & save a valid HTTPS Base URL and API Key first.' });
+  }
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 12000);
+  try {
+    var resp = await fetch(creds.baseUrl + '/api/verify-payment', {
+      method: 'POST',
+      signal: ctrl ? ctrl.signal : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'RT-UDDOKTAPAY-API-KEY': creds.apiKey
+      },
+      body: JSON.stringify({ invoice_id: 'CONNECTION_PROBE_TEST' })
+    });
+    var body = await resp.json().catch(function () { return {}; });
+    var msg = String(body.message || '');
+    if (resp.status === 401 || resp.status === 403 || /unauthorized|invalid api key/i.test(msg)) {
+      return res.status(400).json({ ok: false, error: 'API Key rejected by UddoktaPay (Unauthorized). Check your RT-UDDOKTAPAY-API-KEY.' });
+    }
+    res.json({ ok: true, message: 'Connected to ' + creds.baseUrl + ' cleanly (' + (msg || ('HTTP ' + resp.status)) + ').' });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: (err && err.message) ? err.message : 'Failed to connect to UddoktaPay server' });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 app.post('/api/admin/orders/status', function (req, res) {

@@ -9,7 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #0c1118; color: #f1f5f9; min-height: 100vh; }
+    html, body { margin: 0; max-width: 100%; overflow-x: hidden; overflow-x: clip; overscroll-behavior-x: none; }
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #0c1118; color: #f1f5f9; min-height: 100vh; }
     .hdr { position: sticky; top: 0; z-index: 20; background: rgba(12, 17, 24, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid #1e293b; }
     .hdr-in { max-width: 1220px; margin: 0 auto; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .brand { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 10px; }
@@ -19,18 +20,18 @@
     .btn-emerald { background: #10b981; color: #052e16; }
     .btn-red { background: #ef4444; color: #fff; }
     .btn-slate { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
-    .wrap { max-width: 1220px; margin: 0 auto; padding: 24px 18px 60px; }
+    .wrap { width: 100%; max-width: 1220px; margin: 0 auto; padding: 24px 18px 60px; overflow-x: clip; }
     .login-box { max-width: 400px; margin: 70px auto; background: #121923; border: 1px solid #1e293b; border-radius: 16px; padding: 28px; text-align: center; box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55); }
     .login-box h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; margin: 0 0 6px; }
     .inp, select.inp { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid #334155; background: #0b1017; color: #fff; font-size: 12.5px; outline: none; }
     .inp:focus { border-color: #38bdf8; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .stat-card { background: #121923; border: 1px solid #1e293b; border-radius: 14px; padding: 15px; }
+    .stat-card { background: #121923; border: 1px solid #1e293b; border-radius: 14px; padding: 15px; min-width: 0; }
     .stat-lbl { font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
     .stat-val { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 800; color: #fcd34d; margin-top: 5px; }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
-    @media (min-width: 960px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
-    .card { background: #121923; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; max-width: 100%; }
+    @media (min-width: 960px) { .grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+    .card { background: #121923; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; min-width: 0; max-width: 100%; }
     .card-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; flex-wrap: wrap; }
     .card-hd h2 { margin: 0; font-size: 15.5px; font-weight: 800; color: #fff; }
     .w-row { display: grid; grid-template-columns: 1fr 82px 60px; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(30, 41, 59, 0.65); font-size: 12px; }
@@ -232,6 +233,50 @@
         </div>
       </div>
 
+      <div class="card" id="uddoktapayCard" style="margin-bottom:18px;border-color:#065f46;">
+        <div class="card-hd">
+          <h2>⚡ UddoktaPay Auto Payment Gateway (1-Sec Verify)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span id="udpStatusBadge" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;background:#1e293b;color:#94a3b8;">Not Configured</span>
+            <button type="button" id="udpTestBtn" class="btn btn-emerald" style="padding:6px 11px;font-size:11.5px;">⚡ Test UddoktaPay Connection</button>
+            <button type="button" id="udpSaveBtn" class="btn btn-gold" style="padding:6px 11px;font-size:11.5px;">💾 Save Gateway</button>
+          </div>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:10px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">Gateway Status</label>
+              <select id="udpEnabled" class="inp">
+                <option value="1">Enabled (Auto-Verify Checkout Active)</option>
+                <option value="0">Disabled (Hidden at Checkout)</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">UddoktaPay Panel Base URL (HTTPS)</label>
+              <div style="display:flex;gap:6px;">
+                <input type="url" id="udpBaseUrl" class="inp mono" placeholder="https://sandbox.uddoktapay.com" />
+                <button type="button" id="udpSandboxBtn" class="btn btn-slate" style="white-space:nowrap;">Use Sandbox URL</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">UddoktaPay API Key (RT-UDDOKTAPAY-API-KEY)</label>
+              <input type="password" id="udpApiKey" class="inp mono" placeholder="Paste API key from UddoktaPay Panel → API Settings" autocomplete="new-password" />
+              <div id="udpKeyHint" style="font-size:11px;color:#94a3b8;margin-top:4px;">Stored encrypted/server-side only. Never exposed to browser clients.</div>
+            </div>
+            <div>
+              <label class="lbl">IPN Webhook URL (Paste in UddoktaPay Panel if needed)</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="udpWebhookUrl" class="inp mono" readonly />
+                <button type="button" id="copyUdpWebhookBtn" class="btn btn-slate">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="udpTestMsg" class="msg"></div>
+      </div>
+
       <div class="card" style="margin-bottom:18px;">
         <div class="card-hd">
           <h2>Auto-SMS TrxID Webhook (Android Sync)</h2>
@@ -314,6 +359,38 @@
                     📷 Upload
                     <input type="file" id="ssLogoFile" accept="image/*" style="display:none;" />
                   </label>
+                </div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid #1e293b;padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:12.5px;font-weight:800;color:#fcd34d;">🎨 Website Theme Color (সব ধরনের কালার)</span>
+                <button type="button" id="ssResetGoldBtn" class="btn btn-slate" style="padding:3px 9px;font-size:10.5px;">↺ Golden Default</button>
+              </div>
+              <div id="ssThemePresets" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;"></div>
+              <div class="field-grid" style="margin-top:2px;">
+                <div>
+                  <label class="lbl">Primary Color (যেকোনো কালার)</label>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="color" id="ssThemeColorPicker" value="#d97706" style="width:40px;height:36px;border:1px solid #334155;border-radius:8px;background:#121923;padding:2px;cursor:pointer;flex-shrink:0;" />
+                    <input type="text" id="ssThemeColor" class="inp mono" value="#d97706" placeholder="#d97706" maxlength="7" />
+                  </div>
+                </div>
+                <div>
+                  <label class="lbl">Accent / Gradient Glow Color</label>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="color" id="ssThemeAccentPicker" value="#f59e0b" style="width:40px;height:36px;border:1px solid #334155;border-radius:8px;background:#121923;padding:2px;cursor:pointer;flex-shrink:0;" />
+                    <input type="text" id="ssThemeAccent" class="inp mono" value="#f59e0b" placeholder="#f59e0b" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+              <div id="ssThemeLivePreview" style="background:#fffdf5;border:1px solid #fde68a;border-radius:10px;padding:8px 11px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:700;color:#475569;">Live Storefront Preview:</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="ssPrevWallet" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;">💳 0৳</span>
+                  <span id="ssPrevBtn" style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:8px;font-size:11.5px;font-weight:800;color:#fff;">Top-Up Now</span>
+                  <span id="ssPrevBadge" style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:800;">⚡ Instant</span>
                 </div>
               </div>
             </div>
@@ -808,6 +885,39 @@
         text: '{body}'
       });
 
+      var udp = c.uddoktapay || {};
+      document.getElementById('udpEnabled').value = udp.enabled ? '1' : '0';
+      document.getElementById('udpBaseUrl').value = udp.baseUrl || '';
+      document.getElementById('udpApiKey').value = '';
+      document.getElementById('udpWebhookUrl').value = window.location.origin + '/api/uddoktapay/webhook';
+      var udpBadge = document.getElementById('udpStatusBadge');
+      var udpHint = document.getElementById('udpKeyHint');
+      if (udp.envManaged) {
+        udpBadge.textContent = udp.enabled ? 'Active · Managed by ENV' : 'Disabled · ENV';
+        udpBadge.style.background = udp.enabled ? '#064e3b' : '#451a03';
+        udpBadge.style.color = udp.enabled ? '#34d399' : '#fcd34d';
+        udpHint.textContent = '✓ Managed by Render/Server ENV variables (UDDOKTAPAY_API_KEY & UDDOKTAPAY_BASE_URL)';
+        udpHint.style.color = '#7dd3fc';
+      } else if (udp.enabled && udp.hasApiKey && udp.baseUrl) {
+        udpBadge.textContent = 'Active · 1-Sec Verify Ready';
+        udpBadge.style.background = '#064e3b';
+        udpBadge.style.color = '#34d399';
+        udpHint.textContent = '✓ API Key Saved securely (leave blank to keep existing key)';
+        udpHint.style.color = '#34d399';
+      } else if (udp.hasApiKey) {
+        udpBadge.textContent = 'Configured (Disabled)';
+        udpBadge.style.background = '#451a03';
+        udpBadge.style.color = '#fcd34d';
+        udpHint.textContent = '✓ API Key Saved securely (leave blank to keep existing key)';
+        udpHint.style.color = '#fcd34d';
+      } else {
+        udpBadge.textContent = 'Not Configured';
+        udpBadge.style.background = '#1e293b';
+        udpBadge.style.color = '#94a3b8';
+        udpHint.textContent = 'Enter your UddoktaPay API Key (found in UddoktaPay Dashboard → API Key / Brand Settings).';
+        udpHint.style.color = '#94a3b8';
+      }
+
       var ann = c.announcement || {};
       document.getElementById('noticeActive').value = ann.active === false ? '0' : '1';
       document.getElementById('noticeTag').value = ann.tagLabel || 'NOTICE';
@@ -819,6 +929,7 @@
       var ss = c.siteSettings || {};
       document.getElementById('ssSiteName').value = ss.siteName || 'Crazy_Top_Up (24)';
       document.getElementById('ssLogoUrl').value = ss.logoUrl || 'Main logo.jpg';
+      setThemeColorInputs(ss.themeColor || '#d97706', ss.themeAccent || '#f59e0b');
       updateImgPreview('ssLogoPreview', ss.logoUrl || 'Main logo.jpg');
       document.getElementById('ssPopupActive').value = ss.popupActive === false ? '0' : '1';
       document.getElementById('ssPopupImg').value = ss.popupImageUrl || 'Notification.jpg';
@@ -954,6 +1065,68 @@
         '</div>';
       }).join('');
     }
+
+    var ADMIN_THEME_PRESETS = [
+      { name: 'Golden Luxury', primary: '#d97706', accent: '#f59e0b' },
+      { name: 'Neon Purple', primary: '#7c3aed', accent: '#a855f7' },
+      { name: 'Royal Blue', primary: '#2563eb', accent: '#3b82f6' },
+      { name: 'Cyber Cyan', primary: '#0284c7', accent: '#22d3ee' },
+      { name: 'Emerald Neon', primary: '#059669', accent: '#10b981' },
+      { name: 'Crimson Red', primary: '#dc2626', accent: '#ef4444' },
+      { name: 'Hot Pink', primary: '#db2777', accent: '#ec4899' },
+      { name: 'Fire Orange', primary: '#ea580c', accent: '#f97316' },
+      { name: 'Ocean Teal', primary: '#0d9488', accent: '#14b8a6' },
+      { name: 'Electric Indigo', primary: '#4f46e5', accent: '#818cf8' },
+      { name: 'Rose Gold', primary: '#e11d48', accent: '#fb7185' },
+      { name: 'Neon Lime', primary: '#65a30d', accent: '#84cc16' },
+      { name: 'Sun Yellow', primary: '#ca8a04', accent: '#eab308' },
+      { name: 'Deep Magenta', primary: '#a21caf', accent: '#d946ef' },
+      { name: 'Sky Azure', primary: '#0369a1', accent: '#38bdf8' },
+      { name: 'Stealth Slate', primary: '#334155', accent: '#64748b' }
+    ];
+
+    function normAdminHex(v, fb) {
+      var s = String(v || '').trim();
+      return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : fb;
+    }
+
+    function renderThemePresetsAndPreview() {
+      var pHex = normAdminHex(document.getElementById('ssThemeColor').value, '#d97706');
+      var aHex = normAdminHex(document.getElementById('ssThemeAccent').value, '#f59e0b');
+      var wrap = document.getElementById('ssThemePresets');
+      if (wrap) {
+        wrap.innerHTML = ADMIN_THEME_PRESETS.map(function (pr) {
+          var isOn = pr.primary === pHex && pr.accent === aHex;
+          return '<button type="button" onclick="pickThemePreset(\'' + pr.primary + '\', \'' + pr.accent + '\')" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;background:' + (isOn ? '#1e293b' : '#121923') + ';border:1.5px solid ' + (isOn ? pr.accent : '#273549') + ';color:#f8fafc;font-size:10.5px;font-weight:700;cursor:pointer;text-align:left;">' +
+            '<span style="width:14px;height:14px;border-radius:999px;background:linear-gradient(135deg,' + pr.accent + ',' + pr.primary + ');flex-shrink:0;border:1px solid rgba(255,255,255,0.4);"></span>' +
+            '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(pr.name) + '</span>' +
+          '</button>';
+        }).join('');
+      }
+      var box = document.getElementById('ssThemeLivePreview');
+      var w = document.getElementById('ssPrevWallet');
+      var b = document.getElementById('ssPrevBtn');
+      var bg = document.getElementById('ssPrevBadge');
+      var grad = 'linear-gradient(135deg, ' + aHex + ', ' + pHex + ')';
+      if (box) { box.style.borderColor = aHex; }
+      if (w) { w.style.background = grad; w.style.boxShadow = '0 4px 12px -3px ' + pHex; }
+      if (b) { b.style.background = grad; }
+      if (bg) { bg.style.background = pHex + '22'; bg.style.color = pHex; bg.style.border = '1px solid ' + aHex; }
+    }
+
+    function setThemeColorInputs(pHex, aHex) {
+      var p = normAdminHex(pHex, '#d97706');
+      var a = normAdminHex(aHex, '#f59e0b');
+      document.getElementById('ssThemeColor').value = p;
+      document.getElementById('ssThemeColorPicker').value = p;
+      document.getElementById('ssThemeAccent').value = a;
+      document.getElementById('ssThemeAccentPicker').value = a;
+      renderThemePresetsAndPreview();
+    }
+
+    window.pickThemePreset = function (p, a) {
+      setThemeColorInputs(p, a);
+    };
 
     function updateImgPreview(imgId, url) {
       var img = document.getElementById(imgId);
@@ -1140,6 +1313,8 @@
         siteSettings: {
           siteName: document.getElementById('ssSiteName').value.trim() || 'Crazy_Top_Up (24)',
           logoUrl: document.getElementById('ssLogoUrl').value.trim() || 'Main logo.jpg',
+          themeColor: normAdminHex(document.getElementById('ssThemeColor').value, '#d97706'),
+          themeAccent: normAdminHex(document.getElementById('ssThemeAccent').value, '#f59e0b'),
           heroBanners: currentHeroBanners,
           popupActive: document.getElementById('ssPopupActive').value === '1',
           popupImageUrl: document.getElementById('ssPopupImg').value.trim() || 'Notification.jpg',
@@ -1160,7 +1335,16 @@
         },
         telegramBotToken: document.getElementById('tgToken').value.trim(),
         telegramChatId: document.getElementById('tgChatId').value.trim(),
-        smsWebhookSecret: document.getElementById('smsWebhookSecret').value.trim()
+        smsWebhookSecret: document.getElementById('smsWebhookSecret').value.trim(),
+        uddoktapay: (function () {
+          var uObj = {
+            enabled: document.getElementById('udpEnabled').value === '1',
+            baseUrl: document.getElementById('udpBaseUrl').value.trim()
+          };
+          var kVal = document.getElementById('udpApiKey').value.trim();
+          if (kVal) uObj.apiKey = kVal;
+          return uObj;
+        })()
       };
       var ssSt = document.getElementById('siteSettingsStatus');
       if (ssSt) { ssSt.className = 'msg'; ssSt.textContent = '⏳ Saving...'; }
@@ -1403,6 +1587,47 @@
       }
     };
 
+    document.getElementById('udpSaveBtn').onclick = async function () {
+      var st = document.getElementById('udpTestMsg');
+      st.className = 'msg';
+      st.textContent = '⏳ Saving UddoktaPay settings...';
+      try {
+        await saveConfig();
+        st.className = 'msg';
+        st.textContent = '✅ UddoktaPay gateway settings saved!';
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
+    document.getElementById('udpSandboxBtn').onclick = function () {
+      document.getElementById('udpBaseUrl').value = 'https://sandbox.uddoktapay.com';
+      var st = document.getElementById('udpTestMsg');
+      st.className = 'msg';
+      st.textContent = 'Sandbox URL filled. Now paste your Sandbox API Key and click Save Gateway.';
+    };
+    document.getElementById('copyUdpWebhookBtn').onclick = function () {
+      var v = document.getElementById('udpWebhookUrl').value;
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
+      var st = document.getElementById('udpTestMsg');
+      st.className = 'msg';
+      st.textContent = 'UddoktaPay IPN Webhook URL copied!';
+    };
+    document.getElementById('udpTestBtn').onclick = async function () {
+      var st = document.getElementById('udpTestMsg');
+      st.className = 'msg';
+      st.textContent = '⏳ Saving & testing UddoktaPay connection...';
+      try {
+        await saveConfig();
+        var r = await api('/api/admin/uddoktapay/test', { method: 'POST' });
+        st.className = 'msg';
+        st.textContent = '✅ ' + (r.message || 'UddoktaPay connected cleanly!');
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
+
     document.getElementById('chatSendBtn').onclick = async function () {
       var txt = document.getElementById('chatReplyInput').value.trim();
       var err = document.getElementById('chatErr');
@@ -1426,6 +1651,31 @@
     document.getElementById('chatReplyInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') document.getElementById('chatSendBtn').click();
     });
+
+    document.getElementById('ssThemeColorPicker').addEventListener('input', function () {
+      document.getElementById('ssThemeColor').value = this.value;
+      renderThemePresetsAndPreview();
+    });
+    document.getElementById('ssThemeColor').addEventListener('input', function () {
+      if (/^#[0-9a-fA-F]{6}$/.test(this.value.trim())) {
+        document.getElementById('ssThemeColorPicker').value = this.value.trim();
+        renderThemePresetsAndPreview();
+      }
+    });
+    document.getElementById('ssThemeAccentPicker').addEventListener('input', function () {
+      document.getElementById('ssThemeAccent').value = this.value;
+      renderThemePresetsAndPreview();
+    });
+    document.getElementById('ssThemeAccent').addEventListener('input', function () {
+      if (/^#[0-9a-fA-F]{6}$/.test(this.value.trim())) {
+        document.getElementById('ssThemeAccentPicker').value = this.value.trim();
+        renderThemePresetsAndPreview();
+      }
+    });
+    document.getElementById('ssResetGoldBtn').addEventListener('click', function () {
+      setThemeColorInputs('#d97706', '#f59e0b');
+    });
+    renderThemePresetsAndPreview();
 
     if (adminKey) {
       loadDashboard().catch(function () { sessionStorage.removeItem('crazy_admin_key'); adminKey = ''; });

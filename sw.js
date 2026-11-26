@@ -1,8 +1,8 @@
-const CACHE_NAME = "crazy-topup-24-v30";
+const CACHE_NAME = "crazy-topup-24-v33";
 const STATIC_ASSETS = [
   "/FFX.html",
-  "/spin-system.css?v=30",
-  "/spin-system.js?v=30",
+  "/spin-system.css?v=33",
+  "/spin-system.js?v=33",
   "/guild-glory-bot.png",
   "/manifest.json",
   "/pwa-192x192.png",

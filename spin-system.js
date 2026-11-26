@@ -139,11 +139,14 @@
   var flashSaleConfig = null;
   var announcementConfig = { active: false, tagLabel: 'NOTICE', text: '' };
   var promoBanners = [];
+  var uddoktapayEnabled = false;
   var activeBannerIdx = 0;
   var bannerTimerStarted = false;
   var DEFAULT_SITE_SETTINGS = {
     siteName: 'Crazy_Top_Up (24)',
     logoUrl: 'Main logo.jpg',
+    themeColor: '#d97706',
+    themeAccent: '#f59e0b',
     heroBanners: [
       { id: 'hb-1', imageUrl: 'Banner 1.jpg', alt: 'Banner 1', linkUrl: '', active: true },
       { id: 'hb-2', imageUrl: 'Banner 2.jpg', alt: 'Banner 2', linkUrl: '', active: true },
@@ -187,10 +190,111 @@
     return u;
   }
 
+  function normThemeHex(hex, fallback) {
+    var s = String(hex || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : fallback;
+  }
+
+  function hexToRgbTuple(hex) {
+    var clean = hex.replace('#', '');
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16)
+    ];
+  }
+
+  function rgbTupleToHex(rgb) {
+    var toH = function (n) {
+      var c = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+      return c.length === 1 ? '0' + c : c;
+    };
+    return '#' + toH(rgb[0]) + toH(rgb[1]) + toH(rgb[2]);
+  }
+
+  function mixHexColor(hex1, hex2, weight2) {
+    var a = hexToRgbTuple(hex1);
+    var b = hexToRgbTuple(hex2);
+    var w = Math.max(0, Math.min(1, weight2));
+    return rgbTupleToHex([
+      a[0] * (1 - w) + b[0] * w,
+      a[1] * (1 - w) + b[1] * w,
+      a[2] * (1 - w) + b[2] * w
+    ]);
+  }
+
+  function applyThemePalette(primaryHex, accentHex) {
+    var primary = normThemeHex(primaryHex, '#d97706');
+    var accent = normThemeHex(accentHex, '#f59e0b');
+    var vLight = mixHexColor(accent, '#ffffff', 0.25);
+    var vMidLight = mixHexColor(accent, '#ffffff', 0.50);
+    var bd = mixHexColor(primary, '#ffffff', 0.68);
+    var vSoft2 = mixHexColor(primary, '#ffffff', 0.80);
+    var vSoft = mixHexColor(primary, '#ffffff', 0.90);
+    var bg = mixHexColor(primary, '#ffffff', 0.95);
+    var vDark = mixHexColor(primary, '#000000', 0.20);
+    var vDeep = mixHexColor(primary, '#000000', 0.36);
+    var vEdge = mixHexColor(primary, '#000000', 0.48);
+    var vDarker = mixHexColor(primary, '#000000', 0.70);
+    var vDarkest = mixHexColor(primary, '#000000', 0.82);
+
+    var pRgb = hexToRgbTuple(primary);
+    var aRgb = hexToRgbTuple(accent);
+    var lRgb = hexToRgbTuple(vLight);
+    var dRgb = hexToRgbTuple(vDark);
+    var eRgb = hexToRgbTuple(vEdge);
+    var drRgb = hexToRgbTuple(vDarker);
+    var lum = (0.299 * pRgb[0] + 0.587 * pRgb[1] + 0.114 * pRgb[2]) / 255;
+
+    var vars = {
+      '--v': primary,
+      '--v2': accent,
+      '--v-light': vLight,
+      '--gold': vLight,
+      '--v-mid-light': vMidLight,
+      '--bd': bd,
+      '--v-soft2': vSoft2,
+      '--v-soft': vSoft,
+      '--bg': bg,
+      '--v-dark': vDark,
+      '--v-deep': vDeep,
+      '--v-edge': vEdge,
+      '--v-darker': vDarker,
+      '--v-darkest': vDarkest,
+      '--v-rgb': pRgb.join(','),
+      '--v2-rgb': aRgb.join(','),
+      '--v-light-rgb': lRgb.join(','),
+      '--v-dark-rgb': dRgb.join(','),
+      '--v-edge-rgb': eRgb.join(','),
+      '--v-darker-rgb': drRgb.join(','),
+      '--g': 'linear-gradient(135deg,' + accent + ',' + primary + ' 55%,' + vDeep + ')',
+      '--v-on': lum > 0.63 ? '#0f172a' : '#ffffff',
+      '--v-text': lum > 0.50 ? vDark : primary
+    };
+
+    try {
+      var rootStyle = document.documentElement && document.documentElement.style;
+      if (rootStyle) {
+        Object.keys(vars).forEach(function (k) {
+          rootStyle.setProperty(k, vars[k]);
+        });
+      }
+      var metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) metaTheme.setAttribute('content', primary);
+      localStorage.setItem('crazy_site_theme_v1', JSON.stringify({
+        themeColor: primary,
+        themeAccent: accent,
+        vars: vars
+      }));
+    } catch (e) {}
+  }
+
   function applySiteSettings() {
     var ss = Object.assign({}, DEFAULT_SITE_SETTINGS, siteSettings || {});
     siteSettings = ss;
     window.__SITE_SETTINGS__ = ss;
+
+    applyThemePalette(ss.themeColor, ss.themeAccent);
 
     if (typeof window.syncAccountLinks === 'function') window.syncAccountLinks();
 
@@ -607,6 +711,11 @@
     if (data.paymentNumbers) paymentNumbers = Object.assign({}, paymentNumbers, data.paymentNumbers);
     if (data.support) supportConfig = Object.assign({}, supportConfig, data.support);
     if (typeof data.walletCashbackPercent === 'number') walletCashbackPercent = data.walletCashbackPercent;
+    if (typeof data.uddoktapayEnabled === 'boolean') {
+      uddoktapayEnabled = data.uddoktapayEnabled;
+      var gwUdp = document.getElementById('amGwUddoktaBtn');
+      if (gwUdp) gwUdp.hidden = !uddoktapayEnabled;
+    }
     if (data.flashSale) flashSaleConfig = data.flashSale;
     if (data.leaderboard) leaderboardData = data.leaderboard;
     if (data.announcement) announcementConfig = data.announcement;
@@ -669,13 +778,18 @@
       if (data.paymentNumbers) paymentNumbers = Object.assign({}, paymentNumbers, data.paymentNumbers);
       if (data.support) supportConfig = Object.assign({}, supportConfig, data.support);
       if (typeof data.walletCashbackPercent === 'number') walletCashbackPercent = data.walletCashbackPercent;
+      if (typeof data.uddoktapayEnabled === 'boolean') {
+        uddoktapayEnabled = data.uddoktapayEnabled;
+        var gwUdpFeed = document.getElementById('amGwUddoktaBtn');
+        if (gwUdpFeed) gwUdpFeed.hidden = !uddoktapayEnabled;
+      }
       if (data.flashSale) flashSaleConfig = data.flashSale;
       if (data.leaderboard) leaderboardData = data.leaderboard;
       if (data.siteSettings || (data.config && data.config.siteSettings)) {
         siteSettings = Object.assign({}, DEFAULT_SITE_SETTINGS, data.siteSettings || data.config.siteSettings);
         applySiteSettings();
       }
-    if (data.catalog) applyCatalogData(data.catalog);
+      if (data.catalog) applyCatalogData(data.catalog);
       if (data.config) {
         if (data.config.rules) offerRules = Object.assign({}, offerRules, data.config.rules);
         if (data.config.regularWeights) {
@@ -692,13 +806,32 @@
         }
       }
       renderTickerDOM();
-    renderMyAccountRankView();
-    renderRecentOrdersLive();
+      renderMyAccountRankView();
+      renderRecentOrdersLive();
       if (location.hash === '#spin-checkout') renderCheckoutView();
       if (isModalOpen) renderModal();
     } catch (e) {
       apiAvailable = false;
     }
+  }
+
+  function startUddoktaPayRedirect(opts) {
+    if (!isUserSignedIn()) {
+      if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+      return Promise.resolve({ ok: false, error: 'অনুগ্রহ করে আগে Sign In করুন।' });
+    }
+    var payload = Object.assign({ identifier: getUserKey() }, opts || {});
+    return apiPostJson('/api/uddoktapay/create-charge', payload)
+      .then(function (res) {
+        if (res && res.paymentUrl) {
+          window.location.href = res.paymentUrl;
+          return { ok: true };
+        }
+        return { ok: false, error: (res && res.error) || 'UddoktaPay পেমেন্ট লিংক তৈরি করা যায়নি।' };
+      })
+      .catch(function (err) {
+        return { ok: false, error: (err && err.data && err.data.error) || (err && err.message) || 'UddoktaPay সংযোগ ব্যর্থ হয়েছে।' };
+      });
   }
 
   async function syncSessionWithServer() {
@@ -2427,7 +2560,8 @@
     if (titleEl) titleEl.textContent = opts.title || 'নিরাপদ পেমেন্ট গেটওয়ে চালু হচ্ছে...';
     if (subEl) subEl.textContent = opts.subtitle || 'অনুগ্রহ করে অপেক্ষা করুন, এনক্রিপ্টেড কানেকশন যাচাই হচ্ছে।';
     if (badgeEl) {
-      badgeEl.innerHTML = opts.badgeHtml || '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>';
+      var shieldClr = normThemeHex(siteSettings && siteSettings.themeColor, '#d97706');
+      badgeEl.innerHTML = opts.badgeHtml || '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="' + shieldClr + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3.5 9-7 11-3.5-2-7-6-7-11V5l7-3z"/><polyline points="9 12 11 14 15 10"/></svg>';
     }
     var dur = Math.max(360, Number(opts.duration || 760));
     if (progEl) {
@@ -3033,13 +3167,21 @@
       { name: 'Rocket', dt: 'DBBL · TrxID' },
       { name: 'Wallet Pay', dt: '৳' + (state.walletBalanceBdt || 0) + ' + ' + walletCashbackPercent + '% CB' }
     ];
+    if (uddoktapayEnabled) {
+      pays.unshift({ name: 'UddoktaPay', dt: '⚡ 1-Sec Auto Verify · bKash/Nagad/Rocket', fullSpan: true });
+    }
     var paysHTML = pays.map(function (pm) {
-      return '<button type="button" class="sw-co-pay' + (coState.payMethod === pm.name ? ' on' : '') + '" data-co-pay="' + esc(pm.name) + '">' +
-        '<div class="sw-co-pay-nm">' + esc(pm.name) + '</div><div class="sw-co-pay-dt">' + esc(pm.dt) + '</div>' +
+      return '<button type="button" class="sw-co-pay' + (coState.payMethod === pm.name ? ' on' : '') + '"' + (pm.fullSpan ? ' style="grid-column:span 2;border-color:' + (coState.payMethod === pm.name ? '#10b981' : 'rgba(16,185,129,.45)') + ';"' : '') + ' data-co-pay="' + esc(pm.name) + '">' +
+        '<div class="sw-co-pay-nm">' + (pm.fullSpan ? '⚡ ' : '') + esc(pm.name) + '</div><div class="sw-co-pay-dt">' + esc(pm.dt) + '</div>' +
       '</button>';
     }).join('');
     var activePayNum = coState.payMethod === 'bKash' ? paymentNumbers.bkash : (coState.payMethod === 'Nagad' ? paymentNumbers.nagad : (coState.payMethod === 'Rocket' ? paymentNumbers.rocket : ''));
-    var payExtraHTML = coState.payMethod !== 'Wallet Pay'
+    var payExtraHTML = coState.payMethod === 'UddoktaPay'
+      ? '<div class="sw-co-wallet-box" style="border-color:rgba(16,185,129,.45);">' +
+          '<div><div style="font-weight:800;color:#34d399;">⚡ UddoktaPay Auto Gateway · ১ সেকেন্ডে অটো ভেরিফাই</div><div style="font-size:11px;color:#cbd5e1;margin-top:3px;">Complete Purchase চাপলে UddoktaPay নিরাপদ পেমেন্ট পেজে নিয়ে যাবে (bKash, নগদ, রকেট, উপায় ও কার্ড)। পেমেন্ট করলেই TrxID ছাড়াই অটো ভেরিফাই হবে!</div></div>' +
+          '<div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:900;color:#fcd34d;flex-shrink:0;">৳' + selPricing.finalPrice + '</div>' +
+        '</div>'
+      : coState.payMethod !== 'Wallet Pay'
       ? '<div class="sw-co-paybox">' +
           '<div class="sw-co-paynum">' +
             '<div><div style="font-size:11px;color:#94a3b8;">নিচের ' + esc(coState.payMethod) + ' (Personal) নম্বরে ৳' + selPricing.finalPrice + ' Send Money করুন:</div><strong>' + esc(activePayNum) + '</strong></div>' +
@@ -3628,13 +3770,44 @@
           return;
         }
         var cleanUid = uidChk.uid;
+        var appliedObj = (selPricing.offer && !selPricing.conditionWarning) ? selPricing.offer : null;
+        if (coState.payMethod === 'UddoktaPay') {
+          if (!isUserSignedIn()) {
+            if (typeof window.openGoogleLoginModal === 'function') window.openGoogleLoginModal();
+            return;
+          }
+          showSecurityTransition({
+            title: 'UddoktaPay নিরাপদ গেটওয়ে চালু হচ্ছে...',
+            subtitle: cat.name + ' · ' + pkg.name + ' (৳' + selPricing.finalPrice + ')',
+            duration: 420
+          }, function () {
+            startUddoktaPayRedirect({
+              kind: 'order',
+              gameId: cat.id,
+              gameName: cat.name,
+              packageId: pkg.id,
+              packageLabel: pkg.name,
+              playerUid: cleanUid,
+              originalPrice: selPricing.originalPrice,
+              promoCode: coState.appliedPromo ? coState.appliedPromo.code : undefined,
+              appliedOfferId: appliedObj ? appliedObj.id : undefined,
+              saveProfile: coState.autoSaveUid ? { nickname: cat.name + ' ID' } : undefined,
+              returnHash: '#spin-checkout'
+            }).then(function (r) {
+              if (!r.ok) {
+                coState.checkoutErr = r.error || 'UddoktaPay পেমেন্ট শুরু করা যায়নি।';
+                renderCheckoutView();
+              }
+            });
+          });
+          return;
+        }
         var isWal = coState.payMethod === 'Wallet Pay';
         if (!isWal && ((coState.senderNumber || '').trim().length < 6 || (coState.trxId || '').trim().length < 4)) {
           coState.checkoutErr = coState.payMethod + ' পেমেন্টের জন্য সঠিক Sender Number এবং TrxID দিন।';
           renderCheckoutView();
           return;
         }
-        var appliedObj = (selPricing.offer && !selPricing.conditionWarning) ? selPricing.offer : null;
         if (apiAvailable !== false && isUserSignedIn()) {
           apiPostJson('/api/orders', {
             identifier: getUserKey(),
@@ -3784,6 +3957,8 @@
       var tick = document.createElement('div');
       tick.id = 'swHomeTicker';
       tick.style.margin = '10px 0 6px';
+      tick.style.maxWidth = '100%';
+      tick.style.overflow = 'hidden';
       tick.innerHTML = buildTickerHTML(false);
       var hbEl = document.getElementById('swHomeBanner');
       if (hbEl && hbEl.parentNode) hbEl.parentNode.insertBefore(tick, hbEl.nextSibling);
@@ -5296,8 +5471,47 @@
       btn.onclick = function () {
         selectedMethod = btn.getAttribute('data-method') || 'bKash';
         var amt = Math.round(Number(amtInp.value)) || 50;
+        var err2 = document.getElementById('amStep2Err');
+        if (err2) err2.style.display = 'none';
         view.querySelectorAll('.am-gw-card').forEach(function (x) { x.classList.remove('picking'); });
         btn.classList.add('picking');
+        if (selectedMethod === 'UddoktaPay') {
+          showSecurityTransition({
+            title: 'UddoktaPay নিরাপদ গেটওয়ে চালু হচ্ছে...',
+            subtitle: '৳' + amt + '.00 পেমেন্ট পেজে নেওয়া হচ্ছে (১ সেকেন্ডে অটো ভেরিফাই)',
+            badgeHtml: '<b style="color:#059669;font-size:15px;">⚡ UddoktaPay</b>',
+            duration: 420
+          }, function () {
+            btn.classList.remove('picking');
+            var reqOpts;
+            if (pendingProductOrder && pendingProductOrder.payMode === 'instant') {
+              var p = pendingProductOrder;
+              reqOpts = {
+                kind: 'order',
+                gameId: p.cfg.viewId,
+                gameName: p.cfg.name,
+                packageLabel: p.pkgName,
+                playerUid: p.uidVal,
+                originalPrice: p.pricing.originalPrice,
+                appliedOfferId: p.usedOfferObj ? p.usedOfferObj.id : undefined,
+                returnHash: p.returnHash || '#add-money'
+              };
+            } else {
+              reqOpts = {
+                kind: 'wallet',
+                amountBdt: amt,
+                returnHash: '#add-money'
+              };
+            }
+            startUddoktaPayRedirect(reqOpts).then(function (r) {
+              if (!r.ok && err2) {
+                err2.textContent = r.error || 'UddoktaPay পেমেন্ট শুরু করা যায়নি।';
+                err2.style.display = 'block';
+              }
+            });
+          });
+          return;
+        }
         var methodLbl = selectedMethod === 'EPS' ? 'PAY WITH ≡EPS' : selectedMethod;
         showSecurityTransition({
           title: methodLbl + ' গেটওয়ে চালু হচ্ছে...',
@@ -5405,6 +5619,48 @@
     syncAllUI();
     fetchPublicFeed();
     syncSessionWithServer();
+
+    try {
+      var uParams = new URLSearchParams(window.location.search || '');
+      var uStat = uParams.get('uddokta');
+      if (uStat === 'success' || uStat === 'pending' || uStat === 'cancelled' || uStat === 'failed') {
+        var uKind = uParams.get('kind') || '';
+        var uTxRef = uParams.get('txRef') || '';
+        var uRefId = uParams.get('refId') || '';
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+        if (uStat === 'success') {
+          showSiteToast(
+            uKind === 'wallet'
+              ? ('✅ UddoktaPay অটো-ভেরিফাই সফল! ওয়ালেটে ব্যালেন্স যোগ হয়েছে' + (uRefId ? ' (' + uRefId + ')' : '') + '।')
+              : ('✅ UddoktaPay পেমেন্ট ১ সেকেন্ডে অটো-ভেরিফাই সফল! অর্ডার প্রসেসিং হচ্ছে' + (uRefId ? ' (' + uRefId + ')' : '') + '।')
+          );
+          if (uKind === 'order' && uTxRef) {
+            fetch('/api/uddoktapay/status/' + encodeURIComponent(uTxRef))
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (info) {
+                if (info && info.order) {
+                  playRewardCue('rare');
+                  showOrderSummary(info.order);
+                }
+              })
+              .catch(function () {});
+          }
+          setTimeout(function () {
+            lastSyncedUserKey = '';
+            syncSessionWithServer();
+            fetchPublicFeed();
+          }, 300);
+        } else if (uStat === 'pending') {
+          showSiteToast('⏳ UddoktaPay পেমেন্ট পেন্ডিং আছে — অল্প সময়ের মধ্যেই অটো আপডেট হবে।');
+        } else if (uStat === 'cancelled') {
+          showSiteToast('⚠️ UddoktaPay পেমেন্ট বাতিল করা হয়েছে।');
+        } else {
+          showSiteToast('❌ UddoktaPay পেমেন্ট ভেরিফাই করা যায়নি। আবার চেষ্টা করুন।');
+        }
+      }
+    } catch (e) {}
     setInterval(function () {
       if (apiAvailable !== false && isUserSignedIn() && location.hash === '#spin-checkout') {
         var uk = getUserKey();
