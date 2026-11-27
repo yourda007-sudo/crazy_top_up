@@ -39,20 +39,13 @@
     }
     .reveal-block {
       opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 650ms cubic-bezier(0.22, 1, 0.36, 1), transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translate3d(0, 32px, 0) scale(0.97);
+      transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1), transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
       will-change: opacity, transform;
     }
     .reveal-block.is-visible {
       opacity: 1;
-      transform: translateY(0);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .reveal-block {
-        opacity: 1;
-        transform: none;
-        transition: none;
-      }
+      transform: translate3d(0, 0, 0) scale(1);
     }
     .tech-card {
       position: relative;
@@ -183,9 +176,9 @@
 
       <!-- Ring Gauge Card -->
       <div class="lg:col-span-5">
-        <div class="rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 sm:p-7 text-center space-y-5 shadow-xl shadow-black/40">
+        <div id="gaugeCard" class="rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 sm:p-7 text-center space-y-5 shadow-xl shadow-black/40">
           <div class="relative mx-auto w-36 h-36 flex items-center justify-center">
-            <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+            <svg class="w-full h-full -rotate-90" style="filter: drop-shadow(0 0 10px rgba(45, 212, 191, 0.35));" viewBox="0 0 120 120" aria-hidden="true">
               <defs>
                 <linearGradient id="brandRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="#2dd4bf" />
@@ -1208,34 +1201,67 @@
         .then(applyBrandConfig)
         .catch(function () {});
 
-      // 1. 0 -> 100% Animated Ring Gauge
+      // 1. Viewport-Triggered 0 -> 100% Animated Ring Gauge
+      var gaugeCard = document.getElementById('gaugeCard');
       var circle = document.getElementById('gaugeRingCircle');
       var valEl = document.getElementById('gaugeValue');
       var satEl = document.getElementById('statSatisfaction');
       var circ = 326.7;
-      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (reduced) {
-        circle.style.strokeDashoffset = '0';
-        valEl.textContent = '100';
-        satEl.textContent = '100%';
-      } else {
-        var startTs = performance.now();
-        var dur = 1600;
-        function stepGauge(now) {
-          var t = Math.min(1, (now - startTs) / dur);
-          var eased = 1 - Math.pow(1 - t, 3);
-          var pct = Math.round(eased * 100);
-          circle.style.strokeDashoffset = String(circ * (1 - pct / 100));
-          valEl.textContent = String(pct);
-          satEl.textContent = pct + '%';
-          if (t < 1) requestAnimationFrame(stepGauge);
-        }
-        requestAnimationFrame(stepGauge);
+      var gaugeStarted = false;
+
+      function startGaugeAnim() {
+        if (gaugeStarted) return;
+        gaugeStarted = true;
+        setTimeout(function () {
+          var startTs = performance.now();
+          var dur = 1800;
+          function stepGauge(now) {
+            var t = Math.min(1, (now - startTs) / dur);
+            var eased = 1 - Math.pow(1 - t, 3);
+            var pct = Math.round(eased * 100);
+            circle.style.strokeDashoffset = String(circ * (1 - pct / 100));
+            valEl.textContent = String(pct);
+            satEl.textContent = pct + '%';
+            if (t < 1) requestAnimationFrame(stepGauge);
+          }
+          requestAnimationFrame(stepGauge);
+        }, 150);
       }
 
-      // 2. Scroll-Reveal IntersectionObserver (650ms cubic-bezier)
+      function checkGaugeInView() {
+        if (gaugeStarted || !gaugeCard) return;
+        var rect = gaugeCard.getBoundingClientRect();
+        if (rect.top <= window.innerHeight - 24 && rect.bottom >= 20) {
+          startGaugeAnim();
+        }
+      }
+
+      if ('IntersectionObserver' in window && gaugeCard) {
+        var gObs = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              startGaugeAnim();
+              gObs.disconnect();
+            }
+          });
+        }, { threshold: 0.15 });
+        gObs.observe(gaugeCard);
+      }
+      requestAnimationFrame(checkGaugeInView);
+      window.addEventListener('scroll', checkGaugeInView, { passive: true });
+
+      // 2. Scroll-Reveal IntersectionObserver + Scroll Fallback (700ms cubic-bezier)
       var revealNodes = Array.prototype.slice.call(document.querySelectorAll('.reveal-block'));
-      if ('IntersectionObserver' in window && !reduced) {
+      function revealInViewFallback() {
+        revealNodes.forEach(function (n) {
+          if (n.classList.contains('is-visible')) return;
+          var r = n.getBoundingClientRect();
+          if (r.top <= window.innerHeight - 18 && r.bottom >= 10) {
+            n.classList.add('is-visible');
+          }
+        });
+      }
+      if ('IntersectionObserver' in window) {
         var obs = new IntersectionObserver(function (entries) {
           entries.forEach(function (entry) {
             if (entry.isIntersecting) {
@@ -1243,11 +1269,13 @@
               obs.unobserve(entry.target);
             }
           });
-        }, { threshold: 0.12, rootMargin: '0px 0px -30px 0px' });
+        }, { threshold: 0.04, rootMargin: '0px 0px -16px 0px' });
         revealNodes.forEach(function (n) { obs.observe(n); });
       } else {
         revealNodes.forEach(function (n) { n.classList.add('is-visible'); });
       }
+      requestAnimationFrame(revealInViewFallback);
+      window.addEventListener('scroll', revealInViewFallback, { passive: true });
 
       // 3. Auto-Rotating Review Carousel
       var reviews = [
