@@ -223,7 +223,10 @@
         <div class="card">
           <div class="card-hd">
             <h2>Telegram Order &amp; Wallet Alerts</h2>
-            <button type="button" id="tgTestBtn" class="btn btn-emerald" style="padding:6px 11px;font-size:11.5px;">Send Test</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" id="tgWebhookBtn" class="btn btn-sky" style="padding:6px 11px;font-size:11.5px;">📲 Enable 1-Tap Buttons</button>
+              <button type="button" id="tgTestBtn" class="btn btn-emerald" style="padding:6px 11px;font-size:11.5px;">Send Test</button>
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div><label class="lbl">Telegram Bot Token</label><input type="text" id="tgToken" class="inp mono" placeholder="123456789:ABCdef..." /></div>
@@ -275,6 +278,87 @@
           </div>
         </div>
         <div id="udpTestMsg" class="msg"></div>
+      </div>
+
+      <div class="card" id="ucbotCard" style="margin-bottom:18px;border-color:#9a3412;">
+        <div class="card-hd">
+          <h2>🤖 Auto Diamond Delivery (UcBot · ffapi.ucbot.net)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span id="ucbStatusBadge" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;background:#1e293b;color:#94a3b8;">Not Configured</span>
+            <button type="button" id="ucbCreditsBtn" class="btn btn-sky" style="padding:6px 11px;font-size:11.5px;">⚡ Check Credits (/status)</button>
+            <button type="button" id="ucbSaveBtn" class="btn btn-gold" style="padding:6px 11px;font-size:11.5px;">💾 Save Auto-Delivery</button>
+          </div>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:12px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">Auto-Delivery Engine</label>
+              <select id="ucbEnabled" class="inp">
+                <option value="0">Disabled (Manual Processing)</option>
+                <option value="1">Enabled (Auto-Deliver Paid BD Orders)</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">UcBot UUID API Token</label>
+              <input type="password" id="ucbToken" class="inp mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="new-password" />
+              <div id="ucbTokenHint" style="font-size:11px;color:#94a3b8;margin-top:4px;">Stored server-side only. Used for https://ffapi.ucbot.net/topup-sync</div>
+            </div>
+            <div>
+              <label class="lbl">Shell Server Region (For Memberships / Level Up / Evo)</label>
+              <select id="ucbShellCode" class="inp">
+                <option value="shell">MY Shell (code: "shell" — BD Server)</option>
+                <option value="sgshell">SG Shell (code: "sgshell" — BD Server)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label class="lbl">Garena Shell Username (Optional — Only if using Shell rules)</label>
+              <input type="text" id="ucbShellUser" class="inp mono" placeholder="Garena MY/SG username" autocomplete="off" />
+            </div>
+            <div>
+              <label class="lbl">Garena Shell Password</label>
+              <input type="password" id="ucbShellPass" class="inp mono" placeholder="Leave blank to keep existing password" autocomplete="new-password" />
+              <div id="ucbPassHint" style="font-size:11px;color:#94a3b8;margin-top:3px;">Not set</div>
+            </div>
+            <div>
+              <label class="lbl">Garena 2FA Autocode Secret</label>
+              <input type="password" id="ucbShellAuth" class="inp mono" placeholder="Leave blank to keep existing autocode" autocomplete="new-password" />
+              <div id="ucbAuthHint" style="font-size:11px;color:#94a3b8;margin-top:3px;">Not set</div>
+            </div>
+          </div>
+        </div>
+        <div id="ucbStatusMsg" class="msg" style="margin-bottom:10px;"></div>
+
+        <div class="grid grid-2" style="gap:14px;margin-top:8px;">
+          <div style="background:rgba(15,23,42,0.7);border:1px solid #1e293b;border-radius:12px;padding:12px;">
+            <div style="font-size:12.5px;font-weight:800;color:#fbbf24;margin-bottom:8px;">📦 Package Auto-Delivery Rules</div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Map each package to Manual, UniPin Code Stock (1–5 codes/order), or Shell (LITE, 3D, 7D, 30D, lvl6–lvl30).</div>
+            <div id="ucbRulesList" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+
+          <div style="background:rgba(15,23,42,0.7);border:1px solid #1e293b;border-radius:12px;padding:12px;">
+            <div style="font-size:12.5px;font-weight:800;color:#34d399;margin-bottom:8px;">🎟️ UniPin Voucher Code Vault (BDMB / UPBD)</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+              <div>
+                <label class="lbl">Select Package for Stock</label>
+                <select id="ucbVaultPkg" class="inp"></select>
+              </div>
+              <div>
+                <label class="lbl">Paste UniPin Codes (1 per line — Stored Masked)</label>
+                <textarea id="ucbVaultCodes" class="inp mono" rows="3" placeholder="BDMB-T-S-XXXXXXXX&#10;UPBD-Q-S-XXXXXXXX"></textarea>
+              </div>
+              <button type="button" id="ucbVaultAddBtn" class="btn btn-emerald" style="align-self:flex-start;">➕ Add Codes to Vault</button>
+              <div id="ucbVaultMsg" class="msg"></div>
+            </div>
+            <div class="tbl-wrap" style="max-height:175px;">
+              <table>
+                <thead><tr><th>Package</th><th>Code (Masked)</th><th>Status</th><th>Del</th></tr></thead>
+                <tbody id="ucbVaultBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="card" style="margin-bottom:18px;">
@@ -762,6 +846,20 @@
         document.getElementById('saveBanner').textContent = '❌ ' + e.message;
       }
     };
+    window.retryAutoDeliver = async function (orderId) {
+      var st = document.getElementById('ucbStatusMsg');
+      if (st) { st.className = 'msg'; st.textContent = '⏳ Running UcBot auto-delivery for ' + orderId + '...'; }
+      try {
+        var r = await api('/api/admin/orders/auto-deliver', { method: 'POST', body: JSON.stringify({ orderId: orderId }) });
+        if (st) {
+          st.className = r.ok ? 'msg' : 'msg err';
+          st.textContent = r.ok ? ('✅ Auto-delivered ' + orderId + '!') : ('❌ ' + (r.error || 'Delivery failed'));
+        }
+        await loadDashboard();
+      } catch (e) {
+        if (st) { st.className = 'msg err'; st.textContent = '❌ ' + e.message; }
+      }
+    };
     window.walletAction = async function (depositId, action) {
       try {
         await api('/api/admin/wallet/action', { method: 'POST', body: JSON.stringify({ depositId: depositId, action: action }) });
@@ -770,6 +868,90 @@
         document.getElementById('saveBanner').textContent = '❌ ' + e.message;
       }
     };
+
+    var currentUcbotRules = {};
+    var currentVault = { stockByPackage: {}, items: [] };
+    window.setUcbotRuleMode = function (pkgId, mode) {
+      if (mode === 'manual') {
+        delete currentUcbotRules[pkgId];
+      } else if (mode === 'unipin') {
+        var prev = currentUcbotRules[pkgId] || {};
+        currentUcbotRules[pkgId] = { mode: 'unipin', unipinCount: Math.max(1, Math.min(5, Number(prev.unipinCount) || 1)) };
+      } else if (mode === 'shell') {
+        var prevS = currentUcbotRules[pkgId] || {};
+        currentUcbotRules[pkgId] = { mode: 'shell', shellPackage: prevS.shellPackage || 'LITE' };
+      }
+      renderUcbotManager();
+    };
+    window.setUcbotRuleVal = function (pkgId, val) {
+      var rule = currentUcbotRules[pkgId];
+      if (!rule) return;
+      if (rule.mode === 'unipin') {
+        rule.unipinCount = Math.max(1, Math.min(5, Number(val) || 1));
+      } else if (rule.mode === 'shell') {
+        rule.shellPackage = String(val || 'LITE').trim();
+      }
+    };
+    window.deleteVaultCode = async function (id) {
+      var msg = document.getElementById('ucbVaultMsg');
+      try {
+        var r = await api('/api/admin/ucbot/vault/delete', { method: 'POST', body: JSON.stringify({ id: id }) });
+        if (r.unipinVault) currentVault = r.unipinVault;
+        renderUcbotManager();
+      } catch (e) {
+        if (msg) { msg.className = 'msg err'; msg.textContent = '❌ ' + e.message; }
+      }
+    };
+    function renderUcbotManager() {
+      var pkgs = (currentCatalog && Array.isArray(currentCatalog.packages)) ? currentCatalog.packages : [];
+      var games = (currentCatalog && Array.isArray(currentCatalog.games)) ? currentCatalog.games : [];
+      var stockMap = (currentVault && currentVault.stockByPackage) || {};
+      var rulesEl = document.getElementById('ucbRulesList');
+      var pkgSelect = document.getElementById('ucbVaultPkg');
+      if (pkgSelect) {
+        var prevSel = pkgSelect.value;
+        pkgSelect.innerHTML = pkgs.map(function (pk) {
+          var gm = games.find(function (g) { return g.id === pk.gameId; });
+          var stk = stockMap[pk.id] || 0;
+          return '<option value="' + esc(pk.id) + '">' + esc((gm ? gm.name + ' · ' : '') + pk.amountLabel + ' (Stock: ' + stk + ')') + '</option>';
+        }).join('');
+        if (prevSel && pkgs.some(function (p) { return p.id === prevSel; })) pkgSelect.value = prevSel;
+      }
+      if (rulesEl) {
+        rulesEl.innerHTML = pkgs.map(function (pk) {
+          var gm = games.find(function (g) { return g.id === pk.gameId; });
+          var rule = currentUcbotRules[pk.id] || { mode: 'manual' };
+          var stk = stockMap[pk.id] || 0;
+          var extraInput = rule.mode === 'unipin'
+            ? '<input type="number" min="1" max="5" class="inp mono" style="width:62px;padding:4px 6px;font-size:11px;" title="Codes per order (1-5)" value="' + (rule.unipinCount || 1) + '" onchange="setUcbotRuleVal(\'' + esc(pk.id) + '\', this.value)" />'
+            : (rule.mode === 'shell'
+              ? '<input type="text" class="inp mono" style="width:92px;padding:4px 6px;font-size:11px;" placeholder="LITE/3D/lvl6" value="' + esc(rule.shellPackage || 'LITE') + '" onchange="setUcbotRuleVal(\'' + esc(pk.id) + '\', this.value)" />'
+              : '');
+          return '<div style="display:flex;align-items:center;gap:6px;background:rgba(2,6,23,0.65);border:1px solid #1e293b;border-radius:8px;padding:6px 8px;">' +
+            '<div style="flex:1;min-width:0;"><div style="font-size:11.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(pk.amountLabel) + ' <span style="color:#fcd34d;font-weight:600;">৳' + pk.priceBdt + '</span></div><div style="font-size:10px;color:#94a3b8;">' + esc(gm ? gm.name : pk.gameId) + ' · Stock: <b style="color:' + (stk > 0 ? '#34d399' : '#94a3b8') + ';">' + stk + '</b></div></div>' +
+            '<select class="inp" style="width:125px;padding:4px 6px;font-size:11px;" onchange="setUcbotRuleMode(\'' + esc(pk.id) + '\', this.value)">' +
+              '<option value="manual"' + (rule.mode === 'manual' ? ' selected' : '') + '>Manual</option>' +
+              '<option value="unipin"' + (rule.mode === 'unipin' ? ' selected' : '') + '>UniPin Stock</option>' +
+              '<option value="shell"' + (rule.mode === 'shell' ? ' selected' : '') + '>MY/SG Shell</option>' +
+            '</select>' + extraInput +
+          '</div>';
+        }).join('');
+      }
+      var vBody = document.getElementById('ucbVaultBody');
+      if (vBody) {
+        var items = (currentVault && Array.isArray(currentVault.items)) ? currentVault.items : [];
+        vBody.innerHTML = items.length === 0
+          ? '<tr><td colspan="4" style="color:#94a3b8;text-align:center;">No UniPin voucher codes added yet</td></tr>'
+          : items.map(function (it) {
+              var pk = pkgs.find(function (p) { return p.id === it.packageId; });
+              var stCol = it.status === 'Unused' ? '#34d399' : (it.status === 'Used' ? '#7dd3fc' : '#f87171');
+              return '<tr><td style="font-size:11px;">' + esc(pk ? pk.amountLabel : it.packageId) + '</td>' +
+                '<td class="mono" style="font-size:11px;color:#fff;">' + esc(it.maskedCode) + '</td>' +
+                '<td style="font-size:10.5px;color:' + stCol + ';font-weight:700;">' + esc(it.status) + (it.usedByOrderId ? ('<div style="font-size:9.5px;color:#94a3b8;">' + esc(it.usedByOrderId) + '</div>') : '') + '</td>' +
+                '<td><button type="button" class="btn btn-red" style="padding:3px 6px;font-size:10px;" onclick="deleteVaultCode(\'' + esc(it.id) + '\')">✕</button></td></tr>';
+            }).join('');
+      }
+    }
 
     window.openProofModal = function (type, id) {
       var item = type === 'deposit' ? window._depositsMap[id] : window._ordersMap[id];
@@ -869,6 +1051,13 @@
 
       document.getElementById('tgToken').value = c.telegramBotToken || '';
       document.getElementById('tgChatId').value = c.telegramChatId || '';
+      var tgStEl = document.getElementById('tgStatus');
+      if (tgStEl && !tgStEl.textContent) {
+        tgStEl.className = 'msg';
+        tgStEl.textContent = c.telegramWebhookConfigured
+          ? '✅ Telegram Webhook secret ready (click Enable 1-Tap Buttons once deployed on HTTPS).'
+          : '';
+      }
 
       var whUrl = window.location.origin + '/api/sms-webhook';
       var secVal = c.smsWebhookSecret || '';
@@ -917,6 +1106,46 @@
         udpHint.textContent = 'Enter your UddoktaPay API Key (found in UddoktaPay Dashboard → API Key / Brand Settings).';
         udpHint.style.color = '#94a3b8';
       }
+
+      var ucb = c.ucbot || {};
+      document.getElementById('ucbEnabled').value = ucb.enabled ? '1' : '0';
+      document.getElementById('ucbToken').value = '';
+      document.getElementById('ucbShellCode').value = ucb.shellCode === 'sgshell' ? 'sgshell' : 'shell';
+      document.getElementById('ucbShellUser').value = ucb.shellUsername || '';
+      document.getElementById('ucbShellPass').value = '';
+      document.getElementById('ucbShellAuth').value = '';
+      document.getElementById('ucbPassHint').textContent = ucb.hasShellPassword ? '✓ Password saved securely (leave blank to keep)' : 'Not set';
+      document.getElementById('ucbAuthHint').textContent = ucb.hasShellAutocode ? '✓ 2FA Autocode saved securely (leave blank to keep)' : 'Not set';
+      var ucbBadge = document.getElementById('ucbStatusBadge');
+      var ucbTokHint = document.getElementById('ucbTokenHint');
+      if (ucb.envManaged) {
+        ucbBadge.textContent = ucb.enabled ? 'Active · Managed by ENV' : 'Disabled · ENV';
+        ucbBadge.style.background = ucb.enabled ? '#064e3b' : '#451a03';
+        ucbBadge.style.color = ucb.enabled ? '#34d399' : '#fcd34d';
+        ucbTokHint.textContent = '✓ Managed by UCBOT_API_TOKEN env variable';
+        ucbTokHint.style.color = '#7dd3fc';
+      } else if (ucb.enabled && ucb.hasApiToken) {
+        ucbBadge.textContent = 'Active · Auto-Delivery Ready';
+        ucbBadge.style.background = '#064e3b';
+        ucbBadge.style.color = '#34d399';
+        ucbTokHint.textContent = '✓ UUID Token saved securely (leave blank to keep)';
+        ucbTokHint.style.color = '#34d399';
+      } else if (ucb.hasApiToken) {
+        ucbBadge.textContent = 'Configured (Disabled)';
+        ucbBadge.style.background = '#451a03';
+        ucbBadge.style.color = '#fcd34d';
+        ucbTokHint.textContent = '✓ UUID Token saved securely (enable dropdown above when ready)';
+        ucbTokHint.style.color = '#fcd34d';
+      } else {
+        ucbBadge.textContent = 'Not Configured';
+        ucbBadge.style.background = '#1e293b';
+        ucbBadge.style.color = '#94a3b8';
+        ucbTokHint.textContent = 'Paste UUID token from ucbot.net/free-fire-api (stored server-side only)';
+        ucbTokHint.style.color = '#94a3b8';
+      }
+      currentUcbotRules = Object.assign({}, ucb.packageRules || {});
+      currentVault = data.unipinVault || { stockByPackage: {}, items: [] };
+      renderUcbotManager();
 
       var ann = c.announcement || {};
       document.getElementById('noticeActive').value = ann.active === false ? '0' : '1';
@@ -970,9 +1199,18 @@
               : '';
             var msgCount = Array.isArray(o.supportMessages) ? o.supportMessages.length : 0;
             var chatBtn = '<button type="button" class="btn ' + (msgCount > 0 ? 'btn-sky' : 'btn-slate') + '" style="padding:3px 7px;font-size:10px;margin-top:4px;" onclick="openChatReplyModal(\'' + esc(o.id) + '\')">💬 Chat' + (msgCount > 0 ? ' (' + msgCount + ')' : '') + '</button>';
+            var autoBtn = (st === 'Pending' || st === 'Processing')
+              ? '<button type="button" class="btn btn-emerald" style="padding:3px 7px;font-size:10px;margin-top:4px;" onclick="retryAutoDeliver(\'' + esc(o.id) + '\')">⚡ Auto-Deliver</button>'
+              : '';
+            var autoNoteHtml = o.autoDeliveryNote
+              ? '<div style="font-size:10px;margin-top:2px;color:' + (o.autoDeliveryStatus === 'Delivered' ? '#34d399' : '#fbbf24') + ';">' + esc(o.autoDeliveryNote) + '</div>'
+              : '';
+            var nickHtml = o.deliveredNickname
+              ? '<div style="font-size:10px;color:#7dd3fc;">🎮 ' + esc(o.deliveredNickname) + '</div>'
+              : '';
             return '<tr><td><div class="mono" style="color:#fff;font-weight:700;">' + esc(o.id) + '</div><div style="font-size:10.5px;color:#94a3b8;">' + esc(o.userName) + '</div></td>' +
-              '<td><b>' + esc(o.gameName) + '</b><div style="font-size:10.5px;color:#94a3b8;">UID: ' + esc(o.playerUid) + '</div></td>' +
-              '<td><div>' + esc(o.paymentMethod) + '</div>' + (o.trxId ? '<div class="mono" style="font-size:10.5px;color:#7dd3fc;">' + esc(o.trxId) + ' (' + esc(o.senderNumber) + ')</div>' : '') + '<div style="display:flex;gap:4px;flex-wrap:wrap;">' + proofBtn + chatBtn + '</div></td>' +
+              '<td><b>' + esc(o.gameName) + '</b><div style="font-size:10.5px;color:#94a3b8;">UID: ' + esc(o.playerUid) + '</div>' + nickHtml + autoNoteHtml + '</td>' +
+              '<td><div>' + esc(o.paymentMethod) + '</div>' + (o.trxId ? '<div class="mono" style="font-size:10.5px;color:#7dd3fc;">' + esc(o.trxId) + ' (' + esc(o.senderNumber) + ')</div>' : '') + '<div style="display:flex;gap:4px;flex-wrap:wrap;">' + proofBtn + chatBtn + autoBtn + '</div></td>' +
               '<td class="mono" style="color:#fcd34d;font-weight:800;">৳' + o.finalPrice + (o.discountSaved ? '<div style="font-size:10px;color:#34d399;">-৳' + o.discountSaved + '</div>' : '') + '</td>' +
               '<td><select class="inp" style="padding:4px 6px;font-size:11px;min-width:105px;" onchange="updateOrderStatus(\'' + esc(o.id) + '\', this.value)">' +
                 ['Pending', 'Processing', 'Completed', 'Rejected'].map(function (opt) { return '<option value="' + opt + '"' + (st === opt ? ' selected' : '') + '>' + opt + '</option>'; }).join('') +
@@ -1344,6 +1582,21 @@
           var kVal = document.getElementById('udpApiKey').value.trim();
           if (kVal) uObj.apiKey = kVal;
           return uObj;
+        })(),
+        ucbot: (function () {
+          var ucObj = {
+            enabled: document.getElementById('ucbEnabled').value === '1',
+            shellCode: document.getElementById('ucbShellCode').value === 'sgshell' ? 'sgshell' : 'shell',
+            shellUsername: document.getElementById('ucbShellUser').value.trim(),
+            packageRules: currentUcbotRules || {}
+          };
+          var tVal = document.getElementById('ucbToken').value.trim();
+          var pVal = document.getElementById('ucbShellPass').value;
+          var aVal = document.getElementById('ucbShellAuth').value.trim();
+          if (tVal) ucObj.apiToken = tVal;
+          if (pVal) ucObj.shellPassword = pVal;
+          if (aVal) ucObj.shellAutocode = aVal;
+          return ucObj;
         })()
       };
       var ssSt = document.getElementById('siteSettingsStatus');
@@ -1530,6 +1783,20 @@
         st.textContent = '❌ Telegram Error: ' + e.message;
       }
     };
+    document.getElementById('tgWebhookBtn').onclick = async function () {
+      var st = document.getElementById('tgStatus');
+      st.className = 'msg';
+      st.textContent = '⏳ Saving & activating 1-Tap Telegram buttons...';
+      try {
+        await saveConfig();
+        var r = await api('/api/admin/telegram/register-webhook', { method: 'POST' });
+        st.className = 'msg';
+        st.textContent = '✅ 1-Tap Buttons Active! Webhook: ' + (r.webhookUrl || 'Ready');
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
 
     document.getElementById('copySmsUrlBtn').onclick = function () {
       var v = document.getElementById('smsWebhookUrl').value;
@@ -1622,6 +1889,53 @@
         var r = await api('/api/admin/uddoktapay/test', { method: 'POST' });
         st.className = 'msg';
         st.textContent = '✅ ' + (r.message || 'UddoktaPay connected cleanly!');
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
+    document.getElementById('ucbSaveBtn').onclick = async function () {
+      var st = document.getElementById('ucbStatusMsg');
+      st.className = 'msg';
+      st.textContent = '⏳ Saving Auto-Delivery settings...';
+      try {
+        await saveConfig();
+        st.className = 'msg';
+        st.textContent = '✅ Auto-Delivery settings & package rules saved!';
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
+    document.getElementById('ucbCreditsBtn').onclick = async function () {
+      var st = document.getElementById('ucbStatusMsg');
+      st.className = 'msg';
+      st.textContent = '⏳ Checking ffapi.ucbot.net credits...';
+      try {
+        await saveConfig();
+        var r = await api('/api/admin/ucbot/status', { method: 'POST' });
+        var d = r.statusData || {};
+        var cr = d.credits || {};
+        st.className = 'msg';
+        st.textContent = '✅ ' + (d.name || 'Account') + ' (' + (d.account_status || 'active') + ') · Credits Left: ' + (cr.limit_left != null ? cr.limit_left : '?') + '/' + (cr.max_limit != null ? cr.max_limit : '?') + (d.expiry_date ? (' · Expires: ' + d.expiry_date) : '');
+      } catch (e) {
+        st.className = 'msg err';
+        st.textContent = '❌ ' + e.message;
+      }
+    };
+    document.getElementById('ucbVaultAddBtn').onclick = async function () {
+      var st = document.getElementById('ucbVaultMsg');
+      var pkgId = document.getElementById('ucbVaultPkg').value;
+      var codesText = document.getElementById('ucbVaultCodes').value;
+      st.className = 'msg';
+      st.textContent = '⏳ Adding UniPin codes to vault...';
+      try {
+        var r = await api('/api/admin/ucbot/vault/add', { method: 'POST', body: JSON.stringify({ packageId: pkgId, codesText: codesText }) });
+        document.getElementById('ucbVaultCodes').value = '';
+        if (r.unipinVault) currentVault = r.unipinVault;
+        renderUcbotManager();
+        st.className = 'msg';
+        st.textContent = '✅ Added ' + (r.added || 0) + ' code(s)' + (r.skipped ? (' (' + r.skipped + ' duplicate skipped)') : '') + '!';
       } catch (e) {
         st.className = 'msg err';
         st.textContent = '❌ ' + e.message;

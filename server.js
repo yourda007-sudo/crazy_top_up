@@ -488,9 +488,362 @@ function tryAutoMatchSmsWithPending(d, sms) {
     sms.status = 'Matched';
     sms.matchedRefId = pendingOrd.id;
     logActivity(d, 'Order Verified via SMS', pendingOrd.id + ' · ৳' + pendingOrd.finalPrice + ' (' + sms.provider + ', TrxID: ' + sms.trxId + ') moved to Processing automatically', 'success', 'SMS Auto-Matcher');
-    return { matchedType: 'order', refId: pendingOrd.id, userName: pendingOrd.userName, amountBdt: pendingOrd.finalPrice };
+    return { matchedType: 'order', refId: pendingOrd.id, userName: pendingOrd.userName, amountBdt: pendingOrd.finalPrice, matchedOrder: pendingOrd };
   }
   return null;
+}
+
+var UCBOT_API_BASE = 'https://ffapi.ucbot.net';
+
+function maskVoucherCode(code) {
+  var clean = String(code || '').trim();
+  if (clean.length <= 8) return '••••' + clean.slice(-3);
+  return clean.slice(0, 5) + '••••' + clean.slice(-4);
+}
+
+function getUcbotCredentials(d) {
+  var envToken = String(process.env.UCBOT_API_TOKEN || '').trim();
+  var cfg = (d && d.config && d.config.ucbot) || {
+    enabled: false,
+    explicitlyDisabled: false,
+    apiToken: '',
+    shellCode: 'shell',
+    shellUsername: '',
+    shellPassword: '',
+    shellAutocode: '',
+    packageRules: {}
+  };
+  var apiToken = envToken || String(cfg.apiToken || '').trim();
+  var envManaged = Boolean(envToken);
+  var configured = Boolean(apiToken);
+  var enabled = configured && (envManaged ? cfg.explicitlyDisabled !== true : Boolean(cfg.enabled));
+  return {
+    enabled: enabled,
+    apiToken: apiToken,
+    envManaged: envManaged,
+    shellCode: cfg.shellCode === 'sgshell' ? 'sgshell' : 'shell',
+    shellUsername: String(cfg.shellUsername || '').trim(),
+    shellPassword: String(cfg.shellPassword || ''),
+    shellAutocode: String(cfg.shellAutocode || '').trim(),
+    packageRules: (cfg.packageRules && typeof cfg.packageRules === 'object') ? cfg.packageRules : {}
+  };
+}
+
+function sanitizeUcbotForAdmin(d) {
+  var c = getUcbotCredentials(d);
+  return {
+    enabled: c.enabled,
+    hasApiToken: Boolean(c.apiToken),
+    envManaged: c.envManaged,
+    shellCode: c.shellCode,
+    shellUsername: c.shellUsername,
+    hasShellPassword: Boolean(c.shellPassword),
+    hasShellAutocode: Boolean(c.shellAutocode),
+    packageRules: c.packageRules
+  };
+}
+
+function sanitizeVaultForAdmin(d) {
+  var vault = Array.isArray(d.unipinVault) ? d.unipinVault : [];
+  var stockByPackage = {};
+  vault.forEach(function (item) {
+    if (item && item.status === 'Unused' && item.packageId) {
+      stockByPackage[item.packageId] = (stockByPackage[item.packageId] || 0) + 1;
+    }
+  });
+  return {
+    stockByPackage: stockByPackage,
+    items: vault.slice(0, 120).map(function (item) {
+      return {
+        id: item.id,
+        packageId: item.packageId,
+        maskedCode: maskVoucherCode(item.code),
+        status: item.status,
+        addedAt: item.addedAt,
+        usedByOrderId: item.usedByOrderId,
+        detail: item.detail
+      };
+    })
+  };
+}
+
+function buildSafeAdminConfig(d) {
+  var udpCreds = getUddoktaCredentials(d);
+  var clone = Object.assign({}, d.config);
+  var hasTgWebhook = Boolean(clone.telegramWebhookSecret);
+  delete clone.telegramWebhookSecret;
+  delete clone.ucbot;
+  clone.smsWebhookSecret = getSmsWebhookSecret(d);
+  clone.smsSecretFromEnv = Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8);
+  clone.telegramWebhookConfigured = hasTgWebhook;
+  clone.uddoktapay = {
+    enabled: udpCreds.enabled,
+    baseUrl: udpCreds.baseUrl,
+    hasApiKey: Boolean(udpCreds.apiKey),
+    envManaged: udpCreds.envManaged
+  };
+  clone.ucbot = sanitizeUcbotForAdmin(d);
+  return clone;
+}
+
+function resolveOrderPackageRule(d, ord) {
+  var c = getUcbotCredentials(d);
+  var pkgId = String(ord.packageId || '').trim();
+  if (!pkgId) {
+    var cleanLbl = String(ord.packageLabel || '').trim();
+    var pkgs = (d.config.catalog && d.config.catalog.packages) || [];
+    var matchedPkg = pkgs.find(function (pk) {
+      return pk && pk.amountLabel && cleanLbl.indexOf(pk.amountLabel) === 0;
+    });
+    if (matchedPkg) pkgId = matchedPkg.id;
+  }
+  if (!pkgId) return null;
+  var rule = c.packageRules[pkgId];
+  if (!rule || rule.mode === 'manual') return null;
+  return { packageId: pkgId, rule: rule };
+}
+
+function syncOrderFieldsToOwner(d, ord) {
+  var owner = d.users[String(ord.userIdentifier || '').toLowerCase()];
+  if (!owner) return;
+  var uOrd = (owner.orders || []).find(function (o) { return o.id === ord.id; });
+  if (uOrd) {
+    uOrd.status = ord.status;
+    uOrd.autoMatched = ord.autoMatched;
+    uOrd.autoDeliveryStatus = ord.autoDeliveryStatus;
+    uOrd.autoDeliveryNote = ord.autoDeliveryNote;
+    uOrd.deliveredNickname = ord.deliveredNickname;
+    if (ord.packageId) uOrd.packageId = ord.packageId;
+  }
+}
+
+async function tryAutoDeliverOrder(d, ord, actor) {
+  actor = actor || 'UcBot Auto-Delivery';
+  var creds = getUcbotCredentials(d);
+  if (!creds.enabled || !creds.apiToken) {
+    return { attempted: false, delivered: false, error: 'UCBOT_DISABLED' };
+  }
+  if (ord.autoDeliveryStatus === 'InProgress' || ord.autoDeliveryStatus === 'Delivered') {
+    return { attempted: false, delivered: ord.autoDeliveryStatus === 'Delivered', error: 'ALREADY_HANDLED' };
+  }
+  var resolved = resolveOrderPackageRule(d, ord);
+  if (!resolved) {
+    return { attempted: false, delivered: false, error: 'NO_AUTO_RULE' };
+  }
+  var cleanUid = String(ord.playerUid || '').trim();
+  if (!/^\d{5,15}$/.test(cleanUid)) {
+    ord.autoDeliveryStatus = 'Failed';
+    ord.autoDeliveryNote = 'Invalid FF UID format for auto-delivery';
+    syncOrderFieldsToOwner(d, ord);
+    saveDb(d);
+    return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+  }
+
+  var packageId = resolved.packageId;
+  var rule = resolved.rule;
+  ord.packageId = packageId;
+
+  if (rule.mode === 'unipin') {
+    if (!Array.isArray(d.unipinVault)) d.unipinVault = [];
+    var needed = Math.max(1, Math.min(5, Math.round(Number(rule.unipinCount) || 1)));
+    var unused = d.unipinVault.filter(function (v) { return v.packageId === packageId && v.status === 'Unused'; });
+    if (unused.length < needed) {
+      ord.autoDeliveryStatus = 'Failed';
+      ord.autoDeliveryNote = 'UniPin Stock Low (Need ' + needed + ', Available ' + unused.length + ')';
+      syncOrderFieldsToOwner(d, ord);
+      logActivity(d, 'Auto-Delivery Stock Empty', ord.id + ' (' + ord.packageLabel + ') paused — ' + ord.autoDeliveryNote, 'warning', actor);
+      saveDb(d);
+      return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+    }
+
+    var claimed = unused.slice(0, needed);
+    claimed.forEach(function (item) {
+      item.status = 'InProgress';
+      item.usedByOrderId = ord.id;
+    });
+    ord.autoDeliveryStatus = 'InProgress';
+    ord.autoDeliveryNote = 'Redeeming ' + needed + ' UniPin code(s)...';
+    syncOrderFieldsToOwner(d, ord);
+    saveDb(d);
+
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+    var data = {};
+    var httpOk = false;
+    var httpStatus = 0;
+    try {
+      var resp = await fetch(UCBOT_API_BASE + '/topup-sync', {
+        method: 'POST',
+        signal: ctrl ? ctrl.signal : undefined,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: creds.apiToken
+        },
+        body: JSON.stringify({
+          orderid: ord.id,
+          playerid: cleanUid,
+          code: claimed.map(function (c) { return c.code; }).join(',')
+        })
+      });
+      httpOk = resp.ok;
+      httpStatus = resp.status;
+      data = await resp.json().catch(function () { return {}; });
+    } catch (err) {
+      claimed.forEach(function (item) {
+        item.status = 'Unused';
+        delete item.usedByOrderId;
+      });
+      ord.autoDeliveryStatus = 'Failed';
+      ord.autoDeliveryNote = (err && err.message) ? ('Network Error: ' + err.message) : 'Network Error';
+      syncOrderFieldsToOwner(d, ord);
+      logActivity(d, 'Auto-Delivery Failed', ord.id + ': ' + ord.autoDeliveryNote, 'danger', actor);
+      saveDb(d);
+      return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+    } finally {
+      clearTimeout(timer);
+    }
+
+    var errText = String(data.error || data.message || '').trim();
+    var batch = Array.isArray(data.batch) ? data.batch : [];
+    if (!httpOk || data.status === 'error' || (errText && batch.length === 0)) {
+      claimed.forEach(function (item) {
+        item.status = 'Unused';
+        delete item.usedByOrderId;
+      });
+      ord.autoDeliveryStatus = 'Failed';
+      ord.autoDeliveryNote = errText || ('UcBot HTTP ' + httpStatus);
+      syncOrderFieldsToOwner(d, ord);
+      logActivity(d, 'Auto-Delivery Rejected', ord.id + ': ' + ord.autoDeliveryNote, 'warning', actor);
+      saveDb(d);
+      return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+    }
+
+    var okCount = 0;
+    var failDetails = [];
+    if (batch.length > 0) {
+      claimed.forEach(function (item, idx) {
+        var bItem = batch[idx];
+        if (bItem && bItem.ok) {
+          item.status = 'Used';
+          item.detail = String(bItem.detail || 'Success');
+          okCount += 1;
+        } else {
+          var det = String((bItem && bItem.detail) || 'Failed');
+          if (/invalid player|bd region/i.test(det)) {
+            item.status = 'Unused';
+            delete item.usedByOrderId;
+          } else {
+            item.status = 'Failed';
+            item.detail = det;
+          }
+          failDetails.push(det);
+        }
+      });
+    } else if (data.status === 'success') {
+      claimed.forEach(function (item) {
+        item.status = 'Used';
+        item.detail = 'Success';
+        okCount += 1;
+      });
+    }
+
+    var nick = String(data.username || '').trim().slice(0, 48);
+    if (okCount === claimed.length && failDetails.length === 0) {
+      ord.status = 'Completed';
+      ord.autoDeliveryStatus = 'Delivered';
+      if (nick) ord.deliveredNickname = nick;
+      ord.autoDeliveryNote = 'Auto-Delivered via UniPin' + (nick ? (' (' + nick + ')') : '');
+      syncOrderFieldsToOwner(d, ord);
+      logActivity(d, 'Auto-Delivered Diamonds', ord.id + ' · ' + ord.packageLabel + ' → UID ' + ord.playerUid + (nick ? (' (' + nick + ')') : ''), 'success', actor);
+      saveDb(d);
+      await sendTelegram(
+        '🚀 <b>Auto-Delivered Complete!</b>\n🆔 Order: <code>' + ord.id + '</code>\n🎮 Player: <b>' + (nick || ord.playerUid) + '</b> (<code>' + ord.playerUid + '</code>)\n📦 Package: ' + ord.packageLabel + '\n💰 Paid: <b>৳' + ord.finalPrice + '</b> (' + ord.paymentMethod + ')'
+      );
+      return { attempted: true, delivered: true };
+    }
+
+    ord.autoDeliveryStatus = 'Failed';
+    ord.autoDeliveryNote = 'Partial/Failed (' + okCount + '/' + claimed.length + ' OK): ' + (failDetails.join(', ') || 'Check batch');
+    syncOrderFieldsToOwner(d, ord);
+    logActivity(d, 'Auto-Delivery Partial', ord.id + ': ' + ord.autoDeliveryNote, 'danger', actor);
+    saveDb(d);
+    return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+  }
+
+  var shellPkg = String(rule.shellPackage || '').trim();
+  if (!shellPkg || !creds.shellUsername || !creds.shellPassword || !creds.shellAutocode) {
+    ord.autoDeliveryStatus = 'Failed';
+    ord.autoDeliveryNote = 'Shell credentials or shell package code missing in Admin Panel';
+    syncOrderFieldsToOwner(d, ord);
+    saveDb(d);
+    return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+  }
+
+  ord.autoDeliveryStatus = 'InProgress';
+  ord.autoDeliveryNote = 'Sending ' + (creds.shellCode === 'sgshell' ? 'SG' : 'MY') + ' Shell (' + shellPkg + ')...';
+  syncOrderFieldsToOwner(d, ord);
+  saveDb(d);
+
+  var sCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var sTimer = setTimeout(function () { if (sCtrl) sCtrl.abort(); }, 20000);
+  var sData = {};
+  var sOk = false;
+  var sStatus = 0;
+  try {
+    var sResp = await fetch(UCBOT_API_BASE + '/topup-sync', {
+      method: 'POST',
+      signal: sCtrl ? sCtrl.signal : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: creds.apiToken
+      },
+      body: JSON.stringify({
+        orderid: ord.id,
+        playerid: cleanUid,
+        code: creds.shellCode,
+        package: shellPkg,
+        username: creds.shellUsername,
+        password: creds.shellPassword,
+        autocode: creds.shellAutocode
+      })
+    });
+    sOk = sResp.ok;
+    sStatus = sResp.status;
+    sData = await sResp.json().catch(function () { return {}; });
+  } catch (err) {
+    ord.autoDeliveryStatus = 'Failed';
+    ord.autoDeliveryNote = (err && err.message) ? ('Network Error: ' + err.message) : 'Network Error';
+    syncOrderFieldsToOwner(d, ord);
+    logActivity(d, 'Shell Auto-Delivery Failed', ord.id + ': ' + ord.autoDeliveryNote, 'danger', actor);
+    saveDb(d);
+    return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
+  } finally {
+    clearTimeout(sTimer);
+  }
+
+  if (sOk && sData.status === 'success' && !sData.error) {
+    var sNick = String(sData.username || '').trim().slice(0, 48);
+    ord.status = 'Completed';
+    ord.autoDeliveryStatus = 'Delivered';
+    if (sNick) ord.deliveredNickname = sNick;
+    ord.autoDeliveryNote = 'Auto-Delivered via ' + (creds.shellCode === 'sgshell' ? 'SG' : 'MY') + ' Shell (' + shellPkg + ')' + (sNick ? (' · ' + sNick) : '');
+    syncOrderFieldsToOwner(d, ord);
+    logActivity(d, 'Auto-Delivered Diamonds', ord.id + ' · ' + ord.packageLabel + ' (' + shellPkg + ') → UID ' + ord.playerUid, 'success', actor);
+    saveDb(d);
+    await sendTelegram(
+      '🚀 <b>Shell Auto-Delivered Complete!</b>\n🆔 Order: <code>' + ord.id + '</code>\n🎮 Player: <b>' + (sNick || ord.playerUid) + '</b> (<code>' + ord.playerUid + '</code>)\n📦 Package: ' + ord.packageLabel + ' (' + shellPkg + ')\n💰 Paid: <b>৳' + ord.finalPrice + '</b> (' + ord.paymentMethod + ')'
+    );
+    return { attempted: true, delivered: true };
+  }
+
+  ord.autoDeliveryStatus = 'Failed';
+  ord.autoDeliveryNote = String(sData.error || sData.message || ('Shell HTTP ' + sStatus));
+  syncOrderFieldsToOwner(d, ord);
+  logActivity(d, 'Shell Auto-Delivery Failed', ord.id + ': ' + ord.autoDeliveryNote, 'warning', actor);
+  saveDb(d);
+  return { attempted: true, delivered: false, error: ord.autoDeliveryNote };
 }
 
 async function ingestSmsPayment(d, parsed, actor) {
@@ -519,11 +872,20 @@ async function ingestSmsPayment(d, parsed, actor) {
   saveDb(d);
 
   if (matched) {
-    await sendTelegram(
-      matched.matchedType === 'deposit'
-        ? ('🤖 <b>Auto-Approved Wallet Deposit via SMS!</b>\n🆔 ID: <code>' + matched.refId + '</code>\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
-        : ('🤖 <b>Order Payment Verified via SMS!</b>\n🆔 Order: <code>' + matched.refId + '</code> → Processing\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>')
-    );
+    if (matched.matchedType === 'order' && matched.matchedOrder) {
+      var autoRes = await tryAutoDeliverOrder(d, matched.matchedOrder, 'SMS + Auto-Delivery');
+      if (!autoRes.delivered) {
+        await sendTelegram(
+          '🤖 <b>Order Payment Verified via SMS!</b>\n🆔 Order: <code>' + matched.refId + '</code> → ' + matched.matchedOrder.status + '\n👤 User: ' + matched.userName + '\n📦 Package: ' + matched.matchedOrder.packageLabel + '\n🎯 UID: <code>' + matched.matchedOrder.playerUid + '</code>\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>' +
+          ((autoRes.error && matched.matchedOrder.autoDeliveryStatus === 'Failed') ? ('\n⚠️ Auto-Delivery: ' + autoRes.error) : ''),
+          orderInlineMarkup(matched.refId)
+        );
+      }
+    } else {
+      await sendTelegram(
+        '🤖 <b>Auto-Approved Wallet Deposit via SMS!</b>\n🆔 ID: <code>' + matched.refId + '</code>\n👤 User: ' + matched.userName + '\n💰 Amount: <b>৳' + matched.amountBdt + '</b> (' + smsRecord.provider + ')\n🧾 TrxID: <code>' + smsRecord.trxId + '</code>'
+      );
+    }
   }
   return { duplicate: false, sms: smsRecord, matched: matched };
 }
@@ -573,12 +935,23 @@ function defaultDb() {
       siteSettings: JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS)),
       telegramBotToken: '',
       telegramChatId: '',
+      telegramWebhookSecret: crypto.randomBytes(16).toString('hex'),
       smsWebhookSecret: crypto.randomBytes(16).toString('hex'),
       uddoktapay: {
         enabled: false,
         explicitlyDisabled: false,
         baseUrl: '',
         apiKey: ''
+      },
+      ucbot: {
+        enabled: false,
+        explicitlyDisabled: false,
+        apiToken: '',
+        shellCode: 'shell',
+        shellUsername: '',
+        shellPassword: '',
+        shellAutocode: '',
+        packageRules: {}
       }
     },
     users: {},
@@ -593,6 +966,7 @@ function defaultDb() {
     walletDeposits: [],
     smsPayments: [],
     uddoktaPayments: [],
+    unipinVault: [],
     activityLog: [],
     duplicateTrxBlockedCount: 0
   };
@@ -642,7 +1016,19 @@ function loadDb() {
     p.walletDeposits = Array.isArray(p.walletDeposits) ? p.walletDeposits : [];
     p.smsPayments = Array.isArray(p.smsPayments) ? p.smsPayments : [];
     p.uddoktaPayments = Array.isArray(p.uddoktaPayments) ? p.uddoktaPayments : [];
+    p.unipinVault = Array.isArray(p.unipinVault) ? p.unipinVault : [];
     p.config.uddoktapay = Object.assign({ enabled: false, explicitlyDisabled: false, baseUrl: '', apiKey: '' }, p.config.uddoktapay || {});
+    p.config.ucbot = Object.assign({
+      enabled: false,
+      explicitlyDisabled: false,
+      apiToken: '',
+      shellCode: 'shell',
+      shellUsername: '',
+      shellPassword: '',
+      shellAutocode: '',
+      packageRules: {}
+    }, p.config.ucbot || {});
+    if (typeof p.config.telegramWebhookSecret !== 'string' || p.config.telegramWebhookSecret.trim().length < 16) p.config.telegramWebhookSecret = def.config.telegramWebhookSecret;
     if (typeof p.config.smsWebhookSecret !== 'string' || p.config.smsWebhookSecret.trim().length < 8) p.config.smsWebhookSecret = def.config.smsWebhookSecret;
     p.activityLog = Array.isArray(p.activityLog) ? p.activityLog : [];
     p.duplicateTrxBlockedCount = Number(p.duplicateTrxBlockedCount || 0);
@@ -901,15 +1287,41 @@ function serializeUser(u) {
   };
 }
 
-async function sendTelegram(text) {
-  var token = (db.config.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  var chatId = (db.config.telegramChatId || process.env.TELEGRAM_CHAT_ID || '').trim();
-  if (!token || !chatId) return { ok: false, error: 'Telegram Bot Token বা Chat ID সেট করা নেই।' };
+function orderInlineMarkup(orderId) {
+  return {
+    inline_keyboard: [[
+      { text: '✅ Complete', callback_data: 'ord:complete:' + orderId },
+      { text: '❌ Reject', callback_data: 'ord:reject:' + orderId }
+    ]]
+  };
+}
+
+function depositInlineMarkup(depositId) {
+  return {
+    inline_keyboard: [[
+      { text: '✅ Approve', callback_data: 'dep:approve:' + depositId },
+      { text: '❌ Reject', callback_data: 'dep:reject:' + depositId }
+    ]]
+  };
+}
+
+function getTelegramCreds(d) {
+  return {
+    token: String((d && d.config && d.config.telegramBotToken) || process.env.TELEGRAM_BOT_TOKEN || '').trim(),
+    chatId: String((d && d.config && d.config.telegramChatId) || process.env.TELEGRAM_CHAT_ID || '').trim()
+  };
+}
+
+async function sendTelegram(text, replyMarkup) {
+  var creds = getTelegramCreds(db);
+  if (!creds.token || !creds.chatId) return { ok: false, error: 'Telegram Bot Token বা Chat ID সেট করা নেই।' };
   try {
-    var r = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+    var payload = { chat_id: creds.chatId, text: text, parse_mode: 'HTML' };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
+    var r = await fetch('https://api.telegram.org/bot' + creds.token + '/sendMessage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' })
+      body: JSON.stringify(payload)
     });
     var j = await r.json();
     if (!r.ok || !j.ok) return { ok: false, error: j.description || ('HTTP ' + r.status) };
@@ -917,6 +1329,39 @@ async function sendTelegram(text) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+function applyOrderStatusUpdate(d, orderId, status, actor) {
+  var logOrd = d.ordersLog.find(function (o) { return o.id === orderId; });
+  if (!logOrd) return { ok: false, error: 'ORDER_NOT_FOUND' };
+  var prevStatus = logOrd.status || 'Pending';
+  logOrd.status = status;
+  var owner = d.users[String(logOrd.userIdentifier || '').toLowerCase()];
+  if (owner) {
+    var uOrd = (owner.orders || []).find(function (o) { return o.id === orderId; });
+    if (uOrd) uOrd.status = status;
+  }
+  logActivity(d, 'Order ' + status, 'Order ' + logOrd.id + ' (' + prevStatus + ' → ' + status + ')', status === 'Rejected' ? 'warning' : 'success', actor || 'Admin');
+  saveDb(d);
+  return { ok: true, order: logOrd };
+}
+
+function applyDepositActionUpdate(d, depositId, action, actor) {
+  var dep = d.walletDeposits.find(function (x) { return x.id === depositId; });
+  if (!dep) return { ok: false, error: 'DEPOSIT_NOT_FOUND' };
+  if (dep.status !== 'Pending') return { ok: false, error: 'ALREADY_PROCESSED', deposit: dep };
+  dep.status = action;
+  var owner = d.users[String(dep.userIdentifier || '').toLowerCase()];
+  if (owner) {
+    if (action === 'Approved') {
+      owner.walletBalanceBdt = (owner.walletBalanceBdt || 0) + dep.amountBdt;
+    }
+    var rItem = (owner.walletRequests || []).find(function (r) { return r.id === depositId; });
+    if (rItem) rItem.status = action;
+  }
+  logActivity(d, 'Wallet ' + action, 'Deposit ' + dep.id + ' (৳' + dep.amountBdt + ' · TrxID ' + dep.trxId + ') ' + action, action === 'Rejected' ? 'warning' : 'success', actor || 'Admin');
+  saveDb(d);
+  return { ok: true, deposit: dep };
 }
 
 function adminKey() {
@@ -1050,7 +1495,8 @@ app.post('/api/wallet/deposit', async function (req, res) {
         '💰 Amount: <b>৳' + dep.amountBdt + '</b> (' + dep.method + ')\n' +
         '📱 Sender: <code>' + dep.senderNumber + '</code>\n' +
         '🧾 TrxID: <code>' + dep.trxId + '</code>' + (cleanProof ? '\n📸 Screenshot Proof Attached' : '') + '\n' +
-        '⏳ Status: Pending Admin Approval')
+        '⏳ Status: Pending Admin Approval'),
+    exactSmsMatch ? undefined : depositInlineMarkup(dep.id)
   );
   res.json(Object.assign({ autoApproved: exactSmsMatch, deposit: dep }, serializeUser(u)));
 });
@@ -1386,6 +1832,7 @@ app.post('/api/orders', async function (req, res) {
 
   var ord = {
     id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    packageId: (matchedPkg && matchedPkg.id) || b.packageId || undefined,
     userIdentifier: u.identifier,
     userName: u.name,
     gameName: b.gameName || 'Top-Up',
@@ -1449,25 +1896,39 @@ app.post('/api/orders', async function (req, res) {
   db.ordersLog = db.ordersLog.slice(0, 100);
   saveDb(db);
 
-  var tg = await sendTelegram(
-    '💎 <b>New Crazy_top_up (24) Order!</b>' + (exactOrderSmsMatch ? ' 🤖 <b>[SMS Verified]</b>' : '') + '\n' +
-    '🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n' +
-    '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
-    '🎮 Game: ' + ord.gameName + '\n' +
-    '📦 Package: ' + ord.packageLabel + '\n' +
-    '🎯 UID: <code>' + ord.playerUid + '</code>\n' +
-    '💰 Base: ৳' + ord.originalPrice + '\n' +
-    (codeUsed ? '🎟 Spin Offer: <code>' + codeUsed + '</code>\n' : '') +
-    (promoCodeUsed ? '🏷 Promo Code: <code>' + promoCodeUsed + '</code> (-৳' + promoSaved + ')\n' : '') +
-    (vipSaved > 0 ? '👑 VIP Discount: -৳' + vipSaved + '\n' : '') +
-    '📉 Total Saved: -৳' + ord.discountSaved + '\n' +
-    '✅ <b>Payable: ৳' + ord.finalPrice + '</b>\n' +
-    '💳 Payment: ' + ord.paymentMethod +
-    (ord.trxId ? '\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>' : '') +
-    (cashbackEarned > 0 ? '\n💸 Wallet Cashback: +৳' + cashbackEarned : '')
-  );
+  var autoDelivered = false;
+  var autoErr = '';
+  if (ord.status === 'Processing') {
+    var autoRes = await tryAutoDeliverOrder(db, ord, 'Order Auto-Delivery');
+    autoDelivered = Boolean(autoRes.delivered);
+    autoErr = autoRes.error || '';
+  }
 
-  res.json(Object.assign({ order: ord, referralRewarded: refRewarded, telegramSent: tg.ok }, serializeUser(u)));
+  var tgOk = true;
+  if (!autoDelivered) {
+    var tg = await sendTelegram(
+      '💎 <b>New Crazy_top_up (24) Order!</b>' + (exactOrderSmsMatch ? ' 🤖 <b>[SMS Verified]</b>' : '') + '\n' +
+      '🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n' +
+      '👤 User: ' + u.name + ' (' + u.identifier + ')\n' +
+      '🎮 Game: ' + ord.gameName + '\n' +
+      '📦 Package: ' + ord.packageLabel + '\n' +
+      '🎯 UID: <code>' + ord.playerUid + '</code>\n' +
+      '💰 Base: ৳' + ord.originalPrice + '\n' +
+      (codeUsed ? '🎟 Spin Offer: <code>' + codeUsed + '</code>\n' : '') +
+      (promoCodeUsed ? '🏷 Promo Code: <code>' + promoCodeUsed + '</code> (-৳' + promoSaved + ')\n' : '') +
+      (vipSaved > 0 ? '👑 VIP Discount: -৳' + vipSaved + '\n' : '') +
+      '📉 Total Saved: -৳' + ord.discountSaved + '\n' +
+      '✅ <b>Payable: ৳' + ord.finalPrice + '</b>\n' +
+      '💳 Payment: ' + ord.paymentMethod +
+      (ord.trxId ? '\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>' : '') +
+      (cashbackEarned > 0 ? '\n💸 Wallet Cashback: +৳' + cashbackEarned : '') +
+      ((autoErr && ord.autoDeliveryStatus === 'Failed') ? '\n⚠️ Auto-Delivery: ' + autoErr : ''),
+      orderInlineMarkup(ord.id)
+    );
+    tgOk = tg.ok;
+  }
+
+  res.json(Object.assign({ order: ord, referralRewarded: refRewarded, telegramSent: tgOk }, serializeUser(u)));
 });
 
 app.post('/api/sms-webhook', async function (req, res) {
@@ -1629,6 +2090,7 @@ async function verifyAndFulfillUddoktaIntent(txRef, invoiceId, actor) {
 
   var ord = {
     id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+    packageId: draft.packageId,
     userIdentifier: u.identifier,
     userName: u.name,
     gameName: draft.gameName,
@@ -1686,9 +2148,14 @@ async function verifyAndFulfillUddoktaIntent(txRef, invoiceId, actor) {
   logActivity(db, 'UddoktaPay Auto-Verified', 'Order ' + ord.id + ' · ৳' + ord.finalPrice + ' (' + gatewayMethod + ', TrxID: ' + trxClean + ') verified automatically for ' + u.name, 'success', actor);
   saveDb(db);
 
-  await sendTelegram(
-    '⚡ <b>UddoktaPay Instant Verified Order!</b>\n🆔 Order: <code>' + ord.id + '</code> (Processing)\n👤 User: ' + u.name + ' (' + u.identifier + ')\n🎮 Game: ' + ord.gameName + '\n📦 Package: ' + ord.packageLabel + '\n🎯 UID: <code>' + ord.playerUid + '</code>\n✅ <b>Paid: ৳' + ord.finalPrice + '</b> (' + gatewayMethod + ')\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>'
-  );
+  var autoRes = await tryAutoDeliverOrder(db, ord, 'UddoktaPay + Auto-Delivery');
+  if (!autoRes.delivered) {
+    await sendTelegram(
+      '⚡ <b>UddoktaPay Instant Verified Order!</b>\n🆔 Order: <code>' + ord.id + '</code> (' + ord.status + ')\n👤 User: ' + u.name + ' (' + u.identifier + ')\n🎮 Game: ' + ord.gameName + '\n📦 Package: ' + ord.packageLabel + '\n🎯 UID: <code>' + ord.playerUid + '</code>\n✅ <b>Paid: ৳' + ord.finalPrice + '</b> (' + gatewayMethod + ')\n📱 Sender: <code>' + ord.senderNumber + '</code> | TrxID: <code>' + ord.trxId + '</code>' +
+      ((autoRes.error && ord.autoDeliveryStatus === 'Failed') ? ('\n⚠️ Auto-Delivery: ' + autoRes.error) : ''),
+      orderInlineMarkup(ord.id)
+    );
+  }
 
   return { ok: true, intent: intent, order: ord };
 }
@@ -1977,18 +2444,9 @@ app.get('/api/admin/dashboard', function (req, res) {
       ordersCount: u.orders.length
     };
   });
-  var udpCreds = getUddoktaCredentials(db);
   res.json({
-    config: Object.assign({}, db.config, {
-      smsWebhookSecret: getSmsWebhookSecret(db),
-      smsSecretFromEnv: Boolean(String(process.env.SMS_WEBHOOK_SECRET || '').trim().length >= 8),
-      uddoktapay: {
-        enabled: udpCreds.enabled,
-        baseUrl: udpCreds.baseUrl,
-        hasApiKey: Boolean(udpCreds.apiKey),
-        envManaged: udpCreds.envManaged
-      }
-    }),
+    config: buildSafeAdminConfig(db),
+    unipinVault: sanitizeVaultForAdmin(db),
     regularWedges: REGULAR_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.regularWeights[w.id] != null ? db.config.regularWeights[w.id] : w.weight }; }),
     goldenWedges: GOLDEN_WEDGES.map(function (w) { return { id: w.id, title: w.title, line1: w.line1, weight: db.config.goldenWeights[w.id] != null ? db.config.goldenWeights[w.id] : w.weight }; }),
     stats: {
@@ -2000,7 +2458,8 @@ app.get('/api/admin/dashboard', function (req, res) {
       blockedDuplicates: db.duplicateTrxBlockedCount || 0,
       smsReceivedCount: (db.smsPayments || []).length,
       smsMatchedCount: (db.smsPayments || []).filter(function (s) { return s.status === 'Matched'; }).length,
-      uddoktapayCompletedCount: (db.uddoktaPayments || []).filter(function (p) { return p.status === 'Completed'; }).length
+      uddoktapayCompletedCount: (db.uddoktaPayments || []).filter(function (p) { return p.status === 'Completed'; }).length,
+      ucbotAutoDeliveredCount: db.ordersLog.filter(function (o) { return o.autoDeliveryStatus === 'Delivered'; }).length
     },
     users: usersList,
     spinsLog: db.spinsLog.slice(0, 40),
@@ -2146,20 +2605,53 @@ app.post('/api/admin/config', function (req, res) {
       apiKey: nextKey
     };
   }
-  logActivity(db, 'Config Updated', 'Admin updated store settings / gateway / branding / banners / notice / catalog', 'info', 'Admin');
+  if (b.ucbot && typeof b.ucbot === 'object') {
+    var curUc = db.config.ucbot || {
+      enabled: false,
+      explicitlyDisabled: false,
+      apiToken: '',
+      shellCode: 'shell',
+      shellUsername: '',
+      shellPassword: '',
+      shellAutocode: '',
+      packageRules: {}
+    };
+    var ucIn = b.ucbot;
+    var ucEnabled = typeof ucIn.enabled === 'boolean' ? ucIn.enabled : curUc.enabled;
+    var nextTok = (typeof ucIn.apiToken === 'string' && ucIn.apiToken.trim().length >= 8) ? ucIn.apiToken.trim().slice(0, 128) : curUc.apiToken;
+    var nextPass = (typeof ucIn.shellPassword === 'string' && ucIn.shellPassword.length >= 1) ? ucIn.shellPassword.slice(0, 200) : curUc.shellPassword;
+    var nextAuto = (typeof ucIn.shellAutocode === 'string' && ucIn.shellAutocode.trim().length >= 4) ? ucIn.shellAutocode.trim().slice(0, 128) : curUc.shellAutocode;
+    var cleanRules = {};
+    if (ucIn.packageRules && typeof ucIn.packageRules === 'object') {
+      Object.keys(ucIn.packageRules).forEach(function (k) {
+        var rawR = ucIn.packageRules[k];
+        if (!rawR || typeof rawR !== 'object') return;
+        var mode = (rawR.mode === 'unipin' || rawR.mode === 'shell') ? rawR.mode : 'manual';
+        if (mode === 'manual') return;
+        cleanRules[String(k).slice(0, 60)] = {
+          mode: mode,
+          unipinCount: mode === 'unipin' ? Math.max(1, Math.min(5, Math.round(Number(rawR.unipinCount) || 1))) : undefined,
+          shellPackage: mode === 'shell' ? String(rawR.shellPackage || 'LITE').trim().slice(0, 40) : undefined
+        };
+      });
+    }
+    db.config.ucbot = {
+      enabled: ucEnabled,
+      explicitlyDisabled: !ucEnabled,
+      apiToken: nextTok,
+      shellCode: ucIn.shellCode === 'sgshell' ? 'sgshell' : 'shell',
+      shellUsername: typeof ucIn.shellUsername === 'string' ? ucIn.shellUsername.trim().slice(0, 80) : curUc.shellUsername,
+      shellPassword: nextPass,
+      shellAutocode: nextAuto,
+      packageRules: (ucIn.packageRules && typeof ucIn.packageRules === 'object') ? cleanRules : curUc.packageRules
+    };
+  }
+  logActivity(db, 'Config Updated', 'Admin updated store settings / gateway / auto-delivery / branding / banners / notice / catalog', 'info', 'Admin');
   saveDb(db);
-  var savedUdp = getUddoktaCredentials(db);
   res.json({
     ok: true,
-    config: Object.assign({}, db.config, {
-      smsWebhookSecret: getSmsWebhookSecret(db),
-      uddoktapay: {
-        enabled: savedUdp.enabled,
-        baseUrl: savedUdp.baseUrl,
-        hasApiKey: Boolean(savedUdp.apiKey),
-        envManaged: savedUdp.envManaged
-      }
-    })
+    config: buildSafeAdminConfig(db),
+    unipinVault: sanitizeVaultForAdmin(db)
   });
 });
 
@@ -2200,17 +2692,92 @@ app.post('/api/admin/orders/status', function (req, res) {
   var b = req.body || {};
   var allowed = ['Pending', 'Processing', 'Completed', 'Rejected'];
   if (!b.orderId || allowed.indexOf(b.status) === -1) return res.status(400).json({ error: 'INVALID_STATUS' });
+  var r = applyOrderStatusUpdate(db, b.orderId, b.status, 'Admin');
+  if (!r.ok) return res.status(404).json({ error: r.error });
+  res.json({ ok: true, order: r.order });
+});
+
+app.post('/api/admin/orders/auto-deliver', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
   var logOrd = db.ordersLog.find(function (o) { return o.id === b.orderId; });
   if (!logOrd) return res.status(404).json({ error: 'ORDER_NOT_FOUND' });
-  logOrd.status = b.status;
-  var owner = db.users[logOrd.userIdentifier];
-  if (owner) {
-    var uOrd = owner.orders.find(function (o) { return o.id === b.orderId; });
-    if (uOrd) uOrd.status = b.status;
+  if (logOrd.status === 'Rejected' || logOrd.status === 'Completed') {
+    return res.status(400).json({ error: 'Order is already ' + logOrd.status });
   }
-  logActivity(db, 'Order ' + b.status, 'Order ' + logOrd.id + ' (' + logOrd.gameName + ') marked ' + b.status, b.status === 'Rejected' ? 'warning' : 'success', 'Admin');
+  if (logOrd.autoDeliveryStatus === 'Failed') {
+    logOrd.autoDeliveryStatus = 'Pending';
+  }
+  var resAuto = await tryAutoDeliverOrder(db, logOrd, 'Admin Retry');
+  if (!resAuto.attempted) {
+    return res.status(400).json({ ok: false, error: resAuto.error || 'Auto-delivery rule or token not configured.' });
+  }
+  res.json({ ok: resAuto.delivered, order: logOrd, error: resAuto.error });
+});
+
+app.post('/api/admin/ucbot/status', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var creds = getUcbotCredentials(db);
+  if (!creds.apiToken) return res.status(400).json({ ok: false, error: 'Please paste & save your UcBot UUID API Token first.' });
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 12000);
+  try {
+    var resp = await fetch(UCBOT_API_BASE + '/status/' + encodeURIComponent(creds.apiToken), {
+      signal: ctrl ? ctrl.signal : undefined,
+      headers: { Accept: 'application/json' }
+    });
+    var data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || data.status !== 'success' || !data.data) {
+      return res.status(400).json({ ok: false, error: data.error || data.message || ('UcBot returned HTTP ' + resp.status) });
+    }
+    res.json({ ok: true, statusData: data.data });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: (err && err.message) ? err.message : 'Failed to reach ffapi.ucbot.net' });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+app.post('/api/admin/ucbot/vault/add', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  var cleanPkgId = String(b.packageId || '').trim();
+  if (!cleanPkgId) return res.status(400).json({ error: 'Please select a package.' });
+  var lines = String(b.codesText || '').split(/[\r\n,]+/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length >= 8 && s.length <= 80; });
+  if (!lines.length) return res.status(400).json({ error: 'Paste at least 1 valid UniPin code (BDMB-... / UPBD-...).' });
+  if (!Array.isArray(db.unipinVault)) db.unipinVault = [];
+  var existingSet = {};
+  db.unipinVault.forEach(function (v) { existingSet[v.code] = true; });
+  var added = 0;
+  var skipped = 0;
+  lines.forEach(function (c) {
+    if (existingSet[c]) { skipped += 1; return; }
+    existingSet[c] = true;
+    db.unipinVault.unshift({
+      id: 'UP-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase(),
+      packageId: cleanPkgId,
+      code: c,
+      status: 'Unused',
+      addedAt: getTodayBD() + ' ' + formatTimeBD()
+    });
+    added += 1;
+  });
+  db.unipinVault = db.unipinVault.slice(0, 800);
+  logActivity(db, 'UniPin Stock Added', 'Added ' + added + ' UniPin code(s) for package ' + cleanPkgId + (skipped ? (' (' + skipped + ' duplicates skipped)') : ''), 'info', 'Admin');
   saveDb(db);
-  res.json({ ok: true, order: logOrd });
+  res.json({ ok: true, added: added, skipped: skipped, unipinVault: sanitizeVaultForAdmin(db) });
+});
+
+app.post('/api/admin/ucbot/vault/delete', function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var b = req.body || {};
+  if (!Array.isArray(db.unipinVault)) db.unipinVault = [];
+  var idx = db.unipinVault.findIndex(function (v) { return v.id === b.id; });
+  if (idx < 0) return res.status(404).json({ error: 'CODE_NOT_FOUND' });
+  if (db.unipinVault[idx].status === 'InProgress') return res.status(400).json({ error: 'Code is currently in progress.' });
+  db.unipinVault.splice(idx, 1);
+  saveDb(db);
+  res.json({ ok: true, unipinVault: sanitizeVaultForAdmin(db) });
 });
 
 app.post('/api/admin/wallet/action', function (req, res) {
@@ -2219,21 +2786,9 @@ app.post('/api/admin/wallet/action', function (req, res) {
   if (!b.depositId || (b.action !== 'Approved' && b.action !== 'Rejected')) {
     return res.status(400).json({ error: 'INVALID_ACTION' });
   }
-  var dep = db.walletDeposits.find(function (d) { return d.id === b.depositId; });
-  if (!dep) return res.status(404).json({ error: 'DEPOSIT_NOT_FOUND' });
-  if (dep.status !== 'Pending') return res.status(400).json({ error: 'ALREADY_PROCESSED' });
-  dep.status = b.action;
-  var owner = db.users[dep.userIdentifier];
-  if (owner) {
-    if (b.action === 'Approved') {
-      owner.walletBalanceBdt = (owner.walletBalanceBdt || 0) + dep.amountBdt;
-    }
-    var rItem = (owner.walletRequests || []).find(function (r) { return r.id === b.depositId; });
-    if (rItem) rItem.status = b.action;
-  }
-  logActivity(db, 'Wallet ' + b.action, 'Deposit ' + dep.id + ' (৳' + dep.amountBdt + ' · TrxID ' + dep.trxId + ') ' + b.action, b.action === 'Rejected' ? 'warning' : 'success', 'Admin');
-  saveDb(db);
-  res.json({ ok: true, deposit: dep });
+  var r = applyDepositActionUpdate(db, b.depositId, b.action, 'Admin');
+  if (!r.ok) return res.status(r.error === 'DEPOSIT_NOT_FOUND' ? 404 : 400).json({ error: r.error });
+  res.json({ ok: true, deposit: r.deposit });
 });
 
 app.post('/api/admin/orders/reply', function (req, res) {
@@ -2278,6 +2833,98 @@ app.post('/api/admin/telegram/test', async function (req, res) {
   if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
   var r = await sendTelegram('✅ <b>Crazy_top_up (24) Test Alert</b>\nTelegram Order & Wallet Notification সঠিকভাবে কাজ করছে!');
   if (!r.ok) return res.status(400).json(r);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/telegram/register-webhook', async function (req, res) {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  var creds = getTelegramCreds(db);
+  if (!creds.token || !creds.chatId) {
+    return res.status(400).json({ ok: false, error: 'Please save Telegram Bot Token & Chat ID first.' });
+  }
+  if (!db.config.telegramWebhookSecret || db.config.telegramWebhookSecret.length < 16) {
+    db.config.telegramWebhookSecret = crypto.randomBytes(16).toString('hex');
+    saveDb(db);
+  }
+  var origin = getSafeRequestOrigin(req);
+  var webhookUrl = origin + '/api/telegram/webhook';
+  if (webhookUrl.indexOf('https://') !== 0) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Telegram requires an HTTPS public URL for 1-Tap buttons (current origin: ' + origin + '). Deploy to HTTPS / set APP_URL first.'
+    });
+  }
+  try {
+    var resp = await fetch('https://api.telegram.org/bot' + creds.token + '/setWebhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: webhookUrl,
+        secret_token: db.config.telegramWebhookSecret,
+        allowed_updates: ['callback_query']
+      })
+    });
+    var data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || !data.ok) {
+      return res.status(400).json({ ok: false, error: data.description || ('HTTP ' + resp.status) });
+    }
+    logActivity(db, 'Telegram 1-Tap Enabled', 'Registered Telegram webhook on ' + webhookUrl, 'success', 'Admin');
+    saveDb(db);
+    res.json({ ok: true, webhookUrl: webhookUrl });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: (err && err.message) ? err.message : 'Telegram setWebhook failed' });
+  }
+});
+
+app.post('/api/telegram/webhook', async function (req, res) {
+  var expectedSec = String(db.config.telegramWebhookSecret || '').trim();
+  var hdrSec = String((req.headers && req.headers['x-telegram-bot-api-secret-token']) || '').trim();
+  if (!expectedSec || !timingSafeEqualsStr(hdrSec, expectedSec)) {
+    return res.status(401).json({ ok: false });
+  }
+  var creds = getTelegramCreds(db);
+  var body = req.body || {};
+  var cb = body.callback_query;
+  if (!cb || !cb.id || !cb.data) return res.json({ ok: true });
+  var incomingChatId = String((cb.message && cb.message.chat && cb.message.chat.id) != null ? cb.message.chat.id : '');
+  if (!creds.chatId || incomingChatId !== creds.chatId) return res.json({ ok: true });
+
+  var parts = String(cb.data).split(':');
+  var actor = (cb.from && cb.from.username) ? ('@' + cb.from.username) : ((cb.from && cb.from.first_name) || 'Telegram Admin');
+  var toastText = 'Action noted';
+
+  if (parts[0] === 'ord' && parts[2]) {
+    var nextStatus = parts[1] === 'complete' ? 'Completed' : (parts[1] === 'reject' ? 'Rejected' : null);
+    if (nextStatus) {
+      var rOrd = applyOrderStatusUpdate(db, parts[2], nextStatus, 'Telegram (' + actor + ')');
+      toastText = rOrd.ok ? ('Order ' + parts[2] + ' → ' + nextStatus) : ('Order error: ' + rOrd.error);
+    }
+  } else if (parts[0] === 'dep' && parts[2]) {
+    var nextAct = parts[1] === 'approve' ? 'Approved' : (parts[1] === 'reject' ? 'Rejected' : null);
+    if (nextAct) {
+      var rDep = applyDepositActionUpdate(db, parts[2], nextAct, 'Telegram (' + actor + ')');
+      toastText = rDep.ok ? ('Deposit ' + parts[2] + ' → ' + nextAct) : ('Deposit: ' + rDep.error);
+    }
+  }
+
+  if (creds.token) {
+    await fetch('https://api.telegram.org/bot' + creds.token + '/answerCallbackQuery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cb.id, text: toastText })
+    }).catch(function () {});
+    if (cb.message && cb.message.message_id) {
+      await fetch('https://api.telegram.org/bot' + creds.token + '/editMessageReplyMarkup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: incomingChatId,
+          message_id: cb.message.message_id,
+          reply_markup: { inline_keyboard: [] }
+        })
+      }).catch(function () {});
+    }
+  }
   res.json({ ok: true });
 });
 
