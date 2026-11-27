@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crazy_Top_Up (24) — Digital Solutions</title>
+  <meta name="description" content="Custom topup platforms, e-commerce stores, tournament websites, automation bots, and business software engineered for scale and security." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #050811;
+      color: #f1f5f9;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .animate-modal-in {
+      animation: modalIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .reveal-block {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 650ms cubic-bezier(0.22, 1, 0.36, 1), transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform;
+    }
+    .reveal-block.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal-block {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+    }
+    .tech-card {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .tech-card .tech-glow {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 35%, rgba(45, 212, 191, 0.18), transparent 70%);
+      transition: opacity 0.3s ease;
+    }
+    .tech-card .tech-icon-box {
+      transition: transform 0.3s ease;
+    }
+    .tech-card.is-highlighted {
+      background-color: #0E1B30 !important;
+      border-color: rgba(45, 212, 191, 0.75) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(20, 184, 166, 0.15);
+    }
+    .tech-card.is-highlighted .tech-glow {
+      opacity: 0.75;
+    }
+    .tech-card.is-highlighted .tech-icon-box {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body class="bg-[#050811] text-slate-100 selection:bg-cyan-400/25 selection:text-cyan-200 animate-modal-in">
+  <!-- Subtle ambient radial light -->
+  <div
+    class="pointer-events-none fixed inset-x-0 top-0 h-[420px] opacity-60"
+    style="background: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(20, 184, 166, 0.16), rgba(37, 99, 235, 0.08) 55%, transparent 80%);"
+  ></div>
+
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-30 border-b border-slate-800/70 bg-[#050811]/90 backdrop-blur-md">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <a href="#brand-hero" class="flex items-center gap-3 shrink-0">
+        <div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 to-blue-500 shadow-lg shadow-cyan-500/20">
+          <img
+            id="brandLogoHeader"
+            src="/Main logo.jpg"
+            alt="Crazy_Top_Up (24)"
+            onerror="this.src='/Main logo.jpg'"
+            class="w-full h-full rounded-full object-cover bg-[#050811]"
+          />
+        </div>
+        <div class="leading-none">
+          <div class="text-base sm:text-lg font-black tracking-tight text-white">
+            <span id="brandTitleFirst">Crazy_Top_Up</span>
+            <span id="brandTitleRest" class="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">(24)</span>
+          </div>
+          <div class="mt-1 flex items-center gap-1.5 text-[9px] font-bold tracking-[0.26em] uppercase text-slate-400">
+            <span class="w-3 h-px bg-slate-600"></span>
+            <span>DIGITAL SOLUTIONS</span>
+            <span class="w-3 h-px bg-slate-600"></span>
+          </div>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#brand-services" class="hover:text-white transition-colors whitespace-nowrap shrink-0">Services</a>
+        <a href="#brand-portfolio" class="hover:text-white transition-colors whitespace-nowrap shrink-0">Portfolio</a>
+        <a href="#brand-tech" class="hover:text-white transition-colors whitespace-nowrap shrink-0">Tech Stack</a>
+        <a href="#brand-plans" class="hover:text-white transition-colors whitespace-nowrap shrink-0">Packages</a>
+      </nav>
+
+      <a
+        href="FFX.html"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white transition-colors whitespace-nowrap shrink-0"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        <span>Back to Store</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pb-20 space-y-16 sm:space-y-24">
+    <!-- 1. Hero Section + Animated 0 -> 100% Circular Ring Gauge -->
+    <section id="brand-hero" class="pt-8 sm:pt-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+      <div class="lg:col-span-7 space-y-5">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-teal-500/35 bg-[#091820] text-xs font-semibold text-teal-300">
+          <svg class="w-3.5 h-3.5 text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          <span>Full-Stack Development Agency</span>
+        </div>
+
+        <h1 class="font-extrabold tracking-tight text-white leading-[1.08]" style="font-size: clamp(2.25rem, 5vw, 3.6rem); text-wrap: balance;">
+          Build
+          <span class="bg-gradient-to-r from-teal-300 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            enterprise-grade
+          </span>
+          web solutions
+        </h1>
+
+        <p class="text-slate-300 text-base leading-relaxed max-w-xl">
+          Custom topup platforms, e-commerce stores, tournament websites, automation bots, and business software engineered for scale and security.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <a
+            id="heroTgBtn"
+            href="https://t.me/crazy_top_up_24"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center justify-center gap-2.5 px-5 py-3 min-h-[44px] rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:brightness-110 active:scale-[0.98] text-white text-sm font-bold shadow-lg shadow-blue-600/25 transition-all whitespace-nowrap shrink-0"
+          >
+            <span class="w-5 h-5 rounded-full bg-white text-sky-600 flex items-center justify-center shrink-0">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M21.5 3.2 2.7 10.6c-1 .4-1 1.2-.2 1.4l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.2-.5-1.8-1.2-1.5zM8.4 13l9.2-5.8c.4-.3.8-.1.5.2l-7.6 6.9-.3 3.2z"/>
+              </svg>
+            </span>
+            <span id="heroTgHandle">@crazy_top_up_24</span>
+          </a>
+
+          <a
+            href="#brand-portfolio"
+            class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl border border-slate-700/90 bg-[#0B1220] hover:bg-slate-800 active:scale-[0.98] text-slate-100 text-sm font-bold transition-all whitespace-nowrap shrink-0"
+          >
+            <svg class="w-4 h-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>View Our Work</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Ring Gauge Card -->
+      <div class="lg:col-span-5">
+        <div class="rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 sm:p-7 text-center space-y-5 shadow-xl shadow-black/40">
+          <div class="relative mx-auto w-36 h-36 flex items-center justify-center">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <linearGradient id="brandRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#2dd4bf" />
+                  <stop offset="100%" stop-color="#3b82f6" />
+                </linearGradient>
+              </defs>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#162032" stroke-width="7.5" />
+              <circle
+                id="gaugeRingCircle"
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="url(#brandRingGrad)"
+                stroke-width="7.5"
+                stroke-linecap="round"
+                stroke-dasharray="326.7"
+                stroke-dashoffset="326.7"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="gaugeValue" class="text-4xl font-black text-white font-mono-num leading-none">0</span>
+              <span class="text-[11px] font-bold text-teal-400 mt-1">%</span>
+            </div>
+          </div>
+
+          <div class="space-y-3 min-h-[110px] flex flex-col justify-between">
+            <div class="flex items-center justify-center gap-1.5 text-teal-400">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <div id="reviewSlide" class="space-y-1.5">
+              <p id="reviewQuote" class="text-sm italic font-medium text-slate-200 leading-relaxed">
+                "Flawless execution, delivered ahead of schedule. Our topup platform runs like clockwork."
+              </p>
+              <div id="reviewAuthor" class="text-xs text-slate-400">— GameSwift</div>
+            </div>
+            <div id="reviewDots" class="flex items-center justify-center gap-1.5 pt-1">
+              <button type="button" data-review-idx="0" aria-label="Show review 1" class="h-1.5 w-5 rounded-full bg-cyan-400 transition-all duration-300 cursor-pointer"></button>
+              <button type="button" data-review-idx="1" aria-label="Show review 2" class="h-1.5 w-1.5 rounded-full bg-slate-700 hover:bg-slate-500 transition-all duration-300 cursor-pointer"></button>
+              <button type="button" data-review-idx="2" aria-label="Show review 3" class="h-1.5 w-1.5 rounded-full bg-slate-700 hover:bg-slate-500 transition-all duration-300 cursor-pointer"></button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-800/80">
+            <div>
+              <div class="text-lg sm:text-xl font-black text-cyan-300 font-mono-num">800+</div>
+              <div class="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-0.5">Projects</div>
+            </div>
+            <div>
+              <div class="text-lg sm:text-xl font-black text-cyan-300 font-mono-num">24/7</div>
+              <div class="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-0.5">Support</div>
+            </div>
+            <div>
+              <div id="statSatisfaction" class="text-lg sm:text-xl font-black text-cyan-300 font-mono-num">0%</div>
+              <div class="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-0.5">Satisfaction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Core Competencies -->
+    <section id="brand-services" class="space-y-8 scroll-mt-20">
+      <div class="reveal-block text-center max-w-2xl mx-auto space-y-2.5">
+        <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">Core Competencies</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight" style="text-wrap: balance;">
+          Engineering solutions that drive business outcomes
+        </h2>
+        <p class="text-sm text-slate-400">
+          Specialized in topup, e-commerce, tournament platforms, bots, and custom software.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="reveal-block" style="transition-delay: 0ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">Topup Website</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Complete game topup ecosystem with wallet, reseller panel, and auto/manual order processing.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Multi-game support</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Reseller tiers</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Auto delivery</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Balance system</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Game Topup</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Reseller Panel</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Auto Order</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 45ms;">
+          <div class="h-full rounded-2xl border border-teal-500/45 shadow-lg shadow-teal-500/5 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <div class="flex items-center justify-between gap-2">
+              <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-950/80 border border-teal-500/40 text-[11px] font-bold text-teal-300">🔥 Popular</span>
+            </div>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">FF Auto Order Bot</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Fully automated Free Fire order processing bot. Instant delivery, payment verification, and customer notifications.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> 24/7 automation</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Payment gateway integration</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Order queue</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Live status tracking</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Telegram Bot</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Discord Bot</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Auto Delivery</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 90ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">E-commerce Platform</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Full-featured online store with inventory, coupons, order tracking, and customer dashboard.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Product catalog</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Cart &amp; checkout</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Payment gateway</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Analytics dashboard</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Storefront</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Inventory</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Analytics</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 135ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">Tournament Website</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Esports tournament platforms with automated brackets, team registration, live scores, and prize distribution.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Bracket system</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Team management</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Live leaderboard</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Prize pool</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Brackets</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Live Scores</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Registration</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 180ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">Custom Business Software</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Tailored ERP, booking systems, CRM, and internal tools for your unique operations.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Custom workflows</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Role-based access</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Reporting</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> API integration</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">SaaS</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">ERP</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">CRM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 225ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 space-y-4 transition-all duration-200 hover:-translate-y-1 hover:border-teal-400/50">
+            <svg class="w-7 h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">Admin Dashboard</h3>
+              <p class="text-sm text-slate-400 mt-1.5 leading-relaxed">Powerful role-based control panel for users, orders, reporting, and real-time analytics.</p>
+            </div>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> User management</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Order overview</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> Revenue reports</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400 font-bold">✓</span> System health</li>
+            </ul>
+            <div class="pt-2 flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">RBAC</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Reports</span>
+              <span class="px-2.5 py-1 rounded-md border border-slate-800 bg-[#0E1628] text-[11px] font-semibold text-slate-300">Insights</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Client Success & Projects We've Delivered -->
+    <section id="brand-portfolio" class="space-y-6 scroll-mt-20">
+      <div class="reveal-block text-center max-w-2xl mx-auto space-y-2.5">
+        <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">Client Success</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white tracking-tight" style="text-wrap: balance;">Projects we've delivered</h2>
+        <p class="text-sm text-slate-400">
+          Real solutions for real businesses — featuring flagship platform
+          <span id="flagshipSubBrand" class="text-teal-300 font-semibold">Crazy_Top_Up (24)</span> and more.
+        </p>
+      </div>
+
+      <!-- Featured Client Card -->
+      <div class="reveal-block">
+        <div class="rounded-2xl border border-indigo-500/40 bg-gradient-to-br from-[#121226] via-[#0B111F] to-[#080D18] p-6 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center shadow-xl shadow-indigo-950/20">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+              </div>
+              <div>
+                <div class="text-[10px] font-extrabold uppercase tracking-widest text-teal-400">Featured Client</div>
+                <h3 id="featuredTitleBrand" class="text-xl sm:text-2xl font-black text-white uppercase">Crazy_Top_Up (24)</h3>
+              </div>
+            </div>
+
+            <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+              Complete game topup ecosystem handling <span class="text-teal-300 font-bold">50,000+ monthly transactions</span> with automated delivery and reseller management.
+            </p>
+
+            <div class="space-y-2">
+              <div class="inline-flex sm:flex items-center gap-2 px-3 py-1.5 mr-2 rounded-full border border-slate-700/70 bg-[#080E1B]/80 text-xs text-slate-200 w-fit"><span class="text-teal-400 font-bold">✓</span> 20+ games supported</div>
+              <div class="inline-flex sm:flex items-center gap-2 px-3 py-1.5 mr-2 rounded-full border border-slate-700/70 bg-[#080E1B]/80 text-xs text-slate-200 w-fit"><span class="text-teal-400 font-bold">✓</span> Reseller tiers: 3 levels</div>
+              <div class="inline-flex sm:flex items-center gap-2 px-3 py-1.5 mr-2 rounded-full border border-slate-700/70 bg-[#080E1B]/80 text-xs text-slate-200 w-fit"><span class="text-teal-400 font-bold">✓</span> 99.9% auto-delivery rate</div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-800/90">
+              <div>
+                <div class="text-xl sm:text-2xl font-black text-white font-mono-num">50k+</div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Monthly Orders</div>
+              </div>
+              <div>
+                <div class="text-xl sm:text-2xl font-black text-white font-mono-num">$1.2M+</div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Processed Volume</div>
+              </div>
+              <div>
+                <div class="text-xl sm:text-2xl font-black text-white font-mono-num">98%</div>
+                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Repeat Resellers</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 rounded-xl border border-slate-800 bg-[#090E1B]/95 p-5 space-y-3.5">
+            <div class="flex items-center gap-1 text-amber-400">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <p class="text-sm italic text-slate-200 leading-relaxed">
+              &ldquo;<span id="featuredQuoteBrand">Crazy_Top_Up (24)</span> built a topup platform that scales effortlessly. Automated delivery works like magic, and lifetime support is a lifesaver.&rdquo;
+            </p>
+            <div class="text-xs font-bold text-teal-300">— Founder of <span id="featuredAuthorBrand">Crazy_Top_Up (24)</span></div>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <span class="px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-950/60 text-[11px] font-semibold text-teal-300">Next.js</span>
+              <span class="px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-950/60 text-[11px] font-semibold text-teal-300">Laravel</span>
+              <span class="px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-950/60 text-[11px] font-semibold text-teal-300">Redis</span>
+              <span class="px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-950/60 text-[11px] font-semibold text-teal-300">Payment Gateway</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Portfolio Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="reveal-block" style="transition-delay: 0ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-5 transition-all duration-200 hover:-translate-y-1 hover:border-teal-500/45">
+            <div class="space-y-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="w-11 h-11 rounded-full border border-slate-700 bg-[#0E1628] flex items-center justify-center text-slate-200">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                </div>
+                <div class="flex flex-wrap justify-end gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Auto delivery</span>
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Reseller tiers</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10.5px] font-extrabold uppercase tracking-widest text-teal-400">TOPUP PLATFORM</div>
+                <h3 class="text-xl font-extrabold text-white mt-0.5">OP TOPUP</h3>
+              </div>
+              <p class="text-sm text-slate-400 leading-relaxed">Enterprise gaming commerce platform with instant delivery, reseller infrastructure, wallet system, and automation.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Nuxt.js</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">AdonisJS</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Laravel</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Tailwind CSS</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Redis</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Docker</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">MySQL</span>
+              </div>
+            </div>
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <div>
+                <div class="text-2xl font-black text-white font-mono-num">570+</div>
+                <div class="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">TOPUP SITES</div>
+              </div>
+              <button type="button" data-quote-plan="Professional" aria-label="Request OP TOPUP" class="w-9 h-9 rounded-full border border-slate-700 bg-slate-900 hover:bg-teal-400 hover:text-slate-950 hover:border-teal-400 flex items-center justify-center text-slate-300 transition-colors cursor-pointer">→</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 55ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-5 transition-all duration-200 hover:-translate-y-1 hover:border-teal-500/45">
+            <div class="space-y-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="w-11 h-11 rounded-full border border-slate-700 bg-[#0E1628] flex items-center justify-center text-slate-200">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                </div>
+                <div class="flex flex-wrap justify-end gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Live brackets</span>
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Team registration</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10.5px] font-extrabold uppercase tracking-widest text-teal-400">TOURNAMENT PLATFORM</div>
+                <h3 class="text-xl font-extrabold text-white mt-0.5">hhhesports</h3>
+              </div>
+              <p class="text-sm text-slate-400 leading-relaxed">Modern esports platform with automated brackets, registrations, live scoring, and prize distribution.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">React.js</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Node.js</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Tailwind CSS</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Socket.io</span>
+              </div>
+            </div>
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <div>
+                <div class="text-2xl font-black text-white font-mono-num">10+</div>
+                <div class="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">TOURNAMENT SITES</div>
+              </div>
+              <button type="button" data-quote-plan="Professional" aria-label="Request hhhesports" class="w-9 h-9 rounded-full border border-slate-700 bg-slate-900 hover:bg-teal-400 hover:text-slate-950 hover:border-teal-400 flex items-center justify-center text-slate-300 transition-colors cursor-pointer">→</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 110ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-5 transition-all duration-200 hover:-translate-y-1 hover:border-teal-500/45">
+            <div class="space-y-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="w-11 h-11 rounded-full border border-slate-700 bg-[#0E1628] flex items-center justify-center text-slate-200">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                </div>
+                <div class="flex flex-wrap justify-end gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Multi-vendor</span>
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Coupon engine</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10.5px] font-extrabold uppercase tracking-widest text-teal-400">E-COMMERCE</div>
+                <h3 class="text-xl font-extrabold text-white mt-0.5">Welfir</h3>
+              </div>
+              <p class="text-sm text-slate-400 leading-relaxed">Advanced multi-vendor commerce platform with analytics, promotions, inventory, and vendor management.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Next.js</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">MySQL</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Tailwind CSS</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Elasticsearch</span>
+              </div>
+            </div>
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <div>
+                <div class="text-2xl font-black text-white font-mono-num">20+</div>
+                <div class="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">E-COMMERCE STORES</div>
+              </div>
+              <button type="button" data-quote-plan="Professional" aria-label="Request Welfir" class="w-9 h-9 rounded-full border border-slate-700 bg-slate-900 hover:bg-teal-400 hover:text-slate-950 hover:border-teal-400 flex items-center justify-center text-slate-300 transition-colors cursor-pointer">→</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 165ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-5 transition-all duration-200 hover:-translate-y-1 hover:border-teal-500/45">
+            <div class="space-y-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="w-11 h-11 rounded-full border border-slate-700 bg-[#0E1628] flex items-center justify-center text-slate-200">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                </div>
+                <div class="flex flex-wrap justify-end gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Auto delivery</span>
+                  <span class="px-2.5 py-0.5 rounded-full border border-slate-700/80 bg-[#0E1628] text-[10.5px] font-medium text-slate-300">Multi-platform</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-[10.5px] font-extrabold uppercase tracking-widest text-teal-400">BOT AUTOMATION</div>
+                <h3 class="text-xl font-extrabold text-white mt-0.5">ai.itbazar.co</h3>
+              </div>
+              <p class="text-sm text-slate-400 leading-relaxed">AI-powered automation engine for instant order processing, payment verification, messaging, and multi-platform integrations.</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Python</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Telegram API</span>
+                <span class="px-2.5 py-1 rounded-full border border-slate-800 bg-[#070B14] text-[11px] text-slate-300">Celery</span>
+              </div>
+            </div>
+            <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <div>
+                <div class="text-2xl font-black text-white font-mono-num">All topup platforms</div>
+                <div class="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400">INTEGRATED</div>
+              </div>
+              <button type="button" data-quote-plan="Enterprise" aria-label="Request ai.itbazar.co" class="w-9 h-9 rounded-full border border-slate-700 bg-slate-900 hover:bg-teal-400 hover:text-slate-950 hover:border-teal-400 flex items-center justify-center text-slate-300 transition-colors cursor-pointer">→</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal-block text-center space-y-3 pt-1">
+        <p class="text-xs text-slate-400">⭐ Plus many more — <span class="text-teal-400">rrresports, riyanshop</span>, and others. Contact us for full portfolio.</p>
+        <button type="button" data-quote-plan="Full Portfolio Inquiry" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[42px] rounded-xl border border-slate-700 bg-[#0A101D] hover:border-teal-400/50 text-xs sm:text-sm font-bold text-sky-300 transition-colors cursor-pointer">
+          <span>Request full portfolio</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 4. Why Choose Us + Premium Future Add-ons -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div class="lg:col-span-7 space-y-3.5">
+        <div class="reveal-block text-center lg:text-left space-y-1.5 pb-2">
+          <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">Why Choose Us</div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Engineering excellence, delivered</h2>
+          <p class="text-xs sm:text-sm text-slate-400">We combine technical depth with business acumen to create software that actually works for your users and your team.</p>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 0ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <div><h3 class="text-sm font-bold text-white">Full-Stack Engineering</h3><p class="text-xs sm:text-sm text-slate-400 mt-0.5">End-to-end development using modern frameworks.</p></div>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 45ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+            <div><h3 class="text-sm font-bold text-white">Enterprise Security</h3><p class="text-xs sm:text-sm text-slate-400 mt-0.5">Encryption, secure auth, and compliance-ready.</p></div>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 90ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+            <div><h3 class="text-sm font-bold text-white">Cloud Infrastructure</h3><p class="text-xs sm:text-sm text-slate-400 mt-0.5">AWS, VPS, Docker, CI/CD with zero downtime.</p></div>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 135ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+            <div><h3 class="text-sm font-bold text-white">Analytics &amp; Reporting</h3><p class="text-xs sm:text-sm text-slate-400 mt-0.5">Custom dashboards with real-time metrics.</p></div>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 180ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="space-y-1">
+              <h3 class="text-sm font-bold text-white">Transparent Timeline</h3>
+              <p class="text-xs sm:text-sm text-slate-400">From day one — clear milestones and weekly updates.</p>
+              <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-blue-950/90 border border-blue-500/40 text-[10.5px] font-bold text-blue-300">From day one</span>
+            </div>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 225ms;">
+          <div class="rounded-xl border border-slate-800/90 bg-[#0A101D] p-4 flex items-start gap-3.5 hover:-translate-y-0.5 hover:border-teal-500/40 transition-all">
+            <svg class="w-5 h-5 text-teal-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <div class="space-y-1">
+              <h3 class="text-sm font-bold text-white">Free Basic Support</h3>
+              <p class="text-xs sm:text-sm text-slate-400">Lifetime basic support for all projects.</p>
+              <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-teal-950/90 border border-teal-500/40 text-[10.5px] font-bold text-teal-300">Lifetime included</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal-block lg:col-span-5" style="transition-delay: 100ms;">
+        <div class="rounded-2xl border border-amber-500/35 bg-gradient-to-b from-[#1A130B] to-[#110C07] p-6 space-y-4">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <svg class="w-6 h-6 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
+              <h3 class="text-lg font-extrabold text-white leading-tight">Premium Future Add-ons</h3>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-amber-950/90 border border-amber-500/40 text-[10.5px] font-bold text-amber-300 shrink-0">Upgrade anytime</span>
+          </div>
+
+          <p class="text-xs sm:text-sm text-slate-300">
+            Start with a core solution, then enhance with these modules.
+            <strong class="text-white">SEO and Analytics are now free!</strong>
+          </p>
+
+          <div class="space-y-3">
+            <div class="rounded-xl border border-slate-800/80 bg-[#0A0805]/80 p-3.5 space-y-1 hover:border-amber-500/40 transition-colors">
+              <div class="text-sm font-bold text-white">SEO Optimization</div>
+              <div class="text-xs text-slate-400">Rank higher on search engines — included</div>
+              <div class="text-[11px] font-bold text-amber-400 pt-0.5">Free</div>
+            </div>
+            <div class="rounded-xl border border-slate-800/80 bg-[#0A0805]/80 p-3.5 space-y-1 hover:border-amber-500/40 transition-colors">
+              <div class="text-sm font-bold text-white">Advanced Analytics</div>
+              <div class="text-xs text-slate-400">Custom dashboard + reports — included</div>
+              <div class="text-[11px] font-bold text-amber-400 pt-0.5">Free</div>
+            </div>
+            <div class="rounded-xl border border-slate-800/80 bg-[#0A0805]/80 p-3.5 space-y-1 hover:border-amber-500/40 transition-colors">
+              <div class="text-sm font-bold text-white">FF Auto Order Bot</div>
+              <div class="text-xs text-slate-400">24/7 automation for orders and payments</div>
+              <div class="text-[11px] font-bold text-amber-400 pt-0.5">Custom</div>
+            </div>
+            <div class="rounded-xl border border-slate-800/80 bg-[#0A0805]/80 p-3.5 space-y-1 hover:border-amber-500/40 transition-colors">
+              <div class="text-sm font-bold text-white">Custom Integrations</div>
+              <div class="text-xs text-slate-400">ERP, CRM, payment gateways</div>
+              <div class="text-[11px] font-bold text-amber-400 pt-0.5">Custom</div>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-1">
+            <button type="button" data-quote-plan="Premium Add-ons" class="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl border border-slate-700 bg-[#0E1422] hover:border-amber-400/50 text-white text-xs font-bold transition-colors cursor-pointer">
+              Ask about add-ons
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. How We Work -->
+    <section class="space-y-7">
+      <div class="reveal-block text-center max-w-2xl mx-auto space-y-2">
+        <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">How We Work</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">A transparent, agile process</h2>
+        <p class="text-sm text-slate-400">We keep you involved at every stage, delivering value incrementally.</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="reveal-block" style="transition-delay: 0ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 space-y-3 hover:-translate-y-1 hover:border-sky-500/45 transition-all">
+            <div class="w-10 h-10 rounded-xl bg-[#0F1B2E] border border-sky-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-white">Discovery</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Understand requirements, goals, and technical feasibility.</p>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 65ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 space-y-3 hover:-translate-y-1 hover:border-sky-500/45 transition-all">
+            <div class="w-10 h-10 rounded-xl bg-[#0F1B2E] border border-sky-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-white">Architecture</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Design scalable system and database schema.</p>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 130ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 space-y-3 hover:-translate-y-1 hover:border-sky-500/45 transition-all">
+            <div class="w-10 h-10 rounded-xl bg-[#0F1B2E] border border-sky-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-white">Development</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Agile sprints with regular demos and feedback.</p>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 195ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 space-y-3 hover:-translate-y-1 hover:border-sky-500/45 transition-all">
+            <div class="w-10 h-10 rounded-xl bg-[#0F1B2E] border border-sky-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-white">QA &amp; Security</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Automated testing, code review, and security audit.</p>
+          </div>
+        </div>
+        <div class="reveal-block" style="transition-delay: 260ms;">
+          <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 space-y-3 hover:-translate-y-1 hover:border-sky-500/45 transition-all">
+            <div class="w-10 h-10 rounded-xl bg-[#0F1B2E] border border-sky-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-white">Deployment</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">CI/CD to production with monitoring and support.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal-block flex flex-col items-center gap-3 text-center pt-1">
+        <div class="w-full max-w-2xl px-4 py-2.5 rounded-2xl border border-teal-500/35 bg-[#081920] text-xs sm:text-sm text-teal-200 flex items-center justify-center gap-2">
+          <span>⚡ After payment, website delivered within <strong class="text-white">24 hours</strong> (depending on complexity)</span>
+        </div>
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/35 bg-[#0E1528] text-xs text-sky-200 font-semibold">
+          <span>🎁 <strong class="text-white">Free basic support</strong> for lifetime</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Technology We Master (16 SVG cards + Traveling Wave + Filter + Live Stack Activity) -->
+    <section id="brand-tech" class="space-y-6 scroll-mt-20">
+      <div class="reveal-block text-center max-w-2xl mx-auto space-y-2">
+        <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">Modern Toolchain</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Technology we master</h2>
+        <p class="text-sm text-slate-400">We choose the right stack for your project, not a one-size-fits-all.</p>
+      </div>
+
+      <div id="techTabs" class="flex flex-wrap items-center justify-center gap-2">
+        <button type="button" data-filter="all" class="tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-white shadow-lg shadow-cyan-500/25 transition-all cursor-pointer">All</button>
+        <button type="button" data-filter="frontend" class="tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-semibold bg-[#0A101D] border border-slate-700/80 text-slate-300 hover:text-white transition-all cursor-pointer">Frontend</button>
+        <button type="button" data-filter="backend" class="tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-semibold bg-[#0A101D] border border-slate-700/80 text-slate-300 hover:text-white transition-all cursor-pointer">Backend</button>
+        <button type="button" data-filter="database" class="tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-semibold bg-[#0A101D] border border-slate-700/80 text-slate-300 hover:text-white transition-all cursor-pointer">Database</button>
+        <button type="button" data-filter="devops" class="tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-semibold bg-[#0A101D] border border-slate-700/80 text-slate-300 hover:text-white transition-all cursor-pointer">DevOps</button>
+      </div>
+
+      <div id="techGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-[#090d16] border-slate-700 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><circle cx="12" cy="12" r="10" fill="#ffffff"/><path d="M9 16V8l7.5 9.5M15 8v4.5" stroke="#090d16" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Next.js</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-sky-500 border-sky-400/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">React</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-emerald-600 border-emerald-400/50 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M3 5h4l5 8.5L17 5h4L12 20 3 5z" fill="#ffffff"/><path d="M7.5 5H10l2 3.4L14 5h2.5L12 12.6 7.5 5z" fill="#064e3b"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Vue.js</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-emerald-500 border-emerald-300/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M12 4L3.5 18.5h17L12 4z" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5L8.5 15.5h7L12 9.5z" fill="#ffffff"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Nuxt.js</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-blue-500 border-blue-300/50 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="#ffffff"><path d="M12 6c-2.67 0-4.33 1.33-5 4 1-1.33 2.17-1.83 3.5-1.5.76.19 1.31.74 1.91 1.35.98 1 2.11 2.15 4.59 2.15 2.67 0 4.33-1.33 5-4-1 1.33-2.17 1.83-3.5 1.5-.76-.19-1.31-.74-1.91-1.35C15.61 7.15 14.48 6 12 6zm-5 6c-2.67 0-4.33 1.33-5 4 1-1.33 2.17-1.83 3.5-1.5.76.19 1.31.74 1.91 1.35.98 1 2.11 2.15 4.59 2.15 2.67 0 4.33-1.33 5-4-1 1.33-2.17 1.83-3.5 1.5-.76-.19-1.31-.74-1.91-1.35C10.61 13.15 9.48 12 7 12z"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Tailwind CSS</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="backend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-green-600 border-green-400/50 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke="#ffffff" stroke-width="1.9"/><text x="12" y="14.5" text-anchor="middle" font-size="7" font-weight="800" fill="#ffffff">JS</text></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Node.js</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">backend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="backend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-slate-800 border-slate-600 flex items-center justify-center"><span class="text-sm font-extrabold tracking-tight text-white border border-slate-400/60 rounded-full px-1.5 py-0.5">ex</span></div>
+          <div class="relative z-10 text-sm font-bold text-white">Express.js</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">backend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="backend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-indigo-500 border-indigo-400/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><circle cx="12" cy="12" r="8" fill="#ffffff"/><path d="M12 7l4 9h-2.5l-1.5-3.5L10.5 16H8l4-9z" fill="#4f46e5"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">AdonisJS</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">backend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="backend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-gradient-to-br from-rose-700 to-rose-950 border-rose-500/40 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6 text-rose-200" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 7l4-2 4 2v6l4 2 4-2v4l-8 4-8-4V7z"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Laravel</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">backend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="backend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-amber-400 border-amber-300 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M12 4c-3.5 0-3.2 1.5-3.2 1.5v2h3.3v.6H7.5S5 7.8 5 11.4s2.2 3.4 2.2 3.4h1.3v-1.7s-.1-2.2 2.2-2.2h3.6s2 .1 2-2V6.3S16.6 4 12 4z" fill="#1e3a8a"/><path d="M12 20c3.5 0 3.2-1.5 3.2-1.5v-2h-3.3v-.6h4.6s2.5.3 2.5-3.3-2.2-3.4-2.2-3.4h-1.3v1.7s.1 2.2-2.2 2.2H9.7s-2-.1-2 2v2.6S7.4 20 12 20z" fill="#ffffff"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Python</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">backend</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="database">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-blue-500 border-blue-400/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="9" rx="6" ry="5"/><path d="M9 13v4c0 1.5 1 2.5 3 2.5s2.5-1 2.5-2.5v-3"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">PostgreSQL</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">database</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="database">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-lime-600 border-lime-400/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><path d="M12 3.5c2.8 3.2 4.2 6.4 4.2 9.4 0 3.2-1.8 5.5-4.2 7.1-2.4-1.6-4.2-3.9-4.2-7.1 0-3 1.4-6.2 4.2-9.4z" fill="#ffffff"/><path d="M12 7v13" stroke="#4d7c0f" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">MongoDB</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">database</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="database">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-orange-600 border-orange-400/60 flex items-center justify-center"><span class="text-lg font-black italic text-white">R</span></div>
+          <div class="relative z-10 text-sm font-bold text-white">Redis</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">database</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="devops">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-sky-500 border-sky-300/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="#ffffff"><path d="M6 10h2.5v2.2H6V10zm3 0h2.5v2.2H9V10zm3 0h2.5v2.2H12V10zm-3-2.7h2.5v2.2H9V7.3zm3 0h2.5v2.2H12V7.3zm7.4 4.5c-.4-.3-1.4-.4-1.9-.2-.1-.9-.7-1.6-1.4-2l-.3-.2-.2.3c-.3.5-.4 1.3-.1 1.9.2.4.4.7.8.9H3.8l-.1.6c-.2 1.8.3 3.7 1.4 5 1.3 1.5 3.3 2.2 5.8 2.2 5.3 0 9.1-2.4 10.8-6.7.7 0 2.1.1 2.8-1.2l.1-.2-.2-.4z"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Docker</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">devops</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="devops">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-amber-500 border-amber-300/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none"><circle cx="12" cy="11" r="5" stroke="#ffffff" stroke-width="2.2"/><path d="M6.5 16.5c3.5 2.3 7.8 2.3 11 0" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">AWS</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">devops</div>
+        </div>
+        <div class="tech-card rounded-2xl border border-slate-800/90 bg-[#0A101D] p-5 flex flex-col items-center text-center gap-3 cursor-pointer hover:border-slate-600" data-cat="frontend">
+          <div class="tech-glow"></div>
+          <div class="tech-icon-box relative z-10 w-12 h-12 rounded-2xl border bg-sky-600 border-sky-400/60 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="#ffffff"><path d="M13.5 3L5 11.5l2.6 2.6L18.7 3h-5.2zm0 8.5l-4.2 4.2 4.2 4.3h5.2l-4.2-4.3 4.2-4.2h-5.2z"/></svg></div>
+          <div class="relative z-10 text-sm font-bold text-white">Flutter</div>
+          <div class="relative z-10 px-2.5 py-0.5 rounded-full border border-slate-800 bg-[#070B14] text-[10px] font-bold uppercase tracking-wider text-slate-400">frontend</div>
+        </div>
+      </div>
+
+      <!-- Rotating Live Stack Activity Bar -->
+      <div class="rounded-2xl border border-slate-800/90 bg-[#0A101D] px-4 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-xs font-mono-num text-teal-400 shrink-0">
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
+          <span>Live stack activity:</span>
+        </div>
+        <span id="liveStackValue" class="text-xs sm:text-sm font-semibold text-white text-center">React 18 • Node.js 20 • MongoDB 7</span>
+        <button id="liveStackNextBtn" type="button" aria-label="Next tech stack combination" class="p-1.5 rounded-lg text-teal-400 hover:bg-slate-800 transition-colors cursor-pointer shrink-0">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- 7. Lightning-fast delivery & Developer resources -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="reveal-block">
+        <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 sm:p-7 space-y-4">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center justify-center text-teal-400 shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+            </div>
+            <h3 class="text-xl font-extrabold text-white">Lightning-fast delivery</h3>
+          </div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            After payment confirmation, we deliver your <span class="text-teal-300 font-bold">professional website within 24 hours</span> (for standard projects). Complex platforms may take a few days — but we never keep you waiting.
+          </p>
+          <div class="space-y-2 text-xs sm:text-sm text-teal-300">
+            <div>✓ Transparent timeline from day one</div>
+            <div>✓ Free basic support for lifetime</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal-block" style="transition-delay: 70ms;">
+        <div class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 sm:p-7 space-y-4">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+            </div>
+            <h3 class="text-xl font-extrabold text-white">Developer resources</h3>
+          </div>
+          <p class="text-sm text-slate-400">Explore our free guides and API documentation — built from real project experience.</p>
+
+          <div class="space-y-2.5">
+            <div class="rounded-xl border border-slate-800/90 bg-[#0F1727] overflow-hidden hover:border-slate-700 transition-colors">
+              <button type="button" data-guide-toggle="api" class="w-full px-4 py-3 flex items-center justify-between gap-3 text-left text-xs sm:text-sm font-semibold text-slate-200 hover:text-white cursor-pointer">
+                <span>&lt;/&gt; API integration best practices</span>
+                <span class="guide-arrow text-slate-400 transition-transform duration-200">→</span>
+              </button>
+              <div id="guide-api" class="hidden px-4 pb-3.5 pt-2.5 text-xs text-slate-400 leading-relaxed border-t border-slate-800/70">
+                Use idempotent order keys, keep supplier tokens strictly on server routes, enforce server-side price calculations, and log raw supplier payloads only in masked format.
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800/90 bg-[#0F1727] overflow-hidden hover:border-slate-700 transition-colors">
+              <button type="button" data-guide-toggle="security" class="w-full px-4 py-3 flex items-center justify-between gap-3 text-left text-xs sm:text-sm font-semibold text-slate-200 hover:text-white cursor-pointer">
+                <span>🛡 Security checklist for topup sites</span>
+                <span class="guide-arrow text-slate-400 transition-transform duration-200">→</span>
+              </button>
+              <div id="guide-security" class="hidden px-4 pb-3.5 pt-2.5 text-xs text-slate-400 leading-relaxed border-t border-slate-800/70">
+                Protect admin endpoints with timed auth headers, validate webhook signatures with constant-time comparisons, prevent duplicate TrxID replay, and never expose private secrets to browser clients.
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800/90 bg-[#0F1727] overflow-hidden hover:border-slate-700 transition-colors">
+              <button type="button" data-guide-toggle="auto" class="w-full px-4 py-3 flex items-center justify-between gap-3 text-left text-xs sm:text-sm font-semibold text-slate-200 hover:text-white cursor-pointer">
+                <span>⚡ How to automate order delivery</span>
+                <span class="guide-arrow text-slate-400 transition-transform duration-200">→</span>
+              </button>
+              <div id="guide-auto" class="hidden px-4 pb-3.5 pt-2.5 text-xs text-slate-400 leading-relaxed border-t border-slate-800/70">
+                Connect payment verification (bKash/Nagad SMS or gateway webhook) directly to an atomic delivery queue that locks voucher codes before calling the supplier sync API and restores unused stock on error.
+              </div>
+            </div>
+          </div>
+          <div class="text-center text-[11px] text-slate-500 pt-1">*More resources available upon request</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Engagement Models -->
+    <section id="brand-plans" class="space-y-8 scroll-mt-20">
+      <div class="reveal-block text-center max-w-2xl mx-auto space-y-2">
+        <div class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400">Engagement Models</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Flexible ways to collaborate</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="reveal-block" style="transition-delay: 0ms;">
+          <div data-quote-plan="Essential" class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-6 hover:-translate-y-1 hover:border-slate-600 transition-all cursor-pointer">
+            <div class="space-y-4">
+              <div><h3 class="text-2xl font-extrabold text-white">Essential</h3><div class="text-sm font-semibold text-teal-400 mt-0.5">Starter</div></div>
+              <ul class="space-y-2.5 text-sm text-slate-300">
+                <li>✓ Business website</li><li>✓ Responsive design</li><li>✓ Contact forms</li><li>✓ SEO basics</li><li>✓ 1-month support</li>
+              </ul>
+            </div>
+            <span class="text-xs font-bold text-slate-300">Select Essential ›</span>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 65ms;">
+          <div data-quote-plan="Professional" class="h-full rounded-2xl border border-teal-500/60 bg-[#0A1421] p-6 flex flex-col justify-between space-y-6 hover:-translate-y-1 hover:border-teal-400 shadow-lg shadow-teal-500/10 transition-all cursor-pointer">
+            <div class="space-y-4">
+              <div>
+                <span class="inline-block mb-2 px-3 py-0.5 rounded-full bg-teal-500 text-slate-950 text-[11px] font-extrabold">Most Popular</span>
+                <h3 class="text-2xl font-extrabold text-white">Professional</h3>
+                <div class="text-sm font-semibold text-teal-400 mt-0.5">Business</div>
+              </div>
+              <ul class="space-y-2.5 text-sm text-slate-200">
+                <li>✓ Full e-commerce / Topup platform</li><li>✓ Admin dashboard</li><li>✓ Payment integration</li><li>✓ Order management</li><li>✓ 3-month support</li>
+              </ul>
+            </div>
+            <span class="text-xs font-bold text-teal-300">Select Professional ›</span>
+          </div>
+        </div>
+
+        <div class="reveal-block" style="transition-delay: 130ms;">
+          <div data-quote-plan="Enterprise" class="h-full rounded-2xl border border-slate-800/90 bg-[#0A101D] p-6 flex flex-col justify-between space-y-6 hover:-translate-y-1 hover:border-slate-600 transition-all cursor-pointer">
+            <div class="space-y-4">
+              <div><h3 class="text-2xl font-extrabold text-white">Enterprise</h3><div class="text-sm font-semibold text-teal-400 mt-0.5">Custom</div></div>
+              <ul class="space-y-2.5 text-sm text-slate-300">
+                <li>✓ Custom software / SaaS</li><li>✓ Multi-tenant architecture</li><li>✓ Advanced analytics</li><li>✓ Dedicated infrastructure</li><li>✓ 12-month SLA</li>
+              </ul>
+            </div>
+            <span class="text-xs font-bold text-slate-300">Select Enterprise ›</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Ready CTA Banner -->
+    <section class="reveal-block rounded-2xl border border-slate-800 bg-gradient-to-b from-[#0E182B] to-[#080D18] p-8 sm:p-12 text-center space-y-4">
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-white" style="text-wrap: balance;">Ready to build something great?</h2>
+      <p class="text-sm sm:text-base text-slate-300 max-w-md mx-auto">Let's discuss your project. No obligation, just a conversation.</p>
+      <div class="max-w-sm mx-auto space-y-2.5 pt-2">
+        <a id="ctaTgBtn" href="https://t.me/crazy_top_up_24" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] rounded-xl bg-gradient-to-r from-teal-400 to-blue-600 hover:brightness-110 text-white text-sm font-extrabold transition-all">
+          <span id="ctaTgHandle">@crazy_top_up_24</span>
+        </a>
+        <button type="button" data-quote-plan="Professional" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] rounded-xl border border-slate-700 bg-[#0A101D] hover:bg-slate-800 text-white text-sm font-bold transition-colors cursor-pointer">
+          <span>Request Quote</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 pt-10 grid grid-cols-1 md:grid-cols-12 gap-8 text-sm">
+      <div class="md:col-span-4 space-y-3.5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 to-blue-500">
+            <img id="brandLogoFooter" src="/Main logo.jpg" alt="Crazy_Top_Up (24)" onerror="this.src='/Main logo.jpg'" class="w-full h-full rounded-full object-cover bg-[#050811]" />
+          </div>
+          <div class="leading-none">
+            <div id="footerBrandName" class="text-lg font-black text-white">Crazy_Top_Up (24)</div>
+            <div class="mt-1 text-[9px] font-bold tracking-[0.24em] uppercase text-slate-400">DIGITAL SOLUTIONS</div>
+          </div>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          <span id="footerDescBrand">Crazy_Top_Up (24)</span> builds premium topup platforms, e-commerce systems, automation bots, dashboards, and custom business software with production-ready support.
+        </p>
+        <div class="flex flex-wrap items-center gap-2.5 pt-1">
+          <a id="footerYtBtn" href="https://t.me/crazy_top_up_24" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-800 bg-[#0A101D] hover:border-slate-700 text-xs font-semibold text-slate-200">
+            <span class="text-red-500">▶</span><span>YouTube</span>
+          </a>
+          <a id="footerTgBtn" href="https://t.me/crazy_top_up_24" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-teal-500/35 bg-teal-950/50 hover:bg-teal-900/50 text-xs font-semibold text-teal-200">
+            <span id="footerTgHandle">@crazy_top_up_24</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 space-y-2.5">
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-300">Explore</div>
+        <div class="flex flex-col gap-2 text-slate-400 text-xs sm:text-sm">
+          <a href="#brand-services" class="hover:text-white">Services</a>
+          <a href="#brand-portfolio" class="hover:text-white">Portfolio</a>
+          <a href="#brand-tech" class="hover:text-white">Tech Stack</a>
+          <a href="#brand-plans" class="hover:text-white">Packages</a>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 space-y-2.5">
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-300">Solutions</div>
+        <div class="flex flex-col gap-2 text-slate-400 text-xs sm:text-sm">
+          <a href="#brand-services" class="hover:text-white">Topup Website</a>
+          <a href="#brand-services" class="hover:text-white">E-commerce Store</a>
+          <a href="#brand-services" class="hover:text-white">Admin Dashboard</a>
+          <a href="#brand-services" class="hover:text-white">Automation Bot</a>
+        </div>
+      </div>
+
+      <div class="md:col-span-4 rounded-2xl border border-slate-800 bg-[#0A101D] p-5 space-y-3">
+        <div class="text-[11px] font-bold uppercase tracking-widest text-white">Start a Project</div>
+        <p class="text-xs text-slate-400 leading-relaxed">Share your idea and get guidance for the best stack, design, budget, and launch plan.</p>
+        <button type="button" data-quote-plan="Professional" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 min-h-[42px] rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 text-slate-950 text-xs sm:text-sm font-extrabold cursor-pointer">
+          Request Quote
+        </button>
+      </div>
+
+      <div class="md:col-span-12 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+        <span>&copy; 2026 <span id="copyrightBrand">Crazy_Top_Up (24)</span> Digital Solutions. All rights reserved.</span>
+        <a href="FFX.html" class="text-teal-300 hover:underline font-semibold">Return to <span id="returnBrand">Crazy_Top_Up (24)</span> Store</a>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Request Quote Modal -->
+  <div id="quoteModal" class="hidden fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div id="quoteCard" class="w-full max-w-md rounded-2xl border border-slate-700 bg-[#0A101D] p-6 space-y-4 shadow-2xl animate-modal-in">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-extrabold text-white">Request Quote</h3>
+          <p id="quotePlanLabel" class="text-xs text-teal-300">Selected Plan: Professional</p>
+        </div>
+        <button id="closeQuoteBtn" type="button" aria-label="Close quote form" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer">✕</button>
+      </div>
+
+      <form id="quoteForm" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1" for="qName">Your Name</label>
+          <input id="qName" type="text" placeholder="e.g. Rahim" class="w-full px-3.5 py-2.5 rounded-xl bg-[#050811] border border-slate-700 text-sm text-white focus:outline-none focus:border-teal-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1" for="qContact">Telegram / Phone / Email</label>
+          <input id="qContact" type="text" placeholder="e.g. @username or 017..." class="w-full px-3.5 py-2.5 rounded-xl bg-[#050811] border border-slate-700 text-sm text-white focus:outline-none focus:border-teal-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1" for="qType">Project Type</label>
+          <select id="qType" class="w-full px-3.5 py-2.5 rounded-xl bg-[#050811] border border-slate-700 text-sm text-white focus:outline-none focus:border-teal-400">
+            <option value="Topup Website">Topup Website</option>
+            <option value="FF Auto Order Bot">FF Auto Order Bot</option>
+            <option value="E-commerce Platform">E-commerce Platform</option>
+            <option value="Tournament Website">Tournament Website</option>
+            <option value="Custom Software">Custom Business Software</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1" for="qNotes">Requirements (Optional)</label>
+          <textarea id="qNotes" rows="3" placeholder="Briefly describe what you need..." class="w-full px-3.5 py-2.5 rounded-xl bg-[#050811] border border-slate-700 text-sm text-white focus:outline-none focus:border-teal-400"></textarea>
+        </div>
+        <p id="quoteError" class="hidden text-xs font-semibold text-rose-400"></p>
+        <button type="submit" class="w-full py-2.5 px-4 min-h-[44px] rounded-xl bg-gradient-to-r from-teal-400 to-blue-600 text-white text-sm font-extrabold cursor-pointer">Continue to Telegram</button>
+      </form>
+
+      <div id="quoteSuccess" class="hidden space-y-4 text-center py-3">
+        <div class="w-12 h-12 mx-auto rounded-full bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 text-xl font-bold">✓</div>
+        <div>
+          <h4 class="text-base font-bold text-white">Request Ready!</h4>
+          <p class="text-xs text-slate-400 mt-1">Tap below to send your pre-filled inquiry on Telegram.</p>
+        </div>
+        <a id="quoteSendLink" href="https://t.me/crazy_top_up_24" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-teal-400 to-blue-600 text-white text-sm font-extrabold">Send on Telegram</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var tgUrl = 'https://t.me/crazy_top_up_24';
+      var brandName = 'Crazy_Top_Up (24)';
+      var activePlan = 'Professional';
+
+      function normalizeHref(raw, isTelegram) {
+        var val = String(raw || '').trim();
+        if (!val || val === '#') return '';
+        if (isTelegram && val.charAt(0) === '@') return 'https://t.me/' + val.slice(1);
+        if (!/^https?:\/\//i.test(val)) return 'https://' + val;
+        return val;
+      }
+
+      function applyBrandConfig(cfg) {
+        if (!cfg || typeof cfg !== 'object') return;
+        var s = cfg.siteSettings || {};
+        var sup = cfg.supportConfig || {};
+        if (s.siteName) {
+          brandName = String(s.siteName);
+          document.title = brandName + ' — Digital Solutions';
+          var parts = brandName.split(' ');
+          document.getElementById('brandTitleFirst').textContent = parts[0] || brandName;
+          document.getElementById('brandTitleRest').textContent = parts.slice(1).join(' ') || '(24)';
+          ['flagshipSubBrand', 'featuredTitleBrand', 'featuredQuoteBrand', 'featuredAuthorBrand', 'footerBrandName', 'footerDescBrand', 'copyrightBrand', 'returnBrand'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = brandName;
+          });
+        }
+        if (s.logoUrl) {
+          document.getElementById('brandLogoHeader').src = s.logoUrl;
+          document.getElementById('brandLogoFooter').src = s.logoUrl;
+        }
+        var foundTg = normalizeHref(s.telegramChannel || sup.telegram, true);
+        if (foundTg) {
+          tgUrl = foundTg;
+          var match = tgUrl.match(/t\.me\/([A-Za-z0-9_]+)/i);
+          var handle = match ? '@' + match[1] : '@crazy_top_up_24';
+          document.getElementById('heroTgBtn').href = tgUrl;
+          document.getElementById('ctaTgBtn').href = tgUrl;
+          document.getElementById('footerTgBtn').href = tgUrl;
+          document.getElementById('heroTgHandle').textContent = handle;
+          document.getElementById('ctaTgHandle').textContent = handle;
+          document.getElementById('footerTgHandle').textContent = handle;
+        }
+        var foundYt = normalizeHref(s.youtubeChannel, false);
+        if (foundYt) {
+          document.getElementById('footerYtBtn').href = foundYt;
+        }
+      }
+
+      fetch('/api/public/config')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(applyBrandConfig)
+        .catch(function () {});
+
+      // 1. 0 -> 100% Animated Ring Gauge
+      var circle = document.getElementById('gaugeRingCircle');
+      var valEl = document.getElementById('gaugeValue');
+      var satEl = document.getElementById('statSatisfaction');
+      var circ = 326.7;
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) {
+        circle.style.strokeDashoffset = '0';
+        valEl.textContent = '100';
+        satEl.textContent = '100%';
+      } else {
+        var startTs = performance.now();
+        var dur = 1600;
+        function stepGauge(now) {
+          var t = Math.min(1, (now - startTs) / dur);
+          var eased = 1 - Math.pow(1 - t, 3);
+          var pct = Math.round(eased * 100);
+          circle.style.strokeDashoffset = String(circ * (1 - pct / 100));
+          valEl.textContent = String(pct);
+          satEl.textContent = pct + '%';
+          if (t < 1) requestAnimationFrame(stepGauge);
+        }
+        requestAnimationFrame(stepGauge);
+      }
+
+      // 2. Scroll-Reveal IntersectionObserver (650ms cubic-bezier)
+      var revealNodes = Array.prototype.slice.call(document.querySelectorAll('.reveal-block'));
+      if ('IntersectionObserver' in window && !reduced) {
+        var obs = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              obs.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -30px 0px' });
+        revealNodes.forEach(function (n) { obs.observe(n); });
+      } else {
+        revealNodes.forEach(function (n) { n.classList.add('is-visible'); });
+      }
+
+      // 3. Auto-Rotating Review Carousel
+      var reviews = [
+        { q: '"Flawless execution, delivered ahead of schedule. Our topup platform runs like clockwork."', a: '— GameSwift' },
+        { q: '"The team built our tournament platform in record time. Automated brackets worked perfectly."', a: '— Esports Arena' },
+        { q: '"Auto diamond delivery and Telegram 1-tap order approvals saved hours of manual work daily."', a: '— BD Topup Network' }
+      ];
+      var rIdx = 0;
+      var rQuoteEl = document.getElementById('reviewQuote');
+      var rAuthorEl = document.getElementById('reviewAuthor');
+      var rDots = Array.prototype.slice.call(document.querySelectorAll('#reviewDots button'));
+      function renderReview(idx) {
+        rIdx = idx;
+        rQuoteEl.textContent = reviews[rIdx].q;
+        rAuthorEl.textContent = reviews[rIdx].a;
+        rDots.forEach(function (d, i) {
+          d.className = i === rIdx
+            ? 'h-1.5 w-5 rounded-full bg-cyan-400 transition-all duration-300 cursor-pointer'
+            : 'h-1.5 w-1.5 rounded-full bg-slate-700 hover:bg-slate-500 transition-all duration-300 cursor-pointer';
+        });
+      }
+      rDots.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          renderReview(Number(btn.getAttribute('data-review-idx')) || 0);
+        });
+      });
+      setInterval(function () {
+        renderReview((rIdx + 1) % reviews.length);
+      }, 3400);
+
+      // 4. Tech Stack Category Tabs + Click-to-Highlight Cards
+      var cards = Array.prototype.slice.call(document.querySelectorAll('.tech-card'));
+      var tabs = Array.prototype.slice.call(document.querySelectorAll('.tech-tab'));
+
+      function applyTechFilter(cat) {
+        cards.forEach(function (card) {
+          card.classList.remove('is-highlighted');
+          if (cat === 'all' || card.getAttribute('data-cat') === cat) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+        tabs.forEach(function (tab) {
+          var isActive = tab.getAttribute('data-filter') === cat;
+          tab.className = isActive
+            ? 'tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-600 text-white shadow-lg shadow-cyan-500/25 transition-all cursor-pointer'
+            : 'tech-tab px-4 py-2 min-h-[38px] rounded-full text-xs sm:text-sm font-semibold bg-[#0A101D] border border-slate-700/80 text-slate-300 hover:text-white transition-all cursor-pointer';
+        });
+      }
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          applyTechFilter(tab.getAttribute('data-filter') || 'all');
+        });
+      });
+
+      cards.forEach(function (card) {
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        function toggleHighlight() {
+          var alreadyHighlighted = card.classList.contains('is-highlighted');
+          cards.forEach(function (c) { c.classList.remove('is-highlighted'); });
+          if (!alreadyHighlighted) {
+            card.classList.add('is-highlighted');
+          }
+        }
+        card.addEventListener('click', toggleHighlight);
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleHighlight();
+          }
+        });
+      });
+
+      // 5. Rotating Live Stack Activity
+      var stacks = [
+        'React 18 • Node.js 20 • MongoDB 7',
+        'Vue 3 • Django 5 • PostgreSQL 16',
+        'Tailwind CSS • Redis 7 • Docker Compose',
+        'Next.js 15 • Express • Telegram Bot API'
+      ];
+      var sIdx = 0;
+      var stackValEl = document.getElementById('liveStackValue');
+      function nextStack() {
+        sIdx = (sIdx + 1) % stacks.length;
+        stackValEl.textContent = stacks[sIdx];
+      }
+      document.getElementById('liveStackNextBtn').addEventListener('click', nextStack);
+      setInterval(nextStack, 2800);
+
+      // 6. Expandable Developer Guides
+      Array.prototype.slice.call(document.querySelectorAll('[data-guide-toggle]')).forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-guide-toggle');
+          var body = document.getElementById('guide-' + id);
+          if (!body) return;
+          var isHidden = body.classList.contains('hidden');
+          body.classList.toggle('hidden', !isHidden);
+          var arrow = btn.querySelector('.guide-arrow');
+          if (arrow) {
+            arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+          }
+        });
+      });
+
+      // 7. Request Quote Modal
+      var qModal = document.getElementById('quoteModal');
+      var qForm = document.getElementById('quoteForm');
+      var qSuccess = document.getElementById('quoteSuccess');
+      var qErr = document.getElementById('quoteError');
+      var qLabel = document.getElementById('quotePlanLabel');
+
+      function openQuote(plan) {
+        activePlan = plan || 'Professional';
+        qLabel.textContent = 'Selected Plan: ' + activePlan;
+        qErr.classList.add('hidden');
+        qForm.classList.remove('hidden');
+        qSuccess.classList.add('hidden');
+        qModal.classList.remove('hidden');
+      }
+
+      Array.prototype.slice.call(document.querySelectorAll('[data-quote-plan]')).forEach(function (el) {
+        el.addEventListener('click', function () {
+          openQuote(el.getAttribute('data-quote-plan') || 'Professional');
+        });
+      });
+
+      document.getElementById('closeQuoteBtn').addEventListener('click', function () {
+        qModal.classList.add('hidden');
+      });
+      qModal.addEventListener('click', function (e) {
+        if (e.target === qModal) qModal.classList.add('hidden');
+      });
+
+      qForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = document.getElementById('qName').value.trim();
+        var contact = document.getElementById('qContact').value.trim();
+        var type = document.getElementById('qType').value;
+        var notes = document.getElementById('qNotes').value.trim();
+        if (name.length < 2) {
+          qErr.textContent = 'Please enter your name.';
+          qErr.classList.remove('hidden');
+          return;
+        }
+        if (contact.length < 4) {
+          qErr.textContent = 'Please enter a valid Telegram username, phone number, or email.';
+          qErr.classList.remove('hidden');
+          return;
+        }
+        var msg = 'Hello ' + brandName + '! I want to request a quote.\nPlan: ' + activePlan + '\nProject: ' + type + '\nName: ' + name + '\nContact: ' + contact + '\nNotes: ' + (notes || 'Looking for details.');
+        document.getElementById('quoteSendLink').href = tgUrl + (tgUrl.indexOf('?') !== -1 ? '&' : '?') + 'text=' + encodeURIComponent(msg);
+        qForm.classList.add('hidden');
+        qSuccess.classList.remove('hidden');
+      });
+    })();
+  </script>
+</body>
+</html>
